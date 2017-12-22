@@ -196,8 +196,8 @@ Function Find-LdapObject {
             $propDef=@{}
             #we always return at least distinguishedName
             #so add it explicitly to object template and remove from propsToLoad if specified
-            $propDef.Add("distinguishedName","")
-            $PropertiesToLoad=@($propertiesToLoad | where-object {$_ -ne "distinguishedName"})
+            $propDef.Add('distinguishedName','')
+            $PropertiesToLoad=@($propertiesToLoad | where-object {$_ -notin @('distinguishedName','1.1')})
                         
             #prepare template for output object
             foreach($prop in $PropertiesToLoad) {

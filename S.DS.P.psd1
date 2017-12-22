@@ -28,6 +28,7 @@
 # 19.8.2017, 1.7.1, Jiri Formacek, Added Timeout parameter to Get-LdapConnection, Add-LdapObject and Edit-LdapObject
 #                                  Find-LdapObject: Changed parameter name from TimeoutSeconds to Timeout and changed its type from UInt32 to to TimeSpan
 #                                  Remove-LdapObject: Added support for TreeDeleteControl
+# 22.12.2017, 1.7.2, Jiri Formacek, Fixed unwanted '1.1' as property to load
 @{
 
 # Script module or binary module file associated with this manifest
