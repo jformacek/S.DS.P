@@ -705,6 +705,22 @@ Function Remove-LdapObject
 }
 
 
+<#
+.SYNOPSIS
+    Change RDN of existing object
+    
+
+.OUTPUTS
+    Nothing
+
+.EXAMPLE
+$Ldap = Get-LdapConnection -LdapServer "mydc.mydomain.com" -EncryptionType Kerberos
+Rename-LdapObject -LdapConnection $Ldap -Object "cn=User1,cn=Users,dc=mydomain,dc=com" -NewName 'cn=User2'
+
+.LINK
+More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
+
+#>
 Function Rename-LdapObject
 {
     Param (
