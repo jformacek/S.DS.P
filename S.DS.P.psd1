@@ -29,13 +29,14 @@
 #                                  Find-LdapObject: Changed parameter name from TimeoutSeconds to Timeout and changed its type from UInt32 to to TimeSpan
 #                                  Remove-LdapObject: Added support for TreeDeleteControl
 # 22.12.2017, 1.7.2, Jiri Formacek, Fixed unwanted '1.1' as property to load
+# 24.1.2018, 1.7.3, Jiri Formacek, Added Rename-object command
 @{
 
 # Script module or binary module file associated with this manifest
 RootModule = '.\S.DS.P.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.7.1'
+ModuleVersion = '1.7.3'
 
 # ID used to uniquely identify this module
 GUID = '766cbbc0-85b9-4773-b4db-2fa86cd771ff'
@@ -89,7 +90,7 @@ FormatsToProcess = @()
 NestedModules = @()
 
 # Functions to export from this module
-FunctionsToExport = 'Find-LDAPObject','Get-RootDSE', 'Get-LdapConnection', 'Edit-LdapObject','Add-LdapObject','Remove-LdapObject'
+FunctionsToExport = 'Find-LDAPObject','Get-RootDSE', 'Get-LdapConnection', 'Edit-LdapObject','Add-LdapObject','Remove-LdapObject','Rename-LdapObject'
 
 # Cmdlets to export from this module
 CmdletsToExport = '*'

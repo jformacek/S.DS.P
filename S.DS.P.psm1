@@ -627,7 +627,7 @@ Function Edit-LdapObject
         }
         if($rqMod.Modifications.Count -gt 0)
         {
-            $rspMod=$LdapConnection.SendRequest($rqMod, $Timeout) -as [System.DirectoryServices.Protocols.ModifyResponse]
+            $LdapConnection.SendRequest($rqMod, $Timeout) -as [System.DirectoryServices.Protocols.ModifyResponse] | Out-Null
         }
     }
 }
@@ -699,7 +699,52 @@ Function Remove-LdapObject
         {
             $rqDel.Controls.Add((new-object System.DirectoryServices.Protocols.TreeDeleteControl)) | Out-Null
         }
-        $rspDel=$LdapConnection.SendRequest($rqDel) -as [System.DirectoryServices.Protocols.DeleteResponse]
+        $LdapConnection.SendRequest($rqDel) -as [System.DirectoryServices.Protocols.DeleteResponse] | Out-Null
         
+    }
+}
+
+
+Function Rename-LdapObject
+{
+    Param (
+        [parameter(Mandatory = $true, ValueFromPipeline=$true)]
+        [Object]
+            #either string containing distinguishedName
+            #or object with DistinguishedName property
+        $Object,
+        [parameter(Mandatory = $true)]
+        [System.DirectoryServices.Protocols.LdapConnection]
+            #existing LDAPConnection object.
+        $LdapConnection,
+        [parameter(Mandatory = $true)]
+            #new name of object
+        [String]
+        $NewName
+    )
+
+    Process
+    {
+        [System.DirectoryServices.Protocols.ModifyDNRequest]$rqModDN=new-object System.DirectoryServices.Protocols.ModifyDNRequest
+        switch($Object.GetType().Name)
+        {
+            "String" 
+            {
+                $rqModDN.DistinguishedName=$Object
+            }
+            default 
+            {
+                if($Object.distinguishedName -ne $null) 
+                {
+                    $rqModDN.DistinguishedName=$Object.distinguishedName
+                }
+                else
+                {
+                    throw (new-object System.ArgumentException("DistinguishedName must be passed"))
+                }
+            }
+        }
+        $rqModDn.NewName = $NewName
+        $LdapConnection.SendRequest($rqModDN) -as [System.DirectoryServices.Protocols.ModifyDNResponse] | Out-Null
     }
 }  
