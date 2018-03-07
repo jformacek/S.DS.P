@@ -69,6 +69,28 @@ Description
 -----------
 This command creates explicit credential and uses it to authenticate LDAP query
 
+.EXAMPLE
+$Users = Find-LdapObject -LdapConnection (Get-LdapConnection) -SearchFilter:"(&(sn=smith)(objectClass=user)(objectCategory=organizationalPerson))" -SearchBase:"cn=Users,dc=myDomain,dc=com" -AdditionalProperties:@("Result")
+foreach($user in $Users)
+{
+    try
+    {
+        #do some processing
+        $user.Result="OK"
+    }
+    catch
+    {
+        #report processing error
+        $user.Result=$_.Exception.Message
+    }
+}
+#report users with results of processing for each of them
+$Users
+
+Description
+-----------
+This command connects to domain controller of caller's domain on port 389 and performs the search.
+For each user found, it also defines 'Result' property on returned object. Property is later used to store result of processing on user account
 
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
@@ -123,6 +145,15 @@ Function Find-LdapObject {
             #Note: Those properties must also be present in PropertiesToLoad parameter. Properties not listed here are loaded as strings
             #Default: empty list, which means that all properties are loaded as strings
         $BinaryProperties=@(),
+
+        [parameter(Mandatory = $false)]
+        [String[]]
+            #List of properties that we want to be defined on output object, but we do not want to load them from AD.
+            #Properties listed here must NOT occur in propertiesToLoad list
+            #Command defines properties on output objects and sets the value to $null
+            #Good for having output object with all props that we need for further processing, so we do not need to add them ourselves
+            #Default: empty list, which means that we don't want any additional propertis defined on output object
+        $AdditionalProperties=@(),
 
         [parameter(Mandatory = $false)]
         [timespan]
@@ -196,12 +227,19 @@ Function Find-LdapObject {
             $propDef=@{}
             #we always return at least distinguishedName
             #so add it explicitly to object template and remove from propsToLoad if specified
+            #also remove '1.1' if present as this is special prop and is in conflict with standard props
             $propDef.Add('distinguishedName','')
             $PropertiesToLoad=@($propertiesToLoad | where-object {$_ -notin @('distinguishedName','1.1')})
                         
             #prepare template for output object
             foreach($prop in $PropertiesToLoad) {
                $propDef.Add($prop,@())
+            }
+            
+            #define additional properties
+            foreach($prop in $AdditionalProperties) {
+                if($propDef.ContainsKey($prop)) { continue }
+                $propDef.Add($prop,$null)
             }
 
             #process paged search in cycle or go through the processing at least once for non-paged search

@@ -30,13 +30,14 @@
 #                                  Remove-LdapObject: Added support for TreeDeleteControl
 # 22.12.2017, 1.7.2, Jiri Formacek, Fixed unwanted '1.1' as property to load
 # 24.1.2018, 1.7.3, Jiri Formacek, Added Rename-object command
+# 7.3.2018, 1.7.4, Jiri Formacek, Added parameter AdditionalProperties to Find-LdapObject, along with new example
 @{
 
 # Script module or binary module file associated with this manifest
 RootModule = '.\S.DS.P.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.7.3'
+ModuleVersion = '1.7.4'
 
 # ID used to uniquely identify this module
 GUID = '766cbbc0-85b9-4773-b4db-2fa86cd771ff'
