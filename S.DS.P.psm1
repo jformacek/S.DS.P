@@ -16,8 +16,7 @@ public enum EncryptionType
     Search results as custom objects with requested properties as strings or byte stream
 
 .EXAMPLE
-$Ldap = Get-LdapConnection
-Find-LdapObject -LdapConnection $Ldap -SearchFilter:"(&(sn=smith)(objectClass=user)(objectCategory=organizationalPerson))" -SearchBase:"cn=Users,dc=myDomain,dc=com"
+Find-LdapObject -LdapConnection [string]::Empty -SearchFilter:"(&(sn=smith)(objectClass=user)(objectCategory=organizationalPerson))" -SearchBase:"cn=Users,dc=myDomain,dc=com"
 
 Description
 -----------
@@ -136,8 +135,8 @@ Function Find-LdapObject {
         [parameter(Mandatory = $false)]
         [UInt32]
             #Page size for paged search. Zero means that paging is disabled
-            #Default: 100
-        $PageSize=100,
+            #Default: 500
+        $PageSize=500,
         
         [parameter(Mandatory = $false)]
         [String[]]
@@ -148,24 +147,30 @@ Function Find-LdapObject {
 
         [parameter(Mandatory = $false)]
         [String[]]
-            #List of properties that we want to be defined on output object, but we do not want to load them from AD.
-            #Properties listed here must NOT occur in propertiesToLoad list
-            #Command defines properties on output objects and sets the value to $null
-            #Good for having output object with all props that we need for further processing, so we do not need to add them ourselves
-            #Default: empty list, which means that we don't want any additional propertis defined on output object
+            <#
+            List of properties that we want to be defined on output object, but we do not want to load them from AD.
+            Properties listed here must NOT occur in propertiesToLoad list
+            Command defines properties on output objects and sets the value to $null
+            Good for having output object with all props that we need for further processing, so we do not need to add them ourselves
+            Default: empty list, which means that we don't want any additional propertis defined on output object
+            #>
         $AdditionalProperties=@(),
 
         [parameter(Mandatory = $false)]
+        [System.DirectoryServices.Protocols.DirectoryControl[]]
+            #additional controls that caller may need to add to request
+        $AdditionalControls=@(),
+        
+       [parameter(Mandatory = $false)]
         [timespan]
             #Number of seconds before connection times out.
             #Default: 120 seconds
         $Timeout = (New-Object System.TimeSpan(0,0,120))
-
     )
 
     Process {
         #range size for ranged attribute retrieval
-        #Note that default in query policy is 1500; we set to 1000
+        #Note that default in query policy in AD is 1500; we set to 1000
         $rangeSize=1000
 
         #preserve original value of referral chasing
@@ -180,6 +185,7 @@ Function Find-LdapObject {
             $rq=new-object System.DirectoryServices.Protocols.SearchRequest
             
             #search base
+            #we support pipelining of strings, or objects containing distinguishedName property
             switch($searchBase.GetType().Name) {
                 "String" 
                 {
@@ -213,6 +219,9 @@ Function Find-LdapObject {
                 [System.DirectoryServices.Protocols.PageResultRequestControl]$pagedRqc = new-object System.DirectoryServices.Protocols.PageResultRequestControl($pageSize)
                 $rq.Controls.Add($pagedRqc) | Out-Null
             }
+
+            #add additional controls that caller may have passed
+            foreach($ctrl in $AdditionalControls) {$rq.Controls.Add($ctrl)}
 
             #server side timeout
             $rq.TimeLimit=$Timeout
@@ -536,22 +545,27 @@ Function Add-LdapObject
     Param (
         [parameter(Mandatory = $true, ValueFromPipeline=$true)]
         [PSObject]
-            #source object to copy properties from
+            #Source object to copy properties from
         $Object,
 
         [parameter()]
         [String[]]
-            #properties to ignore on source object
+            #Properties to ignore on source object
         $IgnoredProps,
 
         [parameter(Mandatory = $true)]
         [System.DirectoryServices.Protocols.LdapConnection]
-            #existing LDAPConnection object.
+            #Existing LDAPConnection object.
         $LdapConnection,
         
         [parameter(Mandatory = $false)]
+        [System.DirectoryServices.Protocols.DirectoryControl[]]
+            #Additional controls that caller may need to add to request
+        $AdditionalControls=@(),
+
+        [parameter(Mandatory = $false)]
         [Timespan]
-            #NTime before connection times out.
+            #Time before connection times out.
             #Default: 120 seconds
         $Timeout = (New-Object System.TimeSpan(0,0,120))
         
@@ -618,29 +632,34 @@ Function Edit-LdapObject
     Param (
         [parameter(Mandatory = $true, ValueFromPipeline=$true)]
         [PSObject]
-            #source object to copy properties from
+            #Source object to copy properties from
         $Object,
 
         [parameter()]
         [String[]]
-            #properties to ignore on source object. If not specified, no props are ignored
+            #Properties to ignore on source object. If not specified, no props are ignored
         $IgnoredProps,
 
         [parameter()]
         [String[]]
-            #properties to include on source object. If not specified, all props are included
+            #Properties to include on source object. If not specified, all props are included
         $IncludedProps,
 
         [parameter(Mandatory = $true)]
         [System.DirectoryServices.Protocols.LdapConnection]
-            #existing LDAPConnection object.
+            #Existing LDAPConnection object.
         $LdapConnection,
+
+        [parameter(Mandatory = $false)]
+        [System.DirectoryServices.Protocols.DirectoryControl[]]
+            #Additional controls that caller may need to add to request
+        $AdditionalControls=@(),
+
         [parameter(Mandatory = $false)]
         [timespan]
-            #time before request times out.
+            #Time before request times out.
             #Default: 120 seconds
         $Timeout = (New-Object System.TimeSpan(0,0,120))
-
     )
 
     Process
@@ -706,16 +725,21 @@ Function Remove-LdapObject
     Param (
         [parameter(Mandatory = $true, ValueFromPipeline=$true)]
         [Object]
-            #either string containing distinguishedName
-            #or object with DistinguishedName property
+            #Either string containing distinguishedName or object with DistinguishedName property
         $Object,
         [parameter(Mandatory = $true)]
         [System.DirectoryServices.Protocols.LdapConnection]
-            #existing LDAPConnection object.
+            #Existing LDAPConnection object.
         $LdapConnection,
+
+        [parameter(Mandatory = $false)]
+        [System.DirectoryServices.Protocols.DirectoryControl[]]
+            #Additional controls that caller may need to add to request
+        $AdditionalControls=@(),
+        
         [parameter(Mandatory = $false)]
         [Switch]
-            #whether or not to use TreeDeleteControl.
+            #Whether or not to use TreeDeleteControl.
         $UseTreeDelete
     )
 
@@ -753,7 +777,6 @@ Function Remove-LdapObject
 <#
 .SYNOPSIS
     Change RDN of existing object
-    
 
 .OUTPUTS
     Nothing
@@ -771,15 +794,21 @@ Function Rename-LdapObject
     Param (
         [parameter(Mandatory = $true, ValueFromPipeline=$true)]
         [Object]
-            #either string containing distinguishedName
-            #or object with DistinguishedName property
+            #Either string containing distinguishedName
+            #Or object with DistinguishedName property
         $Object,
         [parameter(Mandatory = $true)]
         [System.DirectoryServices.Protocols.LdapConnection]
-            #existing LDAPConnection object.
+            #Existing LDAPConnection object.
         $LdapConnection,
+
+        [parameter(Mandatory = $false)]
+        [System.DirectoryServices.Protocols.DirectoryControl[]]
+            #Additional controls that caller may need to add to request
+        $AdditionalControls=@(),
+
         [parameter(Mandatory = $true)]
-            #new name of object
+            #New name of object
         [String]
         $NewName
     )
