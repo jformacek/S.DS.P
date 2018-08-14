@@ -295,7 +295,8 @@ Function Find-LdapObject {
                         $lastRange=$false
                         while ($lastRange -eq $false) {
                             $start += $rangeSize
-                            $rng = "$($attrName.ToLower());range=$start`-$($start+$rangeSize-1)"
+                            #$rng = "$($attrName.ToLower());range=$start`-$($start+$rangeSize-1)" <-- Doesnt work with non AD LDAP servers. Needed to adjust to get IBM Directory Server working on returing additional properties
+                            $rng = $attrName.ToLower()
                             $rqAttr.Attributes.Clear() | Out-Null
                             $rqAttr.Attributes.Add($rng) | Out-Null
                             $rspAttr = $LdapConnection.SendRequest($rqAttr)
