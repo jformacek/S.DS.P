@@ -52,7 +52,7 @@ This command creates the LDAP connection object and passes it as parameter. Conn
 .EXAMPLE
 $Ldap = Get-LdapConnection -LdapServer "mydc.mydomain.com"
 Find-LdapObject -LdapConnection:$Ldap -SearchFilter:"(&(cn=SEC_*)(objectClass=group)(objectCategory=group))" -SearchBase:"cn=Groups,dc=myDomain,dc=com" | `
-Find-LdapObject -LdapConnection:$Ldap -ASQ:"member" -SearchScope:"Base" -SearchFilter:"(&(objectClass=user)(objectCategory=organizationalPerson))" -propertiesToLoad:@("sAMAccountName","givenName","sn") |
+Find-LdapObject -LdapConnection:$Ldap -ASQ:"member" -SearchScope:"Base" -SearchFilter:"(&(objectClass=user)(objectCategory=organizationalPerson))" -propertiesToLoad:@("sAMAccountName","givenName","sn") | `
 Select-Object * -Unique
 
 Description
@@ -62,11 +62,12 @@ This one-liner lists sAMAccountName, first and last name, and DN of all users wh
 .EXAMPLE
 $cred=new-object System.Net.NetworkCredential("myUserName","MyPassword","MyDomain")
 $Ldap = Get-LdapConnection -Credential $cred
-Find-LdapObject -LdapConnection $Ldap -SearchFilter:"(&(cn=myComputer)(objectClass=computer)(objectCategory=organizationalPerson))" -SearchBase:"ou=Computers,dc=myDomain,dc=com" -PropertiesToLoad:@("cn","managedBy")
+Find-LdapObject -LdapConnection $Ldap -SearchFilter:"(&(cn=myComputer)(objectClass=computer)(objectCategory=organizationalPerson))" -SearchBase:"ou=Computers,dc=myDomain,dc=com" -PropertiesToLoad:@("cn","managedBy") -RangeSize 0
 
 Description
 -----------
-This command creates explicit credential and uses it to authenticate LDAP query
+This command creates explicit credential and uses it to authenticate LDAP query.
+Then command retrieves data without ranged attribute value retrieval.
 
 .EXAMPLE
 $Users = Find-LdapObject -LdapConnection (Get-LdapConnection) -SearchFilter:"(&(sn=smith)(objectClass=user)(objectCategory=organizationalPerson))" -SearchBase:"cn=Users,dc=myDomain,dc=com" -AdditionalProperties:@("Result")
@@ -139,6 +140,13 @@ Function Find-LdapObject {
         $PageSize=500,
         
         [parameter(Mandatory = $false)]
+        [UInt32]
+            #Range size for ranged attribute value retrieval. Zero means that ranged attribute value retrieval is disabled and attribute values are returned in single request.
+            #Note: Default in query policy in AD is 1500; we use 1000 as default here.
+            #Default: 1000
+        $RangeSize=1000,
+        
+        [parameter(Mandatory = $false)]
         [String[]]
             #List of properties that we want to load as byte stream.
             #Note: Those properties must also be present in PropertiesToLoad parameter. Properties not listed here are loaded as strings
@@ -161,22 +169,18 @@ Function Find-LdapObject {
             #additional controls that caller may need to add to request
         $AdditionalControls=@(),
         
-       [parameter(Mandatory = $false)]
-        [timespan]
-            #Number of seconds before connection times out.
+        [parameter(Mandatory = $false)]
+        [Timespan]
+            #Number of seconds before request times out.
             #Default: 120 seconds
         $Timeout = (New-Object System.TimeSpan(0,0,120))
     )
 
     Process {
-        #range size for ranged attribute retrieval
-        #Note that default in query policy in AD is 1500; we set to 1000
-        $rangeSize=1000
-
         #preserve original value of referral chasing
         $referralChasing = $LdapConnection.SessionOptions.ReferralChasing
         if($pageSize -gt 0) {
-            #paged search silently fails when chasing referrals
+            #paged search silently fails in AD when chasing referrals
             $LdapConnection.SessionOptions.ReferralChasing="None"
         }
         try {
@@ -211,7 +215,8 @@ Function Find-LdapObject {
             #search scope
             $rq.Scope=$searchScope
 
-            #attributes we want to return - nothing now, and then use ranged retrieval for the propsToLoad
+            #attributes we want to return - nothing now, and then load attributes directly from each entry returned
+            #this allows returning computed and special attributes that can only be returned directly from object
             $rq.Attributes.Add("1.1") | Out-Null
 
             #paged search control for paged search
@@ -284,56 +289,65 @@ Function Find-LdapObject {
                     #create empty custom object for result, including only distinguishedName as a default
                     $data=new-object PSObject -Property $propDef
                     $data.distinguishedName=$dn
-                    
-                    #load properties of custom object, if requested, using ranged retrieval
-                    foreach ($attrName in $PropertiesToLoad) {
-                        $rqAttr=new-object System.DirectoryServices.Protocols.SearchRequest
-                        $rqAttr.DistinguishedName=$dn
-                        $rqAttr.Scope="Base"
-                        
-                        $start=-$rangeSize
-                        $lastRange=$false
-                        while ($lastRange -eq $false) {
-                            $start += $rangeSize
-                            $rng = "$($attrName.ToLower());range=$start`-$($start+$rangeSize-1)"
-                            $rqAttr.Attributes.Clear() | Out-Null
-                            $rqAttr.Attributes.Add($rng) | Out-Null
-                            $rspAttr = $LdapConnection.SendRequest($rqAttr)
-                            foreach ($sr in $rspAttr.Entries) {
-                                if($sr.Attributes.AttributeNames -ne $null) {
-                                    #LDAP server changes upper bound to * on last chunk
-                                    $returnedAttrName=$($sr.Attributes.AttributeNames)
-                                    #load binary properties as byte stream, other properties as strings
+
+                    $rqAttr=new-object System.DirectoryServices.Protocols.SearchRequest
+                    $rqAttr.DistinguishedName=$dn
+                    $rqAttr.Scope="Base"
+    
+                    if($RangeSize -eq 0)
+                    {
+                        #load all requested properties of object in single call, without ranged retrieval
+                        $rqAttr.Attributes.AddRange($PropertiesToLoad) | Out-Null
+                        $rspAttr = $LdapConnection.SendRequest($rqAttr)
+                        foreach ($sr in $rspAttr.Entries) {
+                            if($sr.Attributes.AttributeNames -ne $null) 
+                            {
+                                foreach($attrName in $sr.Attributes.AttributeNames)
+                                {
                                     if($BinaryProperties -contains $attrName) {
-                                        $vals=$sr.Attributes[$returnedAttrName].GetValues([byte[]])
+                                        $vals=$sr.Attributes[$attrName].GetValues([byte[]])
                                     } else {
-                                        $vals = $sr.Attributes[$returnedAttrName].GetValues(([string])) # -as [string[]];
+                                        $vals = $sr.Attributes[$attrName].GetValues(([string]))
                                     }
-                                    $data.$attrName+=$vals
-                                    if($returnedAttrName.EndsWith("-*") -or $returnedAttrName -eq $attrName) {
-                                        #last chunk arrived
-                                        $lastRange = $true
-                                    }
-                                } else {
-                                    #nothing was found
-                                    $lastRange = $true
+                                    $data.$attrName=FlattenArray($vals)
                                 }
                             }
                         }
-
-                        #return single value as value, multiple values as array, empty value as null
-                        switch($data.$attrName.Count) {
-                            0 {
-                                $data.$attrName=$null
-                                break;
+                    }
+                    else
+                    {
+                        #load properties of object, if requested, using ranged retrieval
+                        foreach ($attrName in $PropertiesToLoad) {
+                            $start=-$rangeSize
+                            $lastRange=$false
+                            while ($lastRange -eq $false) {
+                                $start += $rangeSize
+                                $rng = "$($attrName.ToLower());range=$start`-$($start+$rangeSize-1)"
+                                $rqAttr.Attributes.Clear() | Out-Null
+                                $rqAttr.Attributes.Add($rng) | Out-Null
+                                $rspAttr = $LdapConnection.SendRequest($rqAttr)
+                                foreach ($sr in $rspAttr.Entries) {
+                                    if($sr.Attributes.AttributeNames -ne $null) {
+                                        #LDAP server changes upper bound to * on last chunk
+                                        $returnedAttrName=$($sr.Attributes.AttributeNames)
+                                        #load binary properties as byte stream, other properties as strings
+                                        if($BinaryProperties -contains $attrName) {
+                                            $vals=$sr.Attributes[$returnedAttrName].GetValues([byte[]])
+                                        } else {
+                                            $vals = $sr.Attributes[$returnedAttrName].GetValues(([string])) # -as [string[]];
+                                        }
+                                        $data.$attrName+=$vals
+                                        if($returnedAttrName.EndsWith("-*") -or $returnedAttrName -eq $attrName) {
+                                            #last chunk arrived
+                                            $lastRange = $true
+                                        }
+                                    } else {
+                                        #nothing was found
+                                        $lastRange = $true
+                                    }
+                                }
                             }
-                            1 {
-                                $data.$attrName = $data.$attrName[0]
-                                break;
-                            }
-                            default {
-                                break;
-                            }
+                            $data.$attrName=FlattenArray($data.$attrName)
                         }
                     }
                     #return result to pipeline
@@ -597,7 +611,7 @@ Function Add-LdapObject
         }
         if($rqAdd.Attributes.Count -gt 0)
         {
-            $rspAdd=$LdapConnection.SendRequest($rqAdd, $Timeout) -as [System.DirectoryServices.Protocols.AddResponse]
+            $LdapConnection.SendRequest($rqAdd, $Timeout) -as [System.DirectoryServices.Protocols.AddResponse] | Out-Null
         }
     }
 }
@@ -708,13 +722,17 @@ Function Edit-LdapObject
 $Ldap = Get-LdapConnection -LdapServer "mydc.mydomain.com" -EncryptionType Kerberos
 Remove-LdapObject -LdapConnection $Ldap -Object "cn=User1,cn=Users,dc=mydomain,dc=com"
 
+Description
+-----------
+Removes existing user account.
+
 .EXAMPLE
 $Ldap = Get-LdapConnection
 Find-LdapObject -LdapConnection (Get-LdapConnection) -SearchFilter:"(&(objectClass=organitationalUnit)(adminDescription=ToDelete))" -SearchBase:"dc=myDomain,dc=com" | Remove-LdapObject -UseTreeDelete
 
 Description
 -----------
-Removes existing user account.
+Removes existing subtree using TreeDeleteControl
 
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
@@ -837,4 +855,23 @@ Function Rename-LdapObject
         $rqModDn.NewName = $NewName
         $LdapConnection.SendRequest($rqModDN) -as [System.DirectoryServices.Protocols.ModifyDNResponse] | Out-Null
     }
-}  
+}
+
+#Helpers
+function FlattenArray ([Object[]] $arr) {
+    #return single value as value, multiple values as array, empty value as null
+    switch($arr.Count) {
+        0 {
+            return $null
+            break;
+        }
+        1 {
+            return $arr[0]
+            break;
+        }
+        default {
+            return $arr
+            break;
+        }
+    }
+}
