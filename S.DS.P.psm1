@@ -109,7 +109,7 @@ Function Find-LdapObject {
             #Search filter in LDAP syntax
         $searchFilter,
         
-        [parameter(Mandatory = $true, ValueFromPipeline=$true)]
+        [parameter(Mandatory = $false, ValueFromPipeline=$true)]
         [Object] 
             #DN of container where to search
         $searchBase,
@@ -119,7 +119,7 @@ Function Find-LdapObject {
         [System.DirectoryServices.Protocols.SearchScope]
             #Search scope
             #Default: Subtree
-        $searchScope="Subtree",
+        $searchScope='Subtree',
         
         [parameter(Mandatory = $false)]
         [String[]]
@@ -200,11 +200,6 @@ Function Find-LdapObject {
                     if($searchBase.distinguishedName -ne $null) 
                     {
                         $rq.DistinguishedName=$searchBase.distinguishedName
-                    }
-                    else
-                    {
-                        Write-Error "SearchBase must be specified"
-                        return
                     }
                 }
             }
