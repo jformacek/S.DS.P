@@ -204,7 +204,6 @@ Function Find-LdapObject {
             #paged search silently fails in AD when chasing referrals
             $LdapConnection.SessionOptions.ReferralChasing="None"
         }
-        
     }
 
     Process {
@@ -350,6 +349,7 @@ Function Find-LdapObject {
             }
         }
     }
+
     End
     {
         if($pageSize -gt 0 -and $ReferralChasing -ne $null) {
