@@ -181,7 +181,6 @@ Function Find-LdapObject {
         #initialize output objects via hashtable --> faster than add-member
         #create default initializer beforehand
         #and just once for processing
-        
         $propDef=@{}
         #we always return at least distinguishedName
         #so add it explicitly to object template and remove from propsToLoad if specified
@@ -197,178 +196,180 @@ Function Find-LdapObject {
             if($propDef.ContainsKey($prop)) { continue }
             $propDef.Add($prop,$null)
         }
-    }
-    Process {
+
+        #configure LDAP connection
         #preserve original value of referral chasing
         $referralChasing = $LdapConnection.SessionOptions.ReferralChasing
         if($pageSize -gt 0) {
             #paged search silently fails in AD when chasing referrals
             $LdapConnection.SessionOptions.ReferralChasing="None"
         }
-        try {
+        
+    }
 
-            #build request
-            $rq=new-object System.DirectoryServices.Protocols.SearchRequest
-            
-            #search base
-            #we support pipelining of strings, or objects containing distinguishedName property
-            switch($searchBase.GetType().Name) {
-                "String" 
-                {
-                    $rq.DistinguishedName=$searchBase
-                }
-                default 
-                {
-                    if($searchBase.distinguishedName -ne $null) 
-                    {
-                        $rq.DistinguishedName=$searchBase.distinguishedName
-                    }
-                }
-            }
-
-            #search filter in LDAP syntax
-            $rq.Filter=$searchFilter
-
-            #search scope
-            $rq.Scope=$searchScope
-
-            #attributes we want to return - nothing now, and then load attributes directly from each entry returned
-            #this allows returning computed and special attributes that can only be returned directly from object
-            $rq.Attributes.Add("1.1") | Out-Null
-
-            #paged search control for paged search
-            if($pageSize -gt 0) {
-                [System.DirectoryServices.Protocols.PageResultRequestControl]$pagedRqc = new-object System.DirectoryServices.Protocols.PageResultRequestControl($pageSize)
-                $rq.Controls.Add($pagedRqc) | Out-Null
-            }
-
-            #add additional controls that caller may have passed
-            foreach($ctrl in $AdditionalControls) {$rq.Controls.Add($ctrl)}
-
-            #server side timeout
-            $rq.TimeLimit=$Timeout
-
-            #Attribute scoped query
-            if(-not [String]::IsNullOrEmpty($asq)) {
-                [System.DirectoryServices.Protocols.AsqRequestControl]$asqRqc=new-object System.DirectoryServices.Protocols.AsqRequestControl($ASQ)
-                $rq.Controls.Add($asqRqc) | Out-Null
-            }
-
-            #process paged search in cycle or go through the processing at least once for non-paged search
-            while ($true)
+    Process {
+        #build request
+        $rq=new-object System.DirectoryServices.Protocols.SearchRequest
+        
+        #search base
+        #we support pipelining of strings, or objects containing distinguishedName property
+        switch($searchBase.GetType().Name) {
+            "String" 
             {
-                $rsp = $LdapConnection.SendRequest($rq, $Timeout) -as [System.DirectoryServices.Protocols.SearchResponse];
-                
-                #for paged search, the response for paged search result control - we will need a cookie from result later
-                if($pageSize -gt 0) {
-                    [System.DirectoryServices.Protocols.PageResultResponseControl] $prrc=$null;
-                    if ($rsp.Controls.Length -gt 0)
-                    {
-                        foreach ($ctrl in $rsp.Controls)
-                        {
-                            if ($ctrl -is [System.DirectoryServices.Protocols.PageResultResponseControl])
-                            {
-                                $prrc = $ctrl;
-                                break;
-                            }
-                        }
-                    }
-                    if($prrc -eq $null) {
-                        #server was unable to process paged search
-                        throw "Find-LdapObject: Server failed to return paged response for request $SearchFilter"
-                    }
-                }
-                #now process the returned list of distinguishedNames and fetch required properties using ranged retrieval
-                foreach ($sr in $rsp.Entries)
+                $rq.DistinguishedName=$searchBase
+            }
+            default 
+            {
+                if($searchBase.distinguishedName -ne $null) 
                 {
-                    $dn=$sr.DistinguishedName
-                    #we return results as powershell custom objects to pipeline
-                    #initialize members of result object (server response does not contain empty attributes, so classes would not have the same layout
-                    #create empty custom object for result, including only distinguishedName as a default
-                    $data=new-object PSObject -Property $propDef
-                    $data.distinguishedName=$dn
-
-                    $rqAttr=new-object System.DirectoryServices.Protocols.SearchRequest
-                    $rqAttr.DistinguishedName=$dn
-                    $rqAttr.Scope="Base"
-    
-                    if($RangeSize -eq 0)
-                    {
-                        #load all requested properties of object in single call, without ranged retrieval
-                        $rqAttr.Attributes.AddRange($PropertiesToLoad) | Out-Null
-                        $rspAttr = $LdapConnection.SendRequest($rqAttr)
-                        foreach ($sr in $rspAttr.Entries) {
-                            if($sr.Attributes.AttributeNames -ne $null) 
-                            {
-                                foreach($attrName in $sr.Attributes.AttributeNames)
-                                {
-                                    if($BinaryProperties -contains $attrName) {
-                                        $vals=$sr.Attributes[$attrName].GetValues([byte[]])
-                                    } else {
-                                        $vals = $sr.Attributes[$attrName].GetValues(([string]))
-                                    }
-                                    $data.$attrName=FlattenArray($vals)
-                                }
-                            }
-                        }
-                    }
-                    else
-                    {
-                        #load properties of object, if requested, using ranged retrieval
-                        foreach ($attrName in $PropertiesToLoad) {
-                            $start=-$rangeSize
-                            $lastRange=$false
-                            while ($lastRange -eq $false) {
-                                $start += $rangeSize
-                                $rng = "$($attrName.ToLower());range=$start`-$($start+$rangeSize-1)"
-                                $rqAttr.Attributes.Clear() | Out-Null
-                                $rqAttr.Attributes.Add($rng) | Out-Null
-                                $rspAttr = $LdapConnection.SendRequest($rqAttr)
-                                foreach ($sr in $rspAttr.Entries) {
-                                    if($sr.Attributes.AttributeNames -ne $null) {
-                                        #LDAP server changes upper bound to * on last chunk
-                                        $returnedAttrName=$($sr.Attributes.AttributeNames)
-                                        #load binary properties as byte stream, other properties as strings
-                                        if($BinaryProperties -contains $attrName) {
-                                            $vals=$sr.Attributes[$returnedAttrName].GetValues([byte[]])
-                                        } else {
-                                            $vals = $sr.Attributes[$returnedAttrName].GetValues(([string])) # -as [string[]];
-                                        }
-                                        $data.$attrName+=$vals
-                                        if($returnedAttrName.EndsWith("-*") -or $returnedAttrName -eq $attrName) {
-                                            #last chunk arrived
-                                            $lastRange = $true
-                                        }
-                                    } else {
-                                        #nothing was found
-                                        $lastRange = $true
-                                    }
-                                }
-                            }
-                            $data.$attrName=FlattenArray($data.$attrName)
-                        }
-                    }
-                    #return result to pipeline
-                    $data
-                }
-                if($pageSize -gt 0) {
-                    if ($prrc.Cookie.Length -eq 0) {
-                        #last page --> we're done
-                        break;
-                    }
-                    #pass the search cookie back to server in next paged request
-                    $pagedRqc.Cookie = $prrc.Cookie;
-                } else {
-                    #exit the processing for non-paged search
-                    break;
+                    $rq.DistinguishedName=$searchBase.distinguishedName
                 }
             }
         }
-        finally {
+
+        #search filter in LDAP syntax
+        $rq.Filter=$searchFilter
+
+        #search scope
+        $rq.Scope=$searchScope
+
+        #attributes we want to return - nothing now, and then load attributes directly from each entry returned
+        #this allows returning computed and special attributes that can only be returned directly from object
+        $rq.Attributes.Add("1.1") | Out-Null
+
+        #paged search control for paged search
+        if($pageSize -gt 0) {
+            [System.DirectoryServices.Protocols.PageResultRequestControl]$pagedRqc = new-object System.DirectoryServices.Protocols.PageResultRequestControl($pageSize)
+            $rq.Controls.Add($pagedRqc) | Out-Null
+        }
+
+        #add additional controls that caller may have passed
+        foreach($ctrl in $AdditionalControls) {$rq.Controls.Add($ctrl)}
+
+        #server side timeout
+        $rq.TimeLimit=$Timeout
+
+        #Attribute scoped query
+        if(-not [String]::IsNullOrEmpty($asq)) {
+            [System.DirectoryServices.Protocols.AsqRequestControl]$asqRqc=new-object System.DirectoryServices.Protocols.AsqRequestControl($ASQ)
+            $rq.Controls.Add($asqRqc) | Out-Null
+        }
+
+        #process paged search in cycle or go through the processing at least once for non-paged search
+        while ($true)
+        {
+            $rsp = $LdapConnection.SendRequest($rq, $Timeout) -as [System.DirectoryServices.Protocols.SearchResponse];
+            
+            #for paged search, the response for paged search result control - we will need a cookie from result later
             if($pageSize -gt 0) {
-                #paged search silently fails when chasing referrals
-                $LdapConnection.SessionOptions.ReferralChasing=$ReferralChasing
+                [System.DirectoryServices.Protocols.PageResultResponseControl] $prrc=$null;
+                if ($rsp.Controls.Length -gt 0)
+                {
+                    foreach ($ctrl in $rsp.Controls)
+                    {
+                        if ($ctrl -is [System.DirectoryServices.Protocols.PageResultResponseControl])
+                        {
+                            $prrc = $ctrl;
+                            break;
+                        }
+                    }
+                }
+                if($prrc -eq $null) {
+                    #server was unable to process paged search
+                    throw "Find-LdapObject: Server failed to return paged response for request $SearchFilter"
+                }
             }
+            #now process the returned list of distinguishedNames and fetch required properties using ranged retrieval
+            foreach ($sr in $rsp.Entries)
+            {
+                $dn=$sr.DistinguishedName
+                #we return results as powershell custom objects to pipeline
+                #initialize members of result object (server response does not contain empty attributes, so classes would not have the same layout
+                #create empty custom object for result, including only distinguishedName as a default
+                $data=new-object PSObject -Property $propDef
+                $data.distinguishedName=$dn
+
+                $rqAttr=new-object System.DirectoryServices.Protocols.SearchRequest
+                $rqAttr.DistinguishedName=$dn
+                $rqAttr.Scope="Base"
+
+                if($RangeSize -eq 0)
+                {
+                    #load all requested properties of object in single call, without ranged retrieval
+                    $rqAttr.Attributes.AddRange($PropertiesToLoad) | Out-Null
+                    $rspAttr = $LdapConnection.SendRequest($rqAttr)
+                    foreach ($sr in $rspAttr.Entries) {
+                        if($sr.Attributes.AttributeNames -ne $null) 
+                        {
+                            foreach($attrName in $sr.Attributes.AttributeNames)
+                            {
+                                if($BinaryProperties -contains $attrName) {
+                                    $vals=$sr.Attributes[$attrName].GetValues([byte[]])
+                                } else {
+                                    $vals = $sr.Attributes[$attrName].GetValues(([string]))
+                                }
+                                $data.$attrName=FlattenArray($vals)
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    #load properties of object, if requested, using ranged retrieval
+                    foreach ($attrName in $PropertiesToLoad) {
+                        $start=-$rangeSize
+                        $lastRange=$false
+                        while ($lastRange -eq $false) {
+                            $start += $rangeSize
+                            $rng = "$($attrName.ToLower());range=$start`-$($start+$rangeSize-1)"
+                            $rqAttr.Attributes.Clear() | Out-Null
+                            $rqAttr.Attributes.Add($rng) | Out-Null
+                            $rspAttr = $LdapConnection.SendRequest($rqAttr)
+                            foreach ($sr in $rspAttr.Entries) {
+                                if($sr.Attributes.AttributeNames -ne $null) {
+                                    #LDAP server changes upper bound to * on last chunk
+                                    $returnedAttrName=$($sr.Attributes.AttributeNames)
+                                    #load binary properties as byte stream, other properties as strings
+                                    if($BinaryProperties -contains $attrName) {
+                                        $vals=$sr.Attributes[$returnedAttrName].GetValues([byte[]])
+                                    } else {
+                                        $vals = $sr.Attributes[$returnedAttrName].GetValues(([string])) # -as [string[]];
+                                    }
+                                    $data.$attrName+=$vals
+                                    if($returnedAttrName.EndsWith("-*") -or $returnedAttrName -eq $attrName) {
+                                        #last chunk arrived
+                                        $lastRange = $true
+                                    }
+                                } else {
+                                    #nothing was found
+                                    $lastRange = $true
+                                }
+                            }
+                        }
+                        $data.$attrName=FlattenArray($data.$attrName)
+                    }
+                }
+                #return result to pipeline
+                $data
+            }
+            if($pageSize -gt 0) {
+                if ($prrc.Cookie.Length -eq 0) {
+                    #last page --> we're done
+                    break;
+                }
+                #pass the search cookie back to server in next paged request
+                $pagedRqc.Cookie = $prrc.Cookie;
+            } else {
+                #exit the processing for non-paged search
+                break;
+            }
+        }
+    }
+    End
+    {
+        if($pageSize -gt 0 -and $ReferralChasing -ne $null) {
+            #revert to original value of referral chasing on connection
+            $LdapConnection.SessionOptions.ReferralChasing=$ReferralChasing
         }
     }
 }
