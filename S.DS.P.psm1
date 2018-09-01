@@ -176,6 +176,28 @@ Function Find-LdapObject {
         $Timeout = (New-Object System.TimeSpan(0,0,120))
     )
 
+    Begin
+    {
+        #initialize output objects via hashtable --> faster than add-member
+        #create default initializer beforehand
+        #and just once for processing
+        
+        $propDef=@{}
+        #we always return at least distinguishedName
+        #so add it explicitly to object template and remove from propsToLoad if specified
+        #also remove '1.1' if present as this is special prop and is in conflict with standard props
+        $propDef.Add('distinguishedName','')
+        $PropertiesToLoad=@($propertiesToLoad | where-object {$_ -notin @('distinguishedName','1.1')})
+                    
+        #prepare template for output object
+        foreach($prop in $PropertiesToLoad) { $propDef.Add($prop,@()) }
+        
+        #define additional properties, skipping props that may have been specified in propertiesToLoad
+        foreach($prop in $AdditionalProperties) {
+            if($propDef.ContainsKey($prop)) { continue }
+            $propDef.Add($prop,$null)
+        }
+    }
     Process {
         #preserve original value of referral chasing
         $referralChasing = $LdapConnection.SessionOptions.ReferralChasing
@@ -226,29 +248,10 @@ Function Find-LdapObject {
             #server side timeout
             $rq.TimeLimit=$Timeout
 
+            #Attribute scoped query
             if(-not [String]::IsNullOrEmpty($asq)) {
                 [System.DirectoryServices.Protocols.AsqRequestControl]$asqRqc=new-object System.DirectoryServices.Protocols.AsqRequestControl($ASQ)
                 $rq.Controls.Add($asqRqc) | Out-Null
-            }
-            
-            #initialize output objects via hashtable --> faster than add-member
-            #create default initializer beforehand
-            $propDef=@{}
-            #we always return at least distinguishedName
-            #so add it explicitly to object template and remove from propsToLoad if specified
-            #also remove '1.1' if present as this is special prop and is in conflict with standard props
-            $propDef.Add('distinguishedName','')
-            $PropertiesToLoad=@($propertiesToLoad | where-object {$_ -notin @('distinguishedName','1.1')})
-                        
-            #prepare template for output object
-            foreach($prop in $PropertiesToLoad) {
-               $propDef.Add($prop,@())
-            }
-            
-            #define additional properties
-            foreach($prop in $AdditionalProperties) {
-                if($propDef.ContainsKey($prop)) { continue }
-                $propDef.Add($prop,$null)
             }
 
             #process paged search in cycle or go through the processing at least once for non-paged search
