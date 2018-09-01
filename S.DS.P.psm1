@@ -262,18 +262,7 @@ Function Find-LdapObject {
             
             #for paged search, the response for paged search result control - we will need a cookie from result later
             if($pageSize -gt 0) {
-                [System.DirectoryServices.Protocols.PageResultResponseControl] $prrc=$null;
-                if ($rsp.Controls.Length -gt 0)
-                {
-                    foreach ($ctrl in $rsp.Controls)
-                    {
-                        if ($ctrl -is [System.DirectoryServices.Protocols.PageResultResponseControl])
-                        {
-                            $prrc = $ctrl;
-                            break;
-                        }
-                    }
-                }
+                [System.DirectoryServices.Protocols.PageResultResponseControl] $prrc=($rsp.Controls | Where-Object{$_ -is [System.DirectoryServices.Protocols.PageResultResponseControl]})
                 if($prrc -eq $null) {
                     #server was unable to process paged search
                     throw "Find-LdapObject: Server failed to return paged response for request $SearchFilter"
@@ -299,17 +288,13 @@ Function Find-LdapObject {
                     $rqAttr.Attributes.AddRange($PropertiesToLoad) | Out-Null
                     $rspAttr = $LdapConnection.SendRequest($rqAttr)
                     foreach ($sr in $rspAttr.Entries) {
-                        if($sr.Attributes.AttributeNames -ne $null) 
-                        {
-                            foreach($attrName in $sr.Attributes.AttributeNames)
-                            {
-                                if($BinaryProperties -contains $attrName) {
-                                    $vals=$sr.Attributes[$attrName].GetValues([byte[]])
-                                } else {
-                                    $vals = $sr.Attributes[$attrName].GetValues(([string]))
-                                }
-                                $data.$attrName=FlattenArray($vals)
+                        foreach($attrName in $sr.Attributes.AttributeNames) {
+                            if($BinaryProperties -contains $attrName) {
+                                $vals=$sr.Attributes[$attrName].GetValues([byte[]])
+                            } else {
+                                $vals = $sr.Attributes[$attrName].GetValues(([string]))
                             }
+                            $data.$attrName=FlattenArray($vals)
                         }
                     }
                 }
