@@ -34,6 +34,8 @@
 # 12.5.2017, 1.7.5, Jiri Formacek, Added exception handling to Get-RootDSE
 # 9.6.2018, 1.7.6, Jiri Formacek, Added AdditionalControls parameter to cmdlets
 # 31.8.2018, 1.8.0, Jiri Formacek, Added support for loading of attribute values without ranged retrieval
+# 1.9.2018, 1.8.1, Jiri Formacek,   Find-LdapObject: SearchBase is not mandatory parameter
+#                                   Find-LDAPObject: Moved initializations to Begin/End blocks
 
 @{
 
