@@ -9,10 +9,10 @@ public enum EncryptionType
 '@
 
 #Load the S.DS.P assembly if it is not already present
-if (-not ([System.Management.Automation.PSTypeName]'System.DirectoryServices.Protocols.LdapConnection').Type)
-{
-    Add-Type -AssemblyName System.DirectoryServices.Protocols
-}
+#if (-not ([System.Management.Automation.PSTypeName]'System.DirectoryServices.Protocols.LdapConnection').Type)
+#{
+#    Add-Type -AssemblyName System.DirectoryServices.Protocols
+#}
 
 <#
 .SYNOPSIS

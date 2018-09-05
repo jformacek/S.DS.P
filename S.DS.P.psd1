@@ -36,14 +36,14 @@
 # 31.8.2018, 1.8.0, Jiri Formacek, Added support for loading of attribute values without ranged retrieval
 # 1.9.2018, 1.8.1, Jiri Formacek,   Find-LdapObject: SearchBase is not mandatory parameter
 #                                   Find-LDAPObject: Moved initializations to Begin/End blocks
-
+#1.8.2, 5.9.2018,Contributors, Added support for AuthType on LdapConnection
 @{
 
 # Script module or binary module file associated with this manifest
 RootModule = '.\S.DS.P.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.8.1'
+ModuleVersion = '1.8.2'
 
 # ID used to uniquely identify this module
 GUID = '766cbbc0-85b9-4773-b4db-2fa86cd771ff'
