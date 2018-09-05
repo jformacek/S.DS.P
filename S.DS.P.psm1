@@ -485,10 +485,9 @@ Function Get-LdapConnection
         $Timeout = (New-Object System.TimeSpan(0,0,120)),
 
         [Parameter(Mandatory = $false)]
-        [ValidateSet("Anonymous","Basic","Digest","Dpa","External","Kerberos","Msn","Negotiate","Ntlm","Sicily")]
-        [String]
+        [System.DirectoryServices.Protocols.AuthType]
             #The type of authentication to use with the LdapConnection
-        $AuthType = ""
+        $AuthType
     )
     
     Process
@@ -501,7 +500,7 @@ Function Get-LdapConnection
         	$LdapConnection=new-object System.DirectoryServices.Protocols.LdapConnection(new-object System.DirectoryServices.Protocols.LdapDirectoryIdentifier($LdapServer, $Port))
         }
 
-        if ($AuthType -ne $null -and $AuthType -ne "") 
+        if ($AuthType -ne $null) 
         {
             $LdapConnection.AuthType = $AuthType
         }
