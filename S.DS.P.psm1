@@ -496,7 +496,7 @@ Function Get-LdapConnection
         [Parameter(Mandatory = $false)]
         [ValidateSet("Anonymous","Basic","Digest","Dpa","External","Kerberos","Msn","Negotiate","Ntlm","Sicily")]
         [String]
-            #Authentication type to use with the LdapConnection
+            #The type of authentication to use with the LdapConnection
         $AuthType = ""
     )
     
