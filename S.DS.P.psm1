@@ -320,6 +320,7 @@ Function Find-LdapObject {
                         $lastRange=$false
                         while ($lastRange -eq $false) {
                             $start += $rangeSize
+<<<<<<< HEAD
                             $rng = "$($attrName.ToLower());range=$start`-$($start+$rangeSize-1)"
                             #$rng = $attrName.ToLower()
                             $rqAttr.Attributes.Clear() | Out-Null
