@@ -7,6 +7,13 @@ public enum EncryptionType
     SSL
 }
 '@
+
+#Load the S.DS.P assembly if it is not already present
+if (-not ([System.Management.Automation.PSTypeName]'System.DirectoryServices.Protocols.LdapConnection').Type)
+{
+    Add-Type -AssemblyName System.DirectoryServices.Protocols
+}
+
 <#
 .SYNOPSIS
     Searches LDAP server in given search root and using given search filter
@@ -32,7 +39,7 @@ This command connects to to domain controller of caller's domain and performs th
 
 .EXAMPLE
 $Ldap = Get-LdapConnection -LdapServer:mydc.mydomain.com -EncryptionType:SSL
-Find-LdapObject  -SearchFilter:"(&(sn=smith)(objectClass=user)(objectCategory=organizationalPerson))" -SearchBase:"ou=Users,dc=myDomain,dc=com"
+Find-LdapObject -LdapConnection $Ldap -SearchFilter:"(&(sn=smith)(objectClass=user)(objectCategory=organizationalPerson))" -SearchBase:"ou=Users,dc=myDomain,dc=com"
 
 Description
 -----------
@@ -91,6 +98,14 @@ Description
 -----------
 This command connects to domain controller of caller's domain on port 389 and performs the search.
 For each user found, it also defines 'Result' property on returned object. Property is later used to store result of processing on user account
+
+.EXAMPLE
+$Ldap = Get-LdapConnection -LdapServer:ldap.mycorp.com -AuthType:Anonymous
+Find-LdapObject -LdapConnection $ldap -SearchFilter:"(&(sn=smith)(objectClass=user)(objectCategory=organizationalPerson))" -SearchBase:"ou=People,ou=mycorp,o=world"
+
+Description
+-----------
+This command connects to given LDAP server and performs the search anonymously.
 
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
@@ -305,7 +320,8 @@ Function Find-LdapObject {
                         $lastRange=$false
                         while ($lastRange -eq $false) {
                             $start += $rangeSize
-                            $rng = "$($attrName.ToLower());range=$start`-$($start+$rangeSize-1)"
+                            #$rng = "$($attrName.ToLower());range=$start`-$($start+$rangeSize-1)" <-- Doesnt work with non AD LDAP servers. Needed to adjust to get IBM Directory Server working on returing additional properties
+                            $rng = $attrName.ToLower()
                             $rqAttr.Attributes.Clear() | Out-Null
                             $rqAttr.Attributes.Add($rng) | Out-Null
                             $rspAttr = $LdapConnection.SendRequest($rqAttr)
@@ -473,7 +489,13 @@ Function Get-LdapConnection
         [Timespan]
             #NTime before connection times out.
             #Default: 120 seconds
-        $Timeout = (New-Object System.TimeSpan(0,0,120))
+        $Timeout = (New-Object System.TimeSpan(0,0,120)),
+
+        [Parameter(Mandatory = $false)]
+        [ValidateSet("Anonymous","Basic","Digest","Dpa","External","Kerberos","Msn","Negotiate","Ntlm","Sicily")]
+        [String]
+            #The type of authentication to use with the LdapConnection
+        $AuthType = ""
     )
     
     Process
@@ -484,6 +506,11 @@ Function Get-LdapConnection
             $LdapConnection=new-object System.DirectoryServices.Protocols.LdapConnection((new-object System.DirectoryServices.Protocols.LdapDirectoryIdentifier($LdapServer, $Port)), $Credential)
         } else {
         	$LdapConnection=new-object System.DirectoryServices.Protocols.LdapConnection(new-object System.DirectoryServices.Protocols.LdapDirectoryIdentifier($LdapServer, $Port))
+        }
+
+        if ($AuthType -ne $null -and $AuthType -ne "") 
+        {
+            $LdapConnection.AuthType = $AuthType
         }
 
         if($FastConcurrentBind)
