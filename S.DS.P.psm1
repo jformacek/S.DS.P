@@ -8,19 +8,6 @@ public enum EncryptionType
 }
 '@
 
-#Load the S.DS.P assembly if it is not already present
-<<<<<<< HEAD
-#if (-not ([System.Management.Automation.PSTypeName]'System.DirectoryServices.Protocols.LdapConnection').Type)
-#{
-#    Add-Type -AssemblyName System.DirectoryServices.Protocols
-#}
-=======
-if (-not ([System.Management.Automation.PSTypeName]'System.DirectoryServices.Protocols.LdapConnection').Type)
-{
-    Add-Type -AssemblyName System.DirectoryServices.Protocols
-}
->>>>>>> 34783b198d10d45f8addde4bb17de7b5dadba48d
-
 <#
 .SYNOPSIS
     Searches LDAP server in given search root and using given search filter
@@ -327,13 +314,7 @@ Function Find-LdapObject {
                         $lastRange=$false
                         while ($lastRange -eq $false) {
                             $start += $rangeSize
-<<<<<<< HEAD
                             $rng = "$($attrName.ToLower());range=$start`-$($start+$rangeSize-1)"
-                            #$rng = $attrName.ToLower()
-=======
-                            #$rng = "$($attrName.ToLower());range=$start`-$($start+$rangeSize-1)" <-- Doesnt work with non AD LDAP servers. Needed to adjust to get IBM Directory Server working on returing additional properties
-                            $rng = $attrName.ToLower()
->>>>>>> 34783b198d10d45f8addde4bb17de7b5dadba48d
                             $rqAttr.Attributes.Clear() | Out-Null
                             $rqAttr.Attributes.Add($rng) | Out-Null
                             $rspAttr = $LdapConnection.SendRequest($rqAttr)
