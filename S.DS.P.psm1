@@ -59,7 +59,7 @@ This command creates the LDAP connection object and passes it as parameter. Conn
 .EXAMPLE
 $Ldap = Get-LdapConnection -LdapServer "mydc.mydomain.com"
 Find-LdapObject -LdapConnection:$Ldap -SearchFilter:"(&(cn=SEC_*)(objectClass=group)(objectCategory=group))" -SearchBase:"cn=Groups,dc=myDomain,dc=com" | `
-Find-LdapObject -LdapConnection:$Ldap -ASQ:"member" -SearchScope:"Base" -SearchFilter:"(&(objectClass=user)(objectCategory=organizationalPerson))" -propertiesToLoad:@("sAMAccountName","givenName","sn") |
+Find-LdapObject -LdapConnection:$Ldap -ASQ:"member" -SearchScope:"Base" -SearchFilter:"(&(objectClass=user)(objectCategory=organizationalPerson))" -propertiesToLoad:@("sAMAccountName","givenName","sn") | `
 Select-Object * -Unique
 
 Description
@@ -69,11 +69,12 @@ This one-liner lists sAMAccountName, first and last name, and DN of all users wh
 .EXAMPLE
 $cred=new-object System.Net.NetworkCredential("myUserName","MyPassword","MyDomain")
 $Ldap = Get-LdapConnection -Credential $cred
-Find-LdapObject -LdapConnection $Ldap -SearchFilter:"(&(cn=myComputer)(objectClass=computer)(objectCategory=organizationalPerson))" -SearchBase:"ou=Computers,dc=myDomain,dc=com" -PropertiesToLoad:@("cn","managedBy")
+Find-LdapObject -LdapConnection $Ldap -SearchFilter:"(&(cn=myComputer)(objectClass=computer)(objectCategory=organizationalPerson))" -SearchBase:"ou=Computers,dc=myDomain,dc=com" -PropertiesToLoad:@("cn","managedBy") -RangeSize 0
 
 Description
 -----------
-This command creates explicit credential and uses it to authenticate LDAP query
+This command creates explicit credential and uses it to authenticate LDAP query.
+Then command retrieves data without ranged attribute value retrieval.
 
 .EXAMPLE
 $Users = Find-LdapObject -LdapConnection (Get-LdapConnection) -SearchFilter:"(&(sn=smith)(objectClass=user)(objectCategory=organizationalPerson))" -SearchBase:"cn=Users,dc=myDomain,dc=com" -AdditionalProperties:@("Result")
@@ -123,7 +124,7 @@ Function Find-LdapObject {
             #Search filter in LDAP syntax
         $searchFilter,
         
-        [parameter(Mandatory = $true, ValueFromPipeline=$true)]
+        [parameter(Mandatory = $false, ValueFromPipeline=$true)]
         [Object] 
             #DN of container where to search
         $searchBase,
@@ -133,7 +134,7 @@ Function Find-LdapObject {
         [System.DirectoryServices.Protocols.SearchScope]
             #Search scope
             #Default: Subtree
-        $searchScope="Subtree",
+        $searchScope='Subtree',
         
         [parameter(Mandatory = $false)]
         [String[]]
@@ -152,6 +153,13 @@ Function Find-LdapObject {
             #Page size for paged search. Zero means that paging is disabled
             #Default: 500
         $PageSize=500,
+        
+        [parameter(Mandatory = $false)]
+        [UInt32]
+            #Range size for ranged attribute value retrieval. Zero means that ranged attribute value retrieval is disabled and attribute values are returned in single request.
+            #Note: Default in query policy in AD is 1500; we use 1000 as default here.
+            #Default: 1000
+        $RangeSize=1000,
         
         [parameter(Mandatory = $false)]
         [String[]]
@@ -176,136 +184,138 @@ Function Find-LdapObject {
             #additional controls that caller may need to add to request
         $AdditionalControls=@(),
         
-       [parameter(Mandatory = $false)]
-        [timespan]
-            #Number of seconds before connection times out.
+        [parameter(Mandatory = $false)]
+        [Timespan]
+            #Number of seconds before request times out.
             #Default: 120 seconds
         $Timeout = (New-Object System.TimeSpan(0,0,120))
     )
 
-    Process {
-        #range size for ranged attribute retrieval
-        #Note that default in query policy in AD is 1500; we set to 1000
-        $rangeSize=1000
+    Begin
+    {
+        #initialize output objects via hashtable --> faster than add-member
+        #create default initializer beforehand
+        #and just once for processing
+        $propDef=@{}
+        #we always return at least distinguishedName
+        #so add it explicitly to object template and remove from propsToLoad if specified
+        #also remove '1.1' if present as this is special prop and is in conflict with standard props
+        $propDef.Add('distinguishedName','')
+        $PropertiesToLoad=@($propertiesToLoad | where-object {$_ -notin @('distinguishedName','1.1')})
+                    
+        #prepare template for output object
+        foreach($prop in $PropertiesToLoad) { $propDef.Add($prop,@()) }
+        
+        #define additional properties, skipping props that may have been specified in propertiesToLoad
+        foreach($prop in $AdditionalProperties) {
+            if($propDef.ContainsKey($prop)) { continue }
+            $propDef.Add($prop,$null)
+        }
 
+        #configure LDAP connection
         #preserve original value of referral chasing
         $referralChasing = $LdapConnection.SessionOptions.ReferralChasing
         if($pageSize -gt 0) {
-            #paged search silently fails when chasing referrals
+            #paged search silently fails in AD when chasing referrals
             $LdapConnection.SessionOptions.ReferralChasing="None"
         }
-        try {
+    }
 
-            #build request
-            $rq=new-object System.DirectoryServices.Protocols.SearchRequest
-            
-            #search base
-            #we support pipelining of strings, or objects containing distinguishedName property
-            switch($searchBase.GetType().Name) {
-                "String" 
-                {
-                    $rq.DistinguishedName=$searchBase
-                }
-                default 
-                {
-                    if($searchBase.distinguishedName -ne $null) 
-                    {
-                        $rq.DistinguishedName=$searchBase.distinguishedName
-                    }
-                    else
-                    {
-                        Write-Error "SearchBase must be specified"
-                        return
-                    }
-                }
-            }
-
-            #search filter in LDAP syntax
-            $rq.Filter=$searchFilter
-
-            #search scope
-            $rq.Scope=$searchScope
-
-            #attributes we want to return - nothing now, and then use ranged retrieval for the propsToLoad
-            $rq.Attributes.Add("1.1") | Out-Null
-
-            #paged search control for paged search
-            if($pageSize -gt 0) {
-                [System.DirectoryServices.Protocols.PageResultRequestControl]$pagedRqc = new-object System.DirectoryServices.Protocols.PageResultRequestControl($pageSize)
-                $rq.Controls.Add($pagedRqc) | Out-Null
-            }
-
-            #add additional controls that caller may have passed
-            foreach($ctrl in $AdditionalControls) {$rq.Controls.Add($ctrl)}
-
-            #server side timeout
-            $rq.TimeLimit=$Timeout
-
-            if(-not [String]::IsNullOrEmpty($asq)) {
-                [System.DirectoryServices.Protocols.AsqRequestControl]$asqRqc=new-object System.DirectoryServices.Protocols.AsqRequestControl($ASQ)
-                $rq.Controls.Add($asqRqc) | Out-Null
-            }
-            
-            #initialize output objects via hashtable --> faster than add-member
-            #create default initializer beforehand
-            $propDef=@{}
-            #we always return at least distinguishedName
-            #so add it explicitly to object template and remove from propsToLoad if specified
-            #also remove '1.1' if present as this is special prop and is in conflict with standard props
-            $propDef.Add('distinguishedName','')
-            $PropertiesToLoad=@($propertiesToLoad | where-object {$_ -notin @('distinguishedName','1.1')})
-                        
-            #prepare template for output object
-            foreach($prop in $PropertiesToLoad) {
-               $propDef.Add($prop,@())
-            }
-            
-            #define additional properties
-            foreach($prop in $AdditionalProperties) {
-                if($propDef.ContainsKey($prop)) { continue }
-                $propDef.Add($prop,$null)
-            }
-
-            #process paged search in cycle or go through the processing at least once for non-paged search
-            while ($true)
+    Process {
+        #build request
+        $rq=new-object System.DirectoryServices.Protocols.SearchRequest
+        
+        #search base
+        #we support pipelining of strings, or objects containing distinguishedName property
+        switch($searchBase.GetType().Name) {
+            "String" 
             {
-                $rsp = $LdapConnection.SendRequest($rq, $Timeout) -as [System.DirectoryServices.Protocols.SearchResponse];
-                
-                #for paged search, the response for paged search result control - we will need a cookie from result later
-                if($pageSize -gt 0) {
-                    [System.DirectoryServices.Protocols.PageResultResponseControl] $prrc=$null;
-                    if ($rsp.Controls.Length -gt 0)
-                    {
-                        foreach ($ctrl in $rsp.Controls)
-                        {
-                            if ($ctrl -is [System.DirectoryServices.Protocols.PageResultResponseControl])
-                            {
-                                $prrc = $ctrl;
-                                break;
+                $rq.DistinguishedName=$searchBase
+            }
+            default 
+            {
+                if($searchBase.distinguishedName -ne $null) 
+                {
+                    $rq.DistinguishedName=$searchBase.distinguishedName
+                }
+            }
+        }
+
+        #search filter in LDAP syntax
+        $rq.Filter=$searchFilter
+
+        #search scope
+        $rq.Scope=$searchScope
+
+        #attributes we want to return - nothing now, and then load attributes directly from each entry returned
+        #this allows returning computed and special attributes that can only be returned directly from object
+        $rq.Attributes.Add("1.1") | Out-Null
+
+        #paged search control for paged search
+        if($pageSize -gt 0) {
+            [System.DirectoryServices.Protocols.PageResultRequestControl]$pagedRqc = new-object System.DirectoryServices.Protocols.PageResultRequestControl($pageSize)
+            $rq.Controls.Add($pagedRqc) | Out-Null
+        }
+
+        #add additional controls that caller may have passed
+        foreach($ctrl in $AdditionalControls) {$rq.Controls.Add($ctrl)}
+
+        #server side timeout
+        $rq.TimeLimit=$Timeout
+
+        #Attribute scoped query
+        if(-not [String]::IsNullOrEmpty($asq)) {
+            [System.DirectoryServices.Protocols.AsqRequestControl]$asqRqc=new-object System.DirectoryServices.Protocols.AsqRequestControl($ASQ)
+            $rq.Controls.Add($asqRqc) | Out-Null
+        }
+
+        #process paged search in cycle or go through the processing at least once for non-paged search
+        while ($true)
+        {
+            $rsp = $LdapConnection.SendRequest($rq, $Timeout) -as [System.DirectoryServices.Protocols.SearchResponse];
+            
+            #for paged search, the response for paged search result control - we will need a cookie from result later
+            if($pageSize -gt 0) {
+                [System.DirectoryServices.Protocols.PageResultResponseControl] $prrc=($rsp.Controls | Where-Object{$_ -is [System.DirectoryServices.Protocols.PageResultResponseControl]})
+                if($prrc -eq $null) {
+                    #server was unable to process paged search
+                    throw "Find-LdapObject: Server failed to return paged response for request $SearchFilter"
+                }
+            }
+            #now process the returned list of distinguishedNames and fetch required properties using ranged retrieval
+            foreach ($sr in $rsp.Entries)
+            {
+                $dn=$sr.DistinguishedName
+                #we return results as powershell custom objects to pipeline
+                #initialize members of result object (server response does not contain empty attributes, so classes would not have the same layout
+                #create empty custom object for result, including only distinguishedName as a default
+                $data=new-object PSObject -Property $propDef
+                $data.distinguishedName=$dn
+
+                $rqAttr=new-object System.DirectoryServices.Protocols.SearchRequest
+                $rqAttr.DistinguishedName=$dn
+                $rqAttr.Scope="Base"
+
+                if($RangeSize -eq 0)
+                {
+                    #load all requested properties of object in single call, without ranged retrieval
+                    $rqAttr.Attributes.AddRange($PropertiesToLoad) | Out-Null
+                    $rspAttr = $LdapConnection.SendRequest($rqAttr)
+                    foreach ($sr in $rspAttr.Entries) {
+                        foreach($attrName in $sr.Attributes.AttributeNames) {
+                            if($BinaryProperties -contains $attrName) {
+                                $vals=$sr.Attributes[$attrName].GetValues([byte[]])
+                            } else {
+                                $vals = $sr.Attributes[$attrName].GetValues(([string]))
                             }
+                            $data.$attrName=FlattenArray($vals)
                         }
                     }
-                    if($prrc -eq $null) {
-                        #server was unable to process paged search
-                        throw "Find-LdapObject: Server failed to return paged response for request $SearchFilter"
-                    }
                 }
-                #now process the returned list of distinguishedNames and fetch required properties using ranged retrieval
-                foreach ($sr in $rsp.Entries)
+                else
                 {
-                    $dn=$sr.DistinguishedName
-                    #we return results as powershell custom objects to pipeline
-                    #initialize members of result object (server response does not contain empty attributes, so classes would not have the same layout
-                    #create empty custom object for result, including only distinguishedName as a default
-                    $data=new-object PSObject -Property $propDef
-                    $data.distinguishedName=$dn
-                    
-                    #load properties of custom object, if requested, using ranged retrieval
+                    #load properties of object, if requested, using ranged retrieval
                     foreach ($attrName in $PropertiesToLoad) {
-                        $rqAttr=new-object System.DirectoryServices.Protocols.SearchRequest
-                        $rqAttr.DistinguishedName=$dn
-                        $rqAttr.Scope="Base"
-                        
                         $start=-$rangeSize
                         $lastRange=$false
                         while ($lastRange -eq $false) {
@@ -336,43 +346,31 @@ Function Find-LdapObject {
                                 }
                             }
                         }
-
-                        #return single value as value, multiple values as array, empty value as null
-                        switch($data.$attrName.Count) {
-                            0 {
-                                $data.$attrName=$null
-                                break;
-                            }
-                            1 {
-                                $data.$attrName = $data.$attrName[0]
-                                break;
-                            }
-                            default {
-                                break;
-                            }
-                        }
+                        $data.$attrName=FlattenArray($data.$attrName)
                     }
-                    #return result to pipeline
-                    $data
                 }
-                if($pageSize -gt 0) {
-                    if ($prrc.Cookie.Length -eq 0) {
-                        #last page --> we're done
-                        break;
-                    }
-                    #pass the search cookie back to server in next paged request
-                    $pagedRqc.Cookie = $prrc.Cookie;
-                } else {
-                    #exit the processing for non-paged search
+                #return result to pipeline
+                $data
+            }
+            if($pageSize -gt 0) {
+                if ($prrc.Cookie.Length -eq 0) {
+                    #last page --> we're done
                     break;
                 }
+                #pass the search cookie back to server in next paged request
+                $pagedRqc.Cookie = $prrc.Cookie;
+            } else {
+                #exit the processing for non-paged search
+                break;
             }
         }
-        finally {
-            if($pageSize -gt 0) {
-                #paged search silently fails when chasing referrals
-                $LdapConnection.SessionOptions.ReferralChasing=$ReferralChasing
-            }
+    }
+
+    End
+    {
+        if($pageSize -gt 0 -and $ReferralChasing -ne $null) {
+            #revert to original value of referral chasing on connection
+            $LdapConnection.SessionOptions.ReferralChasing=$ReferralChasing
         }
     }
 }
@@ -624,7 +622,7 @@ Function Add-LdapObject
         }
         if($rqAdd.Attributes.Count -gt 0)
         {
-            $rspAdd=$LdapConnection.SendRequest($rqAdd, $Timeout) -as [System.DirectoryServices.Protocols.AddResponse]
+            $LdapConnection.SendRequest($rqAdd, $Timeout) -as [System.DirectoryServices.Protocols.AddResponse] | Out-Null
         }
     }
 }
@@ -735,13 +733,17 @@ Function Edit-LdapObject
 $Ldap = Get-LdapConnection -LdapServer "mydc.mydomain.com" -EncryptionType Kerberos
 Remove-LdapObject -LdapConnection $Ldap -Object "cn=User1,cn=Users,dc=mydomain,dc=com"
 
+Description
+-----------
+Removes existing user account.
+
 .EXAMPLE
 $Ldap = Get-LdapConnection
 Find-LdapObject -LdapConnection (Get-LdapConnection) -SearchFilter:"(&(objectClass=organitationalUnit)(adminDescription=ToDelete))" -SearchBase:"dc=myDomain,dc=com" | Remove-LdapObject -UseTreeDelete
 
 Description
 -----------
-Removes existing user account.
+Removes existing subtree using TreeDeleteControl
 
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
@@ -864,4 +866,23 @@ Function Rename-LdapObject
         $rqModDn.NewName = $NewName
         $LdapConnection.SendRequest($rqModDN) -as [System.DirectoryServices.Protocols.ModifyDNResponse] | Out-Null
     }
-}  
+}
+
+#Helpers
+function FlattenArray ([Object[]] $arr) {
+    #return single value as value, multiple values as array, empty value as null
+    switch($arr.Count) {
+        0 {
+            return $null
+            break;
+        }
+        1 {
+            return $arr[0]
+            break;
+        }
+        default {
+            return $arr
+            break;
+        }
+    }
+}
