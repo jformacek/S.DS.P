@@ -9,6 +9,7 @@ public enum EncryptionType
 '@
 
 #Load the S.DS.P assembly if it is not already present
+<<<<<<< HEAD
 #if (-not ([System.Management.Automation.PSTypeName]'System.DirectoryServices.Protocols.LdapConnection').Type)
 #{
 #    Add-Type -AssemblyName System.DirectoryServices.Protocols
@@ -323,6 +324,8 @@ Function Find-LdapObject {
 <<<<<<< HEAD
                             $rng = "$($attrName.ToLower());range=$start`-$($start+$rangeSize-1)"
                             #$rng = $attrName.ToLower()
+=======
+                            $rng = $attrName.ToLower()
                             $rqAttr.Attributes.Clear() | Out-Null
                             $rqAttr.Attributes.Add($rng) | Out-Null
                             $rspAttr = $LdapConnection.SendRequest($rqAttr)
