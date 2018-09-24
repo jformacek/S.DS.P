@@ -400,7 +400,7 @@ Function Get-RootDSE {
     Process {
 		#initialize output objects via hashtable --> faster than add-member
         #create default initializer beforehand
-        $propDef=@{"rootDomainNamingContext"=@(); "configurationNamingContext"=@(); "schemaNamingContext"=@();"defaultNamingContext"=@();"dnsHostName"=@()}
+        $propDef=@{"rootDomainNamingContext"=@(); "configurationNamingContext"=@(); "schemaNamingContext"=@();"defaultNamingContext"=@();"dnsHostName"=@();"supportedControl"=@()}
 
         #build request
         $rq=new-object System.DirectoryServices.Protocols.SearchRequest
@@ -420,6 +420,7 @@ Function Get-RootDSE {
             $data.rootDomainNamingContext = (($rsp.Entries[0].Attributes["rootDomainNamingContext"].GetValues([string]))[0]).Split(';')[2];
             $data.defaultNamingContext = (($rsp.Entries[0].Attributes["defaultNamingContext"].GetValues([string]))[0]).Split(';')[2];
             $data.dnsHostName = ($rsp.Entries[0].Attributes["dnsHostName"].GetValues([string]))[0]
+            $data.supportedControl = ( ($rsp.Entries[0].Attributes["supportedControl"].GetValues([string])) | Sort-Object )
             $data
         }
         catch
@@ -455,7 +456,7 @@ Function Get-LdapConnection
         [parameter(Mandatory = $false)]
         [String] 
             #LDAP server name
-            #Default: Domain Controller of current domain
+            #Default: default server given by environment
         $LdapServer=[String]::Empty,
         
         [parameter(Mandatory = $false)]
@@ -472,15 +473,19 @@ Function Get-LdapConnection
         [parameter(Mandatory = $false)]
         [EncryptionType]
             #Type of encryption to use.
-        $EncryptionType="None",
+        $EncryptionType=[EncryptionType]::None,
         
         [Switch]
             #enable support for Fast Concurrent Bind
         $FastConcurrentBind,
         
+        [Switch]
+        #enable support for UDP transport
+        $ConnectionLess,
+
         [parameter(Mandatory = $false)]
         [Timespan]
-            #NTime before connection times out.
+            #Time before connection times out.
             #Default: 120 seconds
         $Timeout = (New-Object System.TimeSpan(0,0,120)),
 
@@ -492,12 +497,14 @@ Function Get-LdapConnection
     
     Process
     {   
-       
+        $FullyQualifiedDomainName=$false;
+        [System.DirectoryServices.Protocols.LdapDirectoryIdentifier]$di=new-object System.DirectoryServices.Protocols.LdapDirectoryIdentifier($LdapServer, $Port, $FullyQualifiedDomainName, $ConnectionLess)
+        
         if($Credential -ne $null) 
         {
-            $LdapConnection=new-object System.DirectoryServices.Protocols.LdapConnection((new-object System.DirectoryServices.Protocols.LdapDirectoryIdentifier($LdapServer, $Port)), $Credential)
+            $LdapConnection=new-object System.DirectoryServices.Protocols.LdapConnection($di, $Credential)
         } else {
-        	$LdapConnection=new-object System.DirectoryServices.Protocols.LdapConnection(new-object System.DirectoryServices.Protocols.LdapDirectoryIdentifier($LdapServer, $Port))
+        	$LdapConnection=new-object System.DirectoryServices.Protocols.LdapConnection($di)
         }
 
         if ($AuthType -ne $null) 
@@ -511,13 +518,13 @@ Function Get-LdapConnection
         }
         switch($EncryptionType)
         {
-            "None" {break}
-            "SSL" {
+            [EnryptionType]::None {break}
+            [EnryptionType]::SSL {
                 $LdapConnection.SessionOptions.ProtocolVersion=3
                 $LdapConnection.SessionOptions.StartTransportLayerSecurity($null)
                 break               
             }
-            "Kerberos" {
+            [EnryptionType]::Kerberos {
                 $LdapConnection.SessionOptions.Sealing=$true
                 $LdapConnection.SessionOptions.Signing=$true
                 break
