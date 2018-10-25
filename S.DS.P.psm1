@@ -400,13 +400,13 @@ Function Get-RootDSE {
     Process {
 		#initialize output objects via hashtable --> faster than add-member
         #create default initializer beforehand
-        $propDef=@{"rootDomainNamingContext"=@(); "configurationNamingContext"=@(); "schemaNamingContext"=@();"defaultNamingContext"=@();"dnsHostName"=@();"supportedControl"=@()}
+        $propDef=@{'rootDomainNamingContext'=$null; 'configurationNamingContext'=$null; 'schemaNamingContext'=$null;'defaultNamingContext'=$null;'dnsHostName'=$null;'supportedControl'=$null;'approximateHighestInternalObjectID'=$null}
 
         #build request
         $rq=new-object System.DirectoryServices.Protocols.SearchRequest
-        $rq.Scope = "Base"
+        $rq.Scope =  [System.DirectoryServices.Protocols.SearchScope]::Base
         $rq.Attributes.AddRange($propDef.Keys) | Out-Null
-        [System.DirectoryServices.Protocols.ExtendedDNControl]$exRqc = new-object System.DirectoryServices.Protocols.ExtendedDNControl("StandardString")
+        [System.DirectoryServices.Protocols.ExtendedDNControl]$exRqc = new-object System.DirectoryServices.Protocols.ExtendedDNControl('StandardString')
         $rq.Controls.Add($exRqc) | Out-Null
         
         try
@@ -415,19 +415,34 @@ Function Get-RootDSE {
             
             $data=new-object PSObject -Property $propDef
                 
-            $data.configurationNamingContext = (($rsp.Entries[0].Attributes["configurationNamingContext"].GetValues([string]))[0]).Split(';')[1];
-            $data.schemaNamingContext = (($rsp.Entries[0].Attributes["schemaNamingContext"].GetValues([string]))[0]).Split(';')[1];
-
-            # These attributes are not always available for ADAM / AD LDS
-            if ($rsp.Entries[0].Attributes["rootDomainNamingContext"]) {
-                $data.rootDomainNamingContext = (($rsp.Entries[0].Attributes["rootDomainNamingContext"].GetValues([string]))[0]).Split(';')[2];
+            if ($rsp.Entries[0].Attributes['configurationNamingContext']) {
+                $data.configurationNamingContext = (($rsp.Entries[0].Attributes['configurationNamingContext'].GetValues([string]))[0]).Split(';')[1];
             }
-            if ($rsp.Entries[0].Attributes["defaultNamingContext"]) {
-                $data.defaultNamingContext = (($rsp.Entries[0].Attributes["defaultNamingContext"].GetValues([string]))[0]).Split(';')[2];
+            if ($rsp.Entries[0].Attributes['schemaNamingContext']) {
+                $data.schemaNamingContext = (($rsp.Entries[0].Attributes['schemaNamingContext'].GetValues([string]))[0]).Split(';')[1];
             }
-
-            $data.dnsHostName = ($rsp.Entries[0].Attributes["dnsHostName"].GetValues([string]))[0]
-            $data.supportedControl = ( ($rsp.Entries[0].Attributes["supportedControl"].GetValues([string])) | Sort-Object )
+            if ($rsp.Entries[0].Attributes['rootDomainNamingContext']) {
+                $data.rootDomainNamingContext = (($rsp.Entries[0].Attributes['rootDomainNamingContext'].GetValues([string]))[0]).Split(';')[2];
+            }
+            if ($rsp.Entries[0].Attributes['defaultNamingContext']) {
+                $data.defaultNamingContext = (($rsp.Entries[0].Attributes['defaultNamingContext'].GetValues([string]))[0]).Split(';')[2];
+            }
+            if($rsp.Entries[0].Attributes['approximateHighestInternalObjectID'] -ne $null)
+            {
+                try {
+                    $data.approximateHighestInternalObjectID=[long]::Parse($rsp.Entries[0].Attributes['approximateHighestInternalObjectID'].GetValues([string]))
+                }
+                catch {
+                    #it isn't a numeric, just return what's stored without parsing
+                    $data.approximateHighestInternalObjectID=$rsp.Entries[0].Attributes['approximateHighestInternalObjectID'].GetValues([string])                    
+                }
+            }
+            if($rsp.Entries[0].Attributes['dnsHostName'] -ne $null) {            
+                $data.dnsHostName = ($rsp.Entries[0].Attributes['dnsHostName'].GetValues([string]))[0]
+            }
+            if($rsp.Entries[0].Attributes['supportedControl'] -ne $null) {            
+                $data.supportedControl = ( ($rsp.Entries[0].Attributes['supportedControl'].GetValues([string])) | Sort-Object )
+            }
             $data
         }
         catch
