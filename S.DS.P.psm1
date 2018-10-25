@@ -417,8 +417,15 @@ Function Get-RootDSE {
                 
             $data.configurationNamingContext = (($rsp.Entries[0].Attributes["configurationNamingContext"].GetValues([string]))[0]).Split(';')[1];
             $data.schemaNamingContext = (($rsp.Entries[0].Attributes["schemaNamingContext"].GetValues([string]))[0]).Split(';')[1];
-            $data.rootDomainNamingContext = (($rsp.Entries[0].Attributes["rootDomainNamingContext"].GetValues([string]))[0]).Split(';')[2];
-            $data.defaultNamingContext = (($rsp.Entries[0].Attributes["defaultNamingContext"].GetValues([string]))[0]).Split(';')[2];
+
+            # These attributes are not always available for ADAM / AD LDS
+            if ($rsp.Entries[0].Attributes["rootDomainNamingContext"]) {
+                $data.rootDomainNamingContext = (($rsp.Entries[0].Attributes["rootDomainNamingContext"].GetValues([string]))[0]).Split(';')[2];
+            }
+            if ($rsp.Entries[0].Attributes["defaultNamingContext"]) {
+                $data.defaultNamingContext = (($rsp.Entries[0].Attributes["defaultNamingContext"].GetValues([string]))[0]).Split(';')[2];
+            }
+
             $data.dnsHostName = ($rsp.Entries[0].Attributes["dnsHostName"].GetValues([string]))[0]
             $data.supportedControl = ( ($rsp.Entries[0].Attributes["supportedControl"].GetValues([string])) | Sort-Object )
             $data
