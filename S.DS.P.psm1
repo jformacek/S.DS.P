@@ -228,7 +228,7 @@ Function Find-LdapObject {
             }
             default 
             {
-                if($searchBase.distinguishedName -ne $null) 
+                if($null -ne $searchBase.distinguishedName) 
                 {
                     $rq.DistinguishedName=$searchBase.distinguishedName
                 }
@@ -271,7 +271,7 @@ Function Find-LdapObject {
             #for paged search, the response for paged search result control - we will need a cookie from result later
             if($pageSize -gt 0) {
                 [System.DirectoryServices.Protocols.PageResultResponseControl] $prrc=($rsp.Controls | Where-Object{$_ -is [System.DirectoryServices.Protocols.PageResultResponseControl]})
-                if($prrc -eq $null) {
+                if($null -eq $prrc) {
                     #server was unable to process paged search
                     throw "Find-LdapObject: Server failed to return paged response for request $SearchFilter"
                 }
@@ -319,7 +319,7 @@ Function Find-LdapObject {
                             $rqAttr.Attributes.Add($rng) | Out-Null
                             $rspAttr = $LdapConnection.SendRequest($rqAttr)
                             foreach ($sr in $rspAttr.Entries) {
-                                if($sr.Attributes.AttributeNames -ne $null) {
+                                if(($null -ne $sr.Attributes.AttributeNames) -and ($sr.Attributes.AttributeNames.Count -gt 0)) {
                                     #LDAP server changes upper bound to * on last chunk
                                     $returnedAttrName=$($sr.Attributes.AttributeNames)
                                     #load binary properties as byte stream, other properties as strings
@@ -361,7 +361,7 @@ Function Find-LdapObject {
 
     End
     {
-        if($pageSize -gt 0 -and $ReferralChasing -ne $null) {
+        if(($pageSize -gt 0) -and ($null -ne $ReferralChasing)) {
             #revert to original value of referral chasing on connection
             $LdapConnection.SessionOptions.ReferralChasing=$ReferralChasing
         }
@@ -427,7 +427,7 @@ Function Get-RootDSE {
             if ($rsp.Entries[0].Attributes['defaultNamingContext']) {
                 $data.defaultNamingContext = (($rsp.Entries[0].Attributes['defaultNamingContext'].GetValues([string]))[0]).Split(';')[2];
             }
-            if($rsp.Entries[0].Attributes['approximateHighestInternalObjectID'] -ne $null)
+            if($null -ne $rsp.Entries[0].Attributes['approximateHighestInternalObjectID'])
             {
                 try {
                     $data.approximateHighestInternalObjectID=[long]::Parse($rsp.Entries[0].Attributes['approximateHighestInternalObjectID'].GetValues([string]))
@@ -437,10 +437,10 @@ Function Get-RootDSE {
                     $data.approximateHighestInternalObjectID=$rsp.Entries[0].Attributes['approximateHighestInternalObjectID'].GetValues([string])                    
                 }
             }
-            if($rsp.Entries[0].Attributes['dnsHostName'] -ne $null) {            
+            if($null -ne $rsp.Entries[0].Attributes['dnsHostName']) {            
                 $data.dnsHostName = ($rsp.Entries[0].Attributes['dnsHostName'].GetValues([string]))[0]
             }
-            if($rsp.Entries[0].Attributes['supportedControl'] -ne $null) {            
+            if($null -ne $rsp.Entries[0].Attributes['supportedControl']) {            
                 $data.supportedControl = ( ($rsp.Entries[0].Attributes['supportedControl'].GetValues([string])) | Sort-Object )
             }
             $data
@@ -529,7 +529,7 @@ Function Get-LdapConnection
         	$LdapConnection=new-object System.DirectoryServices.Protocols.LdapConnection($di)
         }
 
-        if ($AuthType -ne $null) 
+        if ($null -ne $AuthType) 
         {
             $LdapConnection.AuthType = $AuthType
         }
@@ -717,21 +717,29 @@ Function Edit-LdapObject
 
         [System.DirectoryServices.Protocols.ModifyRequest]$rqMod=new-object System.DirectoryServices.Protocols.ModifyRequest
         $rqMod.DistinguishedName=$Object.DistinguishedName
+        $rqMod.Controls.Add((new-object System.DirectoryServices.Protocols.PermissiveModifyControl)) | Out-Null
 
         foreach($prop in (Get-Member -InputObject $Object -MemberType NoteProperty))
         {
             if($prop.Name -eq "distinguishedName") {continue} #Dn is always ignored
-            if(($IgnoredProps -ne $null) -and ($IgnoredProps -contains $prop.Name)) {continue}
-            if(($IncludedProps -ne $null) -and (-not ($IncludedProps -contains $prop.Name))) {continue}
+            if(($IgnoredProps) -and ($IgnoredProps -contains $prop.Name)) {continue}
+            if(($IncludedProps) -and (-not ($IncludedProps -contains $prop.Name))) {continue}
             [System.DirectoryServices.Protocols.DirectoryAttribute]$propMod=new-object System.DirectoryServices.Protocols.DirectoryAttributeModification
             $propMod.Name=$prop.Name
-            $propMod.Operation='Replace'
-            foreach($val in $Object.($prop.Name))
+            if($Object.($prop.Name))
             {
-                $propMod.Add($val) | Out-Null
+                #we're modifying property
+                if($Object.($prop.Name).Count -gt 0)
+                {
+                    $propMod.Operation=[System.DirectoryServices.Protocols.DirectoryAttributeOperation]::Replace
+                    $propMod.AddRange([string[]]($Object.($prop.Name)))
+                    $rqMod.Modifications.Add($propMod) | Out-Null
+                }
             }
-            if($propMod.Count -gt 0)
+            else 
             {
+                #source object has no value for property - we're removing value on target
+                $propMod.Operation=[System.DirectoryServices.Protocols.DirectoryAttributeOperation]::Delete
                 $rqMod.Modifications.Add($propMod) | Out-Null
             }
         }
@@ -804,7 +812,7 @@ Function Remove-LdapObject
             }
             default 
             {
-                if($Object.distinguishedName -ne $null) 
+                if($null -ne $Object.distinguishedName) 
                 {
                     $rqDel.DistinguishedName=$Object.distinguishedName
                 }
@@ -874,7 +882,7 @@ Function Rename-LdapObject
             }
             default 
             {
-                if($Object.distinguishedName -ne $null) 
+                if($Object.distinguishedName) 
                 {
                     $rqModDN.DistinguishedName=$Object.distinguishedName
                 }
