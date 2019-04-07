@@ -252,7 +252,7 @@ Function Find-LdapObject {
         }
 
         #add additional controls that caller may have passed
-        foreach($ctrl in $AdditionalControls) {$rq.Controls.Add($ctrl)}
+        foreach($ctrl in $AdditionalControls) {$rq.Controls.Add($ctrl) | Out-Null}
 
         #server side timeout
         $rq.TimeLimit=$Timeout

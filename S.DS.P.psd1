@@ -41,7 +41,7 @@
 # 24.10.2018, 1.8.4, Thomas Wurtz & Jiri Formacek, Added check of presence of loaded attributes in Get-RootDSE
 # 6.3.2019, 1.8.5, Jiri Formacek, Edit-LdapObject: Added support for clearing values of attributes
 #                                   Find-LdapObject: Fixed bug that caused infinite loop when loading empty props
-#
+# 7.4.2019, 1.8.6, JIri Formacek, Find-LdapObject: Fixed unwanted integer put to pipeline when using AdditionalControls parameter
 
 @{
 
@@ -49,7 +49,7 @@
 RootModule = '.\S.DS.P.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.8.5'
+ModuleVersion = '1.8.6'
 
 # ID used to uniquely identify this module
 GUID = '766cbbc0-85b9-4773-b4db-2fa86cd771ff'
