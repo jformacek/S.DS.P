@@ -597,7 +597,14 @@ Function Add-LdapObject
         [parameter()]
         [String[]]
             #Properties to ignore on source object
-        $IgnoredProps,
+        $IgnoredProps=@(),
+
+        [parameter(Mandatory = $false)]
+        [String[]]
+            #List of properties that we want to handle as byte stream.
+            #Note: Properties not listed here are handled as strings
+            #Default: empty list, which means that all properties are handled as strings
+        $BinaryProps=@(),
 
         [parameter(Mandatory = $true)]
         [System.DirectoryServices.Protocols.LdapConnection]
@@ -614,7 +621,6 @@ Function Add-LdapObject
             #Time before connection times out.
             #Default: 120 seconds
         $Timeout = (New-Object System.TimeSpan(0,0,120))
-        
     )
 
     Process
@@ -635,10 +641,18 @@ Function Add-LdapObject
             if($IgnoredProps -contains $prop.Name) {continue}
             [System.DirectoryServices.Protocols.DirectoryAttribute]$propAdd=new-object System.DirectoryServices.Protocols.DirectoryAttribute
             $propAdd.Name=$prop.Name
-            foreach($val in $Object.($prop.Name))
+            if($prop.Name -in $BinaryProps)
             {
-                $propAdd.Add($val) | Out-Null
+                foreach($val in $Object.($prop.Name))
+                {
+                    $propAdd.Add([byte[]]$val) | Out-Null
+                }
             }
+            else 
+            {
+                $propAdd.AddRange([string[]]($Object.($prop.Name)))
+            }
+
             if($propAdd.Count -gt 0)
             {
                 $rqAdd.Attributes.Add($propAdd) | Out-Null
@@ -697,7 +711,7 @@ Function Edit-LdapObject
         [parameter(Mandatory = $false)]
         [String[]]
             #List of properties that we want to handle as byte stream.
-            #Note: Those properties must also be present in IncludedProps parameter. Properties not listed here are loaded as strings
+            #Note: Those properties must also be present in IncludedProps parameter. Properties not listed here are handled as strings
             #Default: empty list, which means that all properties are handled as strings
         $BinaryProps=@(),
 

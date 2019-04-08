@@ -43,7 +43,7 @@
 #                                   Find-LdapObject: Fixed bug that caused infinite loop when loading empty props
 # 7.4.2019, 1.8.6, Jiri Formacek, Find-LdapObject: Fixed unwanted integer put to pipeline when using AdditionalControls parameter
 #                                   Fixed missing handling of AdditionalControls param in *-LdapObject
-#                                   Edit-LdapObject: Added support for binary properties                                    
+#                                   Edit-LdapObject, Add-LdapObject: Added support for binary properties                                    
 
 @{
 
