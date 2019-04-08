@@ -41,7 +41,9 @@
 # 24.10.2018, 1.8.4, Thomas Wurtz & Jiri Formacek, Added check of presence of loaded attributes in Get-RootDSE
 # 6.3.2019, 1.8.5, Jiri Formacek, Edit-LdapObject: Added support for clearing values of attributes
 #                                   Find-LdapObject: Fixed bug that caused infinite loop when loading empty props
-# 7.4.2019, 1.8.6, JIri Formacek, Find-LdapObject: Fixed unwanted integer put to pipeline when using AdditionalControls parameter
+# 7.4.2019, 1.8.6, Jiri Formacek, Find-LdapObject: Fixed unwanted integer put to pipeline when using AdditionalControls parameter
+#                                   Fixed missing handling of AdditionalControls param in *-LdapObject
+#                                   Edit-LdapObject: Added support for binary properties                                    
 
 @{
 

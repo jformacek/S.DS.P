@@ -626,6 +626,9 @@ Function Add-LdapObject
         [System.DirectoryServices.Protocols.AddRequest]$rqAdd=new-object System.DirectoryServices.Protocols.AddRequest
         $rqAdd.DistinguishedName=$Object.DistinguishedName
 
+        #add additional controls that caller may have passed
+        foreach($ctrl in $AdditionalControls) {$rqAdd.Controls.Add($ctrl) | Out-Null}
+
         foreach($prop in (Get-Member -InputObject $Object -MemberType NoteProperty))
         {
             if($prop.Name -eq "distinguishedName") {continue}
@@ -684,12 +687,19 @@ Function Edit-LdapObject
         [parameter()]
         [String[]]
             #Properties to ignore on source object. If not specified, no props are ignored
-        $IgnoredProps,
+        $IgnoredProps=@(),
 
         [parameter()]
         [String[]]
             #Properties to include on source object. If not specified, all props are included
-        $IncludedProps,
+        $IncludedProps=@(),
+
+        [parameter(Mandatory = $false)]
+        [String[]]
+            #List of properties that we want to handle as byte stream.
+            #Note: Those properties must also be present in IncludedProps parameter. Properties not listed here are loaded as strings
+            #Default: empty list, which means that all properties are handled as strings
+        $BinaryProps=@(),
 
         [parameter(Mandatory = $true)]
         [System.DirectoryServices.Protocols.LdapConnection]
@@ -718,12 +728,15 @@ Function Edit-LdapObject
         [System.DirectoryServices.Protocols.ModifyRequest]$rqMod=new-object System.DirectoryServices.Protocols.ModifyRequest
         $rqMod.DistinguishedName=$Object.DistinguishedName
         $rqMod.Controls.Add((new-object System.DirectoryServices.Protocols.PermissiveModifyControl)) | Out-Null
+        
+        #add additional controls that caller may have passed
+        foreach($ctrl in $AdditionalControls) {$rqMod.Controls.Add($ctrl) | Out-Null}
 
         foreach($prop in (Get-Member -InputObject $Object -MemberType NoteProperty))
         {
             if($prop.Name -eq "distinguishedName") {continue} #Dn is always ignored
-            if(($IgnoredProps) -and ($IgnoredProps -contains $prop.Name)) {continue}
-            if(($IncludedProps) -and (-not ($IncludedProps -contains $prop.Name))) {continue}
+            if($IgnoredProps -contains $prop.Name) {continue}
+            if(($IncludedProps.Count -gt 0) -and (-not ($IncludedProps -contains $prop.Name))) {continue}
             [System.DirectoryServices.Protocols.DirectoryAttribute]$propMod=new-object System.DirectoryServices.Protocols.DirectoryAttributeModification
             $propMod.Name=$prop.Name
             if($Object.($prop.Name))
@@ -732,7 +745,17 @@ Function Edit-LdapObject
                 if($Object.($prop.Name).Count -gt 0)
                 {
                     $propMod.Operation=[System.DirectoryServices.Protocols.DirectoryAttributeOperation]::Replace
-                    $propMod.AddRange([string[]]($Object.($prop.Name)))
+                    if($prop.Name -in $BinaryProps)
+                    {
+                        foreach($val in $Object.($prop.Name))
+                        {
+                            $propMod.Add([byte[]]$val) | Out-Null
+                        }
+                    }
+                    else 
+                    {
+                        $propMod.AddRange([string[]]($Object.($prop.Name)))
+                    }
                     $rqMod.Modifications.Add($propMod) | Out-Null
                 }
             }
@@ -804,6 +827,9 @@ Function Remove-LdapObject
     Process
     {
         [System.DirectoryServices.Protocols.DeleteRequest]$rqDel=new-object System.DirectoryServices.Protocols.DeleteRequest
+        #add additional controls that caller may have passed
+        foreach($ctrl in $AdditionalControls) {$rqDel.Controls.Add($ctrl) | Out-Null}
+
         switch($Object.GetType().Name)
         {
             "String" 
