@@ -203,6 +203,7 @@ Function Find-LdapObject {
         #define additional properties, skipping props that may have been specified in propertiesToLoad
         foreach($prop in $AdditionalProperties) {
             if($propDef.ContainsKey($prop)) { continue }
+            #Intentionally setting to $null instead of empty array as we just define prop for caller's use
             $propDef.Add($prop,$null)
         }
 
@@ -293,6 +294,11 @@ Function Find-LdapObject {
                 if($RangeSize -eq 0)
                 {
                     #load all requested properties of object in single call, without ranged retrieval
+                    if($PropertiesToLoad.Count -eq 0)
+                    {
+                        #if no props specified, ask server to return just result without attrs
+                        $PropertiesToLoad+='1.1'
+                    }
                     $rqAttr.Attributes.AddRange($PropertiesToLoad) | Out-Null
                     $rspAttr = $LdapConnection.SendRequest($rqAttr)
                     foreach ($sr in $rspAttr.Entries) {
@@ -302,7 +308,11 @@ Function Find-LdapObject {
                             } else {
                                 $vals = $sr.Attributes[$attrName].GetValues(([string]))
                             }
-                            $data.$attrName=FlattenArray($vals)
+                            #protecting against LDAP servers who don't understand '1.1' prop
+                            if($PropertiesToLoad -contains $attrName)
+                            {
+                                $data.$attrName=FlattenArray($vals)
+                            }
                         }
                     }
                 }
