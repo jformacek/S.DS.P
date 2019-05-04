@@ -44,14 +44,15 @@
 # 7.4.2019, 1.8.6, Jiri Formacek, Find-LdapObject: Fixed unwanted integer put to pipeline when using AdditionalControls parameter
 #                                   Fixed missing handling of AdditionalControls param in *-LdapObject
 #                                   Edit-LdapObject, Add-LdapObject: Added support for binary properties                                    
-# 2.5.2019, 1.8.7, Jiri Formacek, Find-LdapObject: Fixed non-renged retrieval processing logic; as per https://github.com/jformacek/S.DS.P/issues/6
+# 2.5.2019, 1.8.7, Jiri Formacek, Find-LdapObject: Fixed non-ranged retrieval processing logic; as per https://github.com/jformacek/S.DS.P/issues/6
+# 4.5.2019, 1.9.0, Jiri Formacek, Get-RootDSE: Naming contexts are now objects; more properties added
 @{
 
 # Script module or binary module file associated with this manifest
 RootModule = '.\S.DS.P.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.8.7'
+ModuleVersion = '1.9.0'
 
 # ID used to uniquely identify this module
 GUID = '766cbbc0-85b9-4773-b4db-2fa86cd771ff'

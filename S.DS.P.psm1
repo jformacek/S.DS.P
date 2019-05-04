@@ -277,7 +277,7 @@ Function Find-LdapObject {
                     throw "Find-LdapObject: Server failed to return paged response for request $SearchFilter"
                 }
             }
-            #now process the returned list of distinguishedNames and fetch required properties using ranged retrieval
+            #now process the returned list of distinguishedNames and fetch required properties directly from returned objects
             foreach ($sr in $rsp.Entries)
             {
                 $dn=$sr.DistinguishedName
@@ -406,11 +406,20 @@ Function Get-RootDSE {
             #When we perform many searches, it is more effective to use the same conbnection rather than create new connection for each search request.
         $LdapConnection
     )
-    
-    Process {
+    Begin
+    {
 		#initialize output objects via hashtable --> faster than add-member
         #create default initializer beforehand
-        $propDef=@{'rootDomainNamingContext'=$null; 'configurationNamingContext'=$null; 'schemaNamingContext'=$null;'defaultNamingContext'=$null;'dnsHostName'=$null;'supportedControl'=$null;'approximateHighestInternalObjectID'=$null}
+        $propDef=[ordered]@{`
+            'rootDomainNamingContext'=$null; 'configurationNamingContext'=$null; 'schemaNamingContext'=$null; `
+            'defaultNamingContext'=$null; 'namingContexts'=$null; `
+            'dnsHostName'=$null; 'ldapServiceName'=$null; 'dsServiceName'=$null; 'serverName'=$null;`
+            'supportedLdapPolicies'=$null; 'supportedSASLMechanisms'=$null; 'supportedControl'=$null;`
+            'currentTime'=$null; 'approximateHighestInternalObjectID'=$null `
+            }
+
+    }
+    Process {
 
         #build request
         $rq=new-object System.DirectoryServices.Protocols.SearchRequest
@@ -426,16 +435,16 @@ Function Get-RootDSE {
             $data=new-object PSObject -Property $propDef
                 
             if ($rsp.Entries[0].Attributes['configurationNamingContext']) {
-                $data.configurationNamingContext = (($rsp.Entries[0].Attributes['configurationNamingContext'].GetValues([string]))[0]).Split(';')[1];
+                $data.configurationNamingContext = [NamingContext]::Parse($rsp.Entries[0].Attributes['configurationNamingContext'].GetValues([string])[0])
             }
             if ($rsp.Entries[0].Attributes['schemaNamingContext']) {
-                $data.schemaNamingContext = (($rsp.Entries[0].Attributes['schemaNamingContext'].GetValues([string]))[0]).Split(';')[1];
+                $data.schemaNamingContext = [NamingContext]::Parse(($rsp.Entries[0].Attributes['schemaNamingContext'].GetValues([string]))[0])
             }
             if ($rsp.Entries[0].Attributes['rootDomainNamingContext']) {
-                $data.rootDomainNamingContext = (($rsp.Entries[0].Attributes['rootDomainNamingContext'].GetValues([string]))[0]).Split(';')[2];
+                $data.rootDomainNamingContext = [NamingContext]::Parse($rsp.Entries[0].Attributes['rootDomainNamingContext'].GetValues([string])[0])
             }
             if ($rsp.Entries[0].Attributes['defaultNamingContext']) {
-                $data.defaultNamingContext = (($rsp.Entries[0].Attributes['defaultNamingContext'].GetValues([string]))[0]).Split(';')[2];
+                $data.defaultNamingContext = [NamingContext]::Parse($rsp.Entries[0].Attributes['defaultNamingContext'].GetValues([string])[0])
             }
             if($null -ne $rsp.Entries[0].Attributes['approximateHighestInternalObjectID'])
             {
@@ -447,11 +456,36 @@ Function Get-RootDSE {
                     $data.approximateHighestInternalObjectID=$rsp.Entries[0].Attributes['approximateHighestInternalObjectID'].GetValues([string])                    
                 }
             }
+            if($null -ne $rsp.Entries[0].Attributes['currentTime']) {            
+                $data.currentTime = ( ($rsp.Entries[0].Attributes['currentTime'].GetValues([string])) | Sort-Object )
+            }
             if($null -ne $rsp.Entries[0].Attributes['dnsHostName']) {            
                 $data.dnsHostName = ($rsp.Entries[0].Attributes['dnsHostName'].GetValues([string]))[0]
             }
-            if($null -ne $rsp.Entries[0].Attributes['supportedControl']) {            
+            if($null -ne $rsp.Entries[0].Attributes['ldapServiceName']) {            
+                $data.ldapServiceName = ($rsp.Entries[0].Attributes['ldapServiceName'].GetValues([string]))[0]
+            }
+            if($null -ne $rsp.Entries[0].Attributes['dsServiceName']) {            
+                $data.dsServiceName = ($rsp.Entries[0].Attributes['dsServiceName'].GetValues([string]))[0]
+            }
+             if($null -ne $rsp.Entries[0].Attributes['serverName']) {            
+                $data.serverName = ($rsp.Entries[0].Attributes['serverName'].GetValues([string]))[0]
+            }
+           if($null -ne $rsp.Entries[0].Attributes['supportedControl']) {            
                 $data.supportedControl = ( ($rsp.Entries[0].Attributes['supportedControl'].GetValues([string])) | Sort-Object )
+            }
+           if($null -ne $rsp.Entries[0].Attributes['supportedLdapPolicies']) {            
+                $data.supportedLdapPolicies = ( ($rsp.Entries[0].Attributes['supportedLdapPolicies'].GetValues([string])) | Sort-Object )
+            }
+           if($null -ne $rsp.Entries[0].Attributes['supportedSASLMechanisms']) {            
+                $data.supportedSASLMechanisms = ( ($rsp.Entries[0].Attributes['supportedSASLMechanisms'].GetValues([string])) | Sort-Object )
+            }
+           if($null -ne $rsp.Entries[0].Attributes['namingContexts']) {
+                $data.namingContexts = @()
+                foreach($ctxDef in ($rsp.Entries[0].Attributes['namingContexts'].GetValues([string])))
+                {
+                    $data.namingContexts+=[NamingContext]::Parse($ctxDef)
+                }
             }
             $data
         }
@@ -950,18 +984,46 @@ Function Rename-LdapObject
 #Helpers
 function FlattenArray ([Object[]] $arr) {
     #return single value as value, multiple values as array, empty value as null
-    switch($arr.Count) {
-        0 {
-            return $null
-            break;
+    [int]$i=$arr.Length
+    if($i -eq 0) {return $null}
+    if($i -eq 1) {return $arr[0]}
+    return $arr
+}
+
+$source=@'
+public class NamingContext
+{
+    public System.Security.Principal.SecurityIdentifier SID {get; set;}
+    public System.Guid GUID {get; set;}
+    public string distinguishedName {get; set;}
+    public override string ToString() {return distinguishedName;}
+    public static NamingContext Parse(string ctxDef)
+    {
+        NamingContext retVal = new NamingContext();
+        var parts = ctxDef.Split(';');
+        if(parts.Length == 1)
+        {
+            retVal.distinguishedName = parts[0];
         }
-        1 {
-            return $arr[0]
-            break;
+        else
+        {
+            foreach(string part in parts)
+            {
+                if(part.StartsWith("<GUID="))
+                {
+                    retVal.GUID=System.Guid.Parse(part.Substring(6,part.Length-7));
+                    continue;
+                }
+                if(part.StartsWith("<SID="))
+                {
+                    retVal.SID=new System.Security.Principal.SecurityIdentifier(part.Substring(5,part.Length-6));
+                    continue;
+                }
+                retVal.distinguishedName=part;
+            }
         }
-        default {
-            return $arr
-            break;
-        }
+        return retVal;
     }
 }
+'@
+Add-Type -TypeDefinition $source
