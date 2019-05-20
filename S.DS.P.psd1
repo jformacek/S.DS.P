@@ -67,7 +67,7 @@ CompanyName = 'GreyCorbel Solutions'
 Copyright = ''
 
 # Description of the functionality provided by this module
-Description = 'Provides cmdlets that demostrate using System.DirectoryServices.Protocols in Powershell'
+Description = 'Provides cmdlets that demonstrate usage of System.DirectoryServices.Protocols .NET API in Powershell'
 
 # Minimum version of the Windows PowerShell engine required by this module
 PowerShellVersion = ''
