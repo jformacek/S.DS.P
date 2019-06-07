@@ -584,13 +584,13 @@ Function Get-LdapConnection
         }
         switch($EncryptionType)
         {
-            [EnryptionType]::None {break}
-            [EnryptionType]::SSL {
+            [EncryptionType]::None {break}
+            [EncryptionType]::SSL {
                 $LdapConnection.SessionOptions.ProtocolVersion=3
                 $LdapConnection.SessionOptions.StartTransportLayerSecurity($null)
                 break               
             }
-            [EnryptionType]::Kerberos {
+            [EncryptionType]::Kerberos {
                 $LdapConnection.SessionOptions.Sealing=$true
                 $LdapConnection.SessionOptions.Signing=$true
                 break
@@ -599,7 +599,6 @@ Function Get-LdapConnection
         $LdapConnection.Timeout = $Timeout
         $LdapConnection
      }       
-
 }
 
 <#
