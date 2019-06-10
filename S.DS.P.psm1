@@ -425,8 +425,16 @@ Function Get-RootDSE {
         $rq=new-object System.DirectoryServices.Protocols.SearchRequest
         $rq.Scope =  [System.DirectoryServices.Protocols.SearchScope]::Base
         $rq.Attributes.AddRange($propDef.Keys) | Out-Null
-        [System.DirectoryServices.Protocols.ExtendedDNControl]$exRqc = new-object System.DirectoryServices.Protocols.ExtendedDNControl('StandardString')
-        $rq.Controls.Add($exRqc) | Out-Null
+        try
+        {
+            #try to get extra information with ExtendedDNControl
+            [System.DirectoryServices.Protocols.ExtendedDNControl]$exRqc = new-object System.DirectoryServices.Protocols.ExtendedDNControl('StandardString')
+            $rq.Controls.Add($exRqc) | Out-Null
+        }
+        catch 
+        {
+            #silently failover to processing without extra information in case that control is not supported
+        }
         
         try
         {

@@ -47,13 +47,15 @@
 # 2.5.2019, 1.8.7, Jiri Formacek, Find-LdapObject: Fixed non-ranged retrieval processing logic; as per https://github.com/jformacek/S.DS.P/issues/6
 # 4.5.2019, 1.9.0, Jiri Formacek, Get-RootDSE: Naming contexts are now objects; more properties added
 # 7.6.2019, 1.9.1, Jiri Formacek, Fixed typo in Get-LdapConnection
+# 10.6.2019, 1.9.2, Jiri Formacek, Handled exception in Get-RootDSE when server does not support ExtendedDNControl
+
 @{
 
 # Script module or binary module file associated with this manifest
 RootModule = '.\S.DS.P.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.9.1'
+ModuleVersion = '1.9.2'
 
 # ID used to uniquely identify this module
 GUID = '766cbbc0-85b9-4773-b4db-2fa86cd771ff'
