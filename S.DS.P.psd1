@@ -48,6 +48,8 @@
 # 4.5.2019, 1.9.0, Jiri Formacek, Get-RootDSE: Naming contexts are now objects; more properties added
 # 7.6.2019, 1.9.1, Jiri Formacek, Fixed typo in Get-LdapConnection
 # 10.6.2019, 1.9.2, Jiri Formacek, Handled exception in Get-RootDSE when server does not support ExtendedDNControl
+# 11.6.2019, 1.9.3, Jiri Formacek,  LDAP controls are now marked as non-critical and missing control support on server is handled
+#                                   Array flattener is now compiled code, giving the Find-LdapObject better performance
 
 @{
 
@@ -55,7 +57,7 @@
 RootModule = '.\S.DS.P.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.9.2'
+ModuleVersion = '1.9.3'
 
 # ID used to uniquely identify this module
 GUID = '766cbbc0-85b9-4773-b4db-2fa86cd771ff'

@@ -1,17 +1,7 @@
-#Types used
-Add-Type @'
-public enum EncryptionType
-{
-    None=0,
-    Kerberos,
-    SSL
-}
-'@
-
 <#
 .SYNOPSIS
     Searches LDAP server in given search root and using given search filter
-    
+
 
 .OUTPUTS
     Search results as custom objects with requested properties as strings or byte stream
@@ -103,7 +93,6 @@ This command connects to given LDAP server and performs the search anonymously.
 
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
-
 #>
 Function Find-LdapObject {
     Param (
@@ -249,6 +238,8 @@ Function Find-LdapObject {
         #paged search control for paged search
         if($pageSize -gt 0) {
             [System.DirectoryServices.Protocols.PageResultRequestControl]$pagedRqc = new-object System.DirectoryServices.Protocols.PageResultRequestControl($pageSize)
+            #asking server for best effort with paging
+            $pagedRqc.IsCritical=$false
             $rq.Controls.Add($pagedRqc) | Out-Null
         }
 
@@ -269,14 +260,6 @@ Function Find-LdapObject {
         {
             $rsp = $LdapConnection.SendRequest($rq, $Timeout) -as [System.DirectoryServices.Protocols.SearchResponse];
             
-            #for paged search, the response for paged search result control - we will need a cookie from result later
-            if($pageSize -gt 0) {
-                [System.DirectoryServices.Protocols.PageResultResponseControl] $prrc=($rsp.Controls | Where-Object{$_ -is [System.DirectoryServices.Protocols.PageResultResponseControl]})
-                if($null -eq $prrc) {
-                    #server was unable to process paged search
-                    throw "Find-LdapObject: Server failed to return paged response for request $SearchFilter"
-                }
-            }
             #now process the returned list of distinguishedNames and fetch required properties directly from returned objects
             foreach ($sr in $rsp.Entries)
             {
@@ -291,11 +274,9 @@ Function Find-LdapObject {
                 $rqAttr.DistinguishedName=$dn
                 $rqAttr.Scope="Base"
 
-                if($RangeSize -eq 0)
-                {
+                if($RangeSize -eq 0) {
                     #load all requested properties of object in single call, without ranged retrieval
-                    if($PropertiesToLoad.Count -eq 0)
-                    {
+                    if($PropertiesToLoad.Count -eq 0) {
                         #if no props specified, ask server to return just result without attrs
                         $PropertiesToLoad+='1.1'
                     }
@@ -309,9 +290,8 @@ Function Find-LdapObject {
                                 $vals = $sr.Attributes[$attrName].GetValues(([string]))
                             }
                             #protecting against LDAP servers who don't understand '1.1' prop
-                            if($PropertiesToLoad -contains $attrName)
-                            {
-                                $data.$attrName=FlattenArray($vals)
+                            if($PropertiesToLoad -contains $attrName) {
+                                $data.$attrName = [Flattener]::FlattenArray($vals)
                             }
                         }
                     }
@@ -349,13 +329,16 @@ Function Find-LdapObject {
                                 }
                             }
                         }
-                        $data.$attrName=FlattenArray($data.$attrName)
+                        $data.$attrName = [Flattener]::FlattenArray($vals)
                     }
                 }
                 #return result to pipeline
                 $data
             }
-            if($pageSize -gt 0) {
+            #the response may contain paged search response. If so, we will need a cookie from it
+            [System.DirectoryServices.Protocols.PageResultResponseControl] $prrc=($rsp.Controls | Where-Object{$_ -is [System.DirectoryServices.Protocols.PageResultResponseControl]})
+            if(($pageSize -gt 0) -and ($null -ne $prrc)) {
+                #we performed paged search
                 if ($prrc.Cookie.Length -eq 0) {
                     #last page --> we're done
                     break;
@@ -378,11 +361,10 @@ Function Find-LdapObject {
     }
 }
 
-
 <#
 .SYNOPSIS
     Connects to LDAP server and retrieves metadata
-    
+
 
 .OUTPUTS
     Custom object containing information about LDAP server
@@ -396,7 +378,6 @@ This command connects to domain controller of caller's domain on port 389 and re
 
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
-
 #>
 Function Get-RootDSE {
     Param (
@@ -425,82 +406,69 @@ Function Get-RootDSE {
         $rq=new-object System.DirectoryServices.Protocols.SearchRequest
         $rq.Scope =  [System.DirectoryServices.Protocols.SearchScope]::Base
         $rq.Attributes.AddRange($propDef.Keys) | Out-Null
-        try
-        {
-            #try to get extra information with ExtendedDNControl
-            [System.DirectoryServices.Protocols.ExtendedDNControl]$exRqc = new-object System.DirectoryServices.Protocols.ExtendedDNControl('StandardString')
-            $rq.Controls.Add($exRqc) | Out-Null
-        }
-        catch 
-        {
-            #silently failover to processing without extra information in case that control is not supported
-        }
+
+        #try to get extra information with ExtendedDNControl
+        #RFC4511: Server MUST ignore unsupported controls marked as not critical
+        [System.DirectoryServices.Protocols.ExtendedDNControl]$exRqc = new-object System.DirectoryServices.Protocols.ExtendedDNControl('StandardString')
+        $exRqc.IsCritical=$false
+        $rq.Controls.Add($exRqc) | Out-Null
         
-        try
-        {
-            $rsp=$LdapConnection.SendRequest($rq)
+        $rsp=$LdapConnection.SendRequest($rq)
+        
+        $data=new-object PSObject -Property $propDef
             
-            $data=new-object PSObject -Property $propDef
-                
-            if ($rsp.Entries[0].Attributes['configurationNamingContext']) {
-                $data.configurationNamingContext = [NamingContext]::Parse($rsp.Entries[0].Attributes['configurationNamingContext'].GetValues([string])[0])
-            }
-            if ($rsp.Entries[0].Attributes['schemaNamingContext']) {
-                $data.schemaNamingContext = [NamingContext]::Parse(($rsp.Entries[0].Attributes['schemaNamingContext'].GetValues([string]))[0])
-            }
-            if ($rsp.Entries[0].Attributes['rootDomainNamingContext']) {
-                $data.rootDomainNamingContext = [NamingContext]::Parse($rsp.Entries[0].Attributes['rootDomainNamingContext'].GetValues([string])[0])
-            }
-            if ($rsp.Entries[0].Attributes['defaultNamingContext']) {
-                $data.defaultNamingContext = [NamingContext]::Parse($rsp.Entries[0].Attributes['defaultNamingContext'].GetValues([string])[0])
-            }
-            if($null -ne $rsp.Entries[0].Attributes['approximateHighestInternalObjectID'])
-            {
-                try {
-                    $data.approximateHighestInternalObjectID=[long]::Parse($rsp.Entries[0].Attributes['approximateHighestInternalObjectID'].GetValues([string]))
-                }
-                catch {
-                    #it isn't a numeric, just return what's stored without parsing
-                    $data.approximateHighestInternalObjectID=$rsp.Entries[0].Attributes['approximateHighestInternalObjectID'].GetValues([string])                    
-                }
-            }
-            if($null -ne $rsp.Entries[0].Attributes['currentTime']) {            
-                $data.currentTime = ( ($rsp.Entries[0].Attributes['currentTime'].GetValues([string])) | Sort-Object )
-            }
-            if($null -ne $rsp.Entries[0].Attributes['dnsHostName']) {            
-                $data.dnsHostName = ($rsp.Entries[0].Attributes['dnsHostName'].GetValues([string]))[0]
-            }
-            if($null -ne $rsp.Entries[0].Attributes['ldapServiceName']) {            
-                $data.ldapServiceName = ($rsp.Entries[0].Attributes['ldapServiceName'].GetValues([string]))[0]
-            }
-            if($null -ne $rsp.Entries[0].Attributes['dsServiceName']) {            
-                $data.dsServiceName = ($rsp.Entries[0].Attributes['dsServiceName'].GetValues([string]))[0]
-            }
-             if($null -ne $rsp.Entries[0].Attributes['serverName']) {            
-                $data.serverName = ($rsp.Entries[0].Attributes['serverName'].GetValues([string]))[0]
-            }
-           if($null -ne $rsp.Entries[0].Attributes['supportedControl']) {            
-                $data.supportedControl = ( ($rsp.Entries[0].Attributes['supportedControl'].GetValues([string])) | Sort-Object )
-            }
-           if($null -ne $rsp.Entries[0].Attributes['supportedLdapPolicies']) {            
-                $data.supportedLdapPolicies = ( ($rsp.Entries[0].Attributes['supportedLdapPolicies'].GetValues([string])) | Sort-Object )
-            }
-           if($null -ne $rsp.Entries[0].Attributes['supportedSASLMechanisms']) {            
-                $data.supportedSASLMechanisms = ( ($rsp.Entries[0].Attributes['supportedSASLMechanisms'].GetValues([string])) | Sort-Object )
-            }
-           if($null -ne $rsp.Entries[0].Attributes['namingContexts']) {
-                $data.namingContexts = @()
-                foreach($ctxDef in ($rsp.Entries[0].Attributes['namingContexts'].GetValues([string])))
-                {
-                    $data.namingContexts+=[NamingContext]::Parse($ctxDef)
-                }
-            }
-            $data
+        if ($rsp.Entries[0].Attributes['configurationNamingContext']) {
+            $data.configurationNamingContext = [NamingContext]::Parse($rsp.Entries[0].Attributes['configurationNamingContext'].GetValues([string])[0])
         }
-        catch
-        {
-            throw
+        if ($rsp.Entries[0].Attributes['schemaNamingContext']) {
+            $data.schemaNamingContext = [NamingContext]::Parse(($rsp.Entries[0].Attributes['schemaNamingContext'].GetValues([string]))[0])
         }
+        if ($rsp.Entries[0].Attributes['rootDomainNamingContext']) {
+            $data.rootDomainNamingContext = [NamingContext]::Parse($rsp.Entries[0].Attributes['rootDomainNamingContext'].GetValues([string])[0])
+        }
+        if ($rsp.Entries[0].Attributes['defaultNamingContext']) {
+            $data.defaultNamingContext = [NamingContext]::Parse($rsp.Entries[0].Attributes['defaultNamingContext'].GetValues([string])[0])
+        }
+        if($null -ne $rsp.Entries[0].Attributes['approximateHighestInternalObjectID']) {
+            try {
+                $data.approximateHighestInternalObjectID=[long]::Parse($rsp.Entries[0].Attributes['approximateHighestInternalObjectID'].GetValues([string]))
+            }
+            catch {
+                #it isn't a numeric, just return what's stored without parsing
+                $data.approximateHighestInternalObjectID=$rsp.Entries[0].Attributes['approximateHighestInternalObjectID'].GetValues([string])                    
+            }
+        }
+        if($null -ne $rsp.Entries[0].Attributes['currentTime']) {            
+            $data.currentTime = ( ($rsp.Entries[0].Attributes['currentTime'].GetValues([string])) | Sort-Object )
+        }
+        if($null -ne $rsp.Entries[0].Attributes['dnsHostName']) {            
+            $data.dnsHostName = ($rsp.Entries[0].Attributes['dnsHostName'].GetValues([string]))[0]
+        }
+        if($null -ne $rsp.Entries[0].Attributes['ldapServiceName']) {            
+            $data.ldapServiceName = ($rsp.Entries[0].Attributes['ldapServiceName'].GetValues([string]))[0]
+        }
+        if($null -ne $rsp.Entries[0].Attributes['dsServiceName']) {            
+            $data.dsServiceName = ($rsp.Entries[0].Attributes['dsServiceName'].GetValues([string]))[0]
+        }
+            if($null -ne $rsp.Entries[0].Attributes['serverName']) {            
+            $data.serverName = ($rsp.Entries[0].Attributes['serverName'].GetValues([string]))[0]
+        }
+        if($null -ne $rsp.Entries[0].Attributes['supportedControl']) {            
+            $data.supportedControl = ( ($rsp.Entries[0].Attributes['supportedControl'].GetValues([string])) | Sort-Object )
+        }
+        if($null -ne $rsp.Entries[0].Attributes['supportedLdapPolicies']) {            
+            $data.supportedLdapPolicies = ( ($rsp.Entries[0].Attributes['supportedLdapPolicies'].GetValues([string])) | Sort-Object )
+        }
+        if($null -ne $rsp.Entries[0].Attributes['supportedSASLMechanisms']) {            
+            $data.supportedSASLMechanisms = ( ($rsp.Entries[0].Attributes['supportedSASLMechanisms'].GetValues([string])) | Sort-Object )
+        }
+        if($null -ne $rsp.Entries[0].Attributes['namingContexts']) {
+            $data.namingContexts = @()
+            foreach($ctxDef in ($rsp.Entries[0].Attributes['namingContexts'].GetValues([string]))) {
+                $data.namingContexts+=[NamingContext]::Parse($ctxDef)
+            }
+        }
+        $data
     }
 }
 
@@ -521,7 +489,6 @@ Returns LdapConnection for caller's domain controller, with active Kerberos Encr
 
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
-
 #>
 Function Get-LdapConnection
 {
@@ -574,24 +541,20 @@ Function Get-LdapConnection
         $FullyQualifiedDomainName=$false;
         [System.DirectoryServices.Protocols.LdapDirectoryIdentifier]$di=new-object System.DirectoryServices.Protocols.LdapDirectoryIdentifier($LdapServer, $Port, $FullyQualifiedDomainName, $ConnectionLess)
         
-        if($Credential -ne $null) 
-        {
+        if($Credential -ne $null) {
             $LdapConnection=new-object System.DirectoryServices.Protocols.LdapConnection($di, $Credential)
         } else {
         	$LdapConnection=new-object System.DirectoryServices.Protocols.LdapConnection($di)
         }
 
-        if ($null -ne $AuthType) 
-        {
+        if ($null -ne $AuthType) {
             $LdapConnection.AuthType = $AuthType
         }
 
-        if($FastConcurrentBind)
-        {
+        if($FastConcurrentBind) {
             $LdapConnection.SessionOptions.FastConcurrentBind()
         }
-        switch($EncryptionType)
-        {
+        switch($EncryptionType) {
             [EncryptionType]::None {break}
             [EncryptionType]::SSL {
                 $LdapConnection.SessionOptions.ProtocolVersion=3
@@ -676,8 +639,7 @@ Function Add-LdapObject
 
     Process
     {
-        if([string]::IsNullOrEmpty($Object.DistinguishedName))
-        {
+        if([string]::IsNullOrEmpty($Object.DistinguishedName)) {
             throw (new-object System.ArgumentException("Input object missing DistinguishedName property"))
         }
         [System.DirectoryServices.Protocols.AddRequest]$rqAdd=new-object System.DirectoryServices.Protocols.AddRequest
@@ -686,31 +648,24 @@ Function Add-LdapObject
         #add additional controls that caller may have passed
         foreach($ctrl in $AdditionalControls) {$rqAdd.Controls.Add($ctrl) | Out-Null}
 
-        foreach($prop in (Get-Member -InputObject $Object -MemberType NoteProperty))
-        {
+        foreach($prop in (Get-Member -InputObject $Object -MemberType NoteProperty)) {
             if($prop.Name -eq "distinguishedName") {continue}
             if($IgnoredProps -contains $prop.Name) {continue}
             [System.DirectoryServices.Protocols.DirectoryAttribute]$propAdd=new-object System.DirectoryServices.Protocols.DirectoryAttribute
             $propAdd.Name=$prop.Name
-            if($prop.Name -in $BinaryProps)
-            {
-                foreach($val in $Object.($prop.Name))
-                {
+            if($prop.Name -in $BinaryProps) {
+                foreach($val in $Object.($prop.Name)) {
                     $propAdd.Add([byte[]]$val) | Out-Null
                 }
-            }
-            else 
-            {
+            } else {
                 $propAdd.AddRange([string[]]($Object.($prop.Name)))
             }
 
-            if($propAdd.Count -gt 0)
-            {
+            if($propAdd.Count -gt 0) {
                 $rqAdd.Attributes.Add($propAdd) | Out-Null
             }
         }
-        if($rqAdd.Attributes.Count -gt 0)
-        {
+        if($rqAdd.Attributes.Count -gt 0) {
             $LdapConnection.SendRequest($rqAdd, $Timeout) -as [System.DirectoryServices.Protocols.AddResponse] | Out-Null
         }
     }
@@ -785,8 +740,7 @@ Function Edit-LdapObject
 
     Process
     {
-        if([string]::IsNullOrEmpty($Object.DistinguishedName))
-        {
+        if([string]::IsNullOrEmpty($Object.DistinguishedName)) {
             throw (new-object System.ArgumentException("Input object missing DistinguishedName property"))
         }
 
@@ -797,42 +751,32 @@ Function Edit-LdapObject
         #add additional controls that caller may have passed
         foreach($ctrl in $AdditionalControls) {$rqMod.Controls.Add($ctrl) | Out-Null}
 
-        foreach($prop in (Get-Member -InputObject $Object -MemberType NoteProperty))
-        {
+        foreach($prop in (Get-Member -InputObject $Object -MemberType NoteProperty)) {
             if($prop.Name -eq "distinguishedName") {continue} #Dn is always ignored
             if($IgnoredProps -contains $prop.Name) {continue}
             if(($IncludedProps.Count -gt 0) -and (-not ($IncludedProps -contains $prop.Name))) {continue}
             [System.DirectoryServices.Protocols.DirectoryAttribute]$propMod=new-object System.DirectoryServices.Protocols.DirectoryAttributeModification
             $propMod.Name=$prop.Name
-            if($Object.($prop.Name))
-            {
+            if($Object.($prop.Name)) {
                 #we're modifying property
-                if($Object.($prop.Name).Count -gt 0)
-                {
+                if($Object.($prop.Name).Count -gt 0) {
                     $propMod.Operation=[System.DirectoryServices.Protocols.DirectoryAttributeOperation]::Replace
-                    if($prop.Name -in $BinaryProps)
-                    {
-                        foreach($val in $Object.($prop.Name))
-                        {
+                    if($prop.Name -in $BinaryProps)  {
+                        foreach($val in $Object.($prop.Name)) {
                             $propMod.Add([byte[]]$val) | Out-Null
                         }
-                    }
-                    else 
-                    {
+                    } else {
                         $propMod.AddRange([string[]]($Object.($prop.Name)))
                     }
                     $rqMod.Modifications.Add($propMod) | Out-Null
                 }
-            }
-            else 
-            {
+            } else {
                 #source object has no value for property - we're removing value on target
                 $propMod.Operation=[System.DirectoryServices.Protocols.DirectoryAttributeOperation]::Delete
                 $rqMod.Modifications.Add($propMod) | Out-Null
             }
         }
-        if($rqMod.Modifications.Count -gt 0)
-        {
+        if($rqMod.Modifications.Count -gt 0) {
             $LdapConnection.SendRequest($rqMod, $Timeout) -as [System.DirectoryServices.Protocols.ModifyResponse] | Out-Null
         }
     }
@@ -913,15 +857,12 @@ Function Remove-LdapObject
                 }
             }
         }
-        if($UseTreeDelete)
-        {
+        if($UseTreeDelete) {
             $rqDel.Controls.Add((new-object System.DirectoryServices.Protocols.TreeDeleteControl)) | Out-Null
         }
         $LdapConnection.SendRequest($rqDel) -as [System.DirectoryServices.Protocols.DeleteResponse] | Out-Null
-        
     }
 }
-
 
 <#
 .SYNOPSIS
@@ -989,15 +930,29 @@ Function Rename-LdapObject
 }
 
 #Helpers
-function FlattenArray ([Object[]] $arr) {
-    #return single value as value, multiple values as array, empty value as null
-    [int]$i=$arr.Length
-    if($i -eq 0) {return $null}
-    if($i -eq 1) {return $arr[0]}
-    return $arr
+Add-Type @'
+public static class Flattener
+{
+    public static System.Object FlattenArray(System.Object[] arr)
+    {
+        int i=arr.Length;
+        if(i==0) return null;
+        if(i==1) return arr[0];
+        return arr;
+    }
 }
+'@
 
-$source=@'
+Add-Type @'
+public enum EncryptionType
+{
+    None=0,
+    Kerberos,
+    SSL
+}
+'@
+
+Add-Type @'
 public class NamingContext
 {
     public System.Security.Principal.SecurityIdentifier SID {get; set;}
@@ -1033,4 +988,3 @@ public class NamingContext
     }
 }
 '@
-Add-Type -TypeDefinition $source
