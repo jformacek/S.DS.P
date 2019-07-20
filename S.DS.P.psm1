@@ -952,6 +952,8 @@ public enum EncryptionType
 }
 '@
 
+$referencedAssemblies=@()
+if($PSVersionTable.PSEdition -eq 'Core') {$referencedAssemblies+='System.Security.Principal.Windows'}
 Add-Type @'
 public class NamingContext
 {
@@ -987,4 +989,4 @@ public class NamingContext
         return retVal;
     }
 }
-'@
+'@ -ReferencedAssemblies $referencedAssemblies

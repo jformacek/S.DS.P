@@ -48,8 +48,9 @@
 # 4.5.2019, 1.9.0, Jiri Formacek, Get-RootDSE: Naming contexts are now objects; more properties added
 # 7.6.2019, 1.9.1, Jiri Formacek, Fixed typo in Get-LdapConnection
 # 10.6.2019, 1.9.2, Jiri Formacek, Handled exception in Get-RootDSE when server does not support ExtendedDNControl
-# 11.6.2019, 1.9.3, Jiri Formacek,  LDAP controls are now marked as non-critical and missing control support on server is handled
+# 11.6.2019, 1.9.3, Jiri Formacek,  LDAP controls used are now marked as non-critical and missing control support on server is handled
 #                                   Array flattener is now compiled code, giving the Find-LdapObject better performance
+# 20.7.2019, 1.9.4, Jiri Formacek, Added support for PowerShell Core
 
 @{
 
@@ -57,7 +58,7 @@
 RootModule = '.\S.DS.P.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.9.3'
+ModuleVersion = '1.9.4'
 
 # ID used to uniquely identify this module
 GUID = '766cbbc0-85b9-4773-b4db-2fa86cd771ff'
@@ -84,7 +85,7 @@ PowerShellHostName = ''
 PowerShellHostVersion = ''
 
 # Minimum version of the .NET Framework required by this module
-DotNetFrameworkVersion = '2.0'
+#DotNetFrameworkVersion = '2.0'
 
 # Minimum version of the common language runtime (CLR) required by this module
 CLRVersion = ''
@@ -96,7 +97,7 @@ ProcessorArchitecture = ''
 RequiredModules = @()
 
 # Assemblies that must be loaded prior to importing this module
-RequiredAssemblies = @("System.DirectoryServices.Protocols")
+RequiredAssemblies = @('System.DirectoryServices.Protocols')
 
 # Script files (.ps1) that are run in the caller's environment prior to importing this module
 ScriptsToProcess = @()
@@ -129,7 +130,35 @@ ModuleList = @()
 FileList = @()
 
 # Private data to pass to the module specified in ModuleToProcess
-PrivateData = ''
+PrivateData = @{
+    PSData = @{
+
+        # Tags applied to this module. These help with module discovery in online galleries.
+        Tags = @('Ldap','System.DirectoryServices.Protocols')
+
+        # A URL to the license for this module.
+        # LicenseUri = ''
+
+        # A URL to the main website for this project.
+        # ProjectUri = ''
+
+        # A URL to an icon representing this module.
+        # IconUri = ''
+
+        # ReleaseNotes of this module
+        # ReleaseNotes = ''
+
+        # Prerelease string of this module
+        # Prerelease = ''
+
+        # Flag to indicate whether the module requires explicit user acceptance for install/update/save
+        RequireLicenseAcceptance = $false
+
+        # External dependent modules of this module
+        # ExternalModuleDependencies = @()
+
+    }
+}
 
 }
 
