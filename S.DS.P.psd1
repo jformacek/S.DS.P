@@ -51,6 +51,7 @@
 # 11.6.2019, 1.9.3, Jiri Formacek,  LDAP controls used are now marked as non-critical and missing control support on server is handled
 #                                   Array flattener is now compiled code, giving the Find-LdapObject better performance
 # 20.7.2019, 1.9.4, Jiri Formacek, Added support for PowerShell Core
+#                                  Rename-LdapObject: Added support for moving of object
 
 @{
 

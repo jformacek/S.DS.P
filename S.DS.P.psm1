@@ -541,19 +541,12 @@ Function Get-LdapConnection
         $FullyQualifiedDomainName=$false;
         [System.DirectoryServices.Protocols.LdapDirectoryIdentifier]$di=new-object System.DirectoryServices.Protocols.LdapDirectoryIdentifier($LdapServer, $Port, $FullyQualifiedDomainName, $ConnectionLess)
         
-        if($Credential -ne $null) {
-            $LdapConnection=new-object System.DirectoryServices.Protocols.LdapConnection($di, $Credential)
-        } else {
-        	$LdapConnection=new-object System.DirectoryServices.Protocols.LdapConnection($di)
-        }
+        $LdapConnection=new-object System.DirectoryServices.Protocols.LdapConnection($di, $Credential)
 
         if ($null -ne $AuthType) {
             $LdapConnection.AuthType = $AuthType
         }
 
-        if($FastConcurrentBind) {
-            $LdapConnection.SessionOptions.FastConcurrentBind()
-        }
         switch($EncryptionType) {
             [EncryptionType]::None {break}
             [EncryptionType]::SSL {
@@ -568,6 +561,10 @@ Function Get-LdapConnection
             }
         }
         $LdapConnection.Timeout = $Timeout
+
+        if($FastConcurrentBind) {
+            $LdapConnection.SessionOptions.FastConcurrentBind()
+        }
         $LdapConnection
      }       
 }
@@ -746,7 +743,9 @@ Function Edit-LdapObject
 
         [System.DirectoryServices.Protocols.ModifyRequest]$rqMod=new-object System.DirectoryServices.Protocols.ModifyRequest
         $rqMod.DistinguishedName=$Object.DistinguishedName
-        $rqMod.Controls.Add((new-object System.DirectoryServices.Protocols.PermissiveModifyControl)) | Out-Null
+        $permissiveModifyRqc = new-object System.DirectoryServices.Protocols.PermissiveModifyControl
+        $permissiveModifyRqc.IsCritical = $false
+        $rqMod.Controls.Add($permissiveModifyRqc) | Out-Null
         
         #add additional controls that caller may have passed
         foreach($ctrl in $AdditionalControls) {$rqMod.Controls.Add($ctrl) | Out-Null}
@@ -754,7 +753,7 @@ Function Edit-LdapObject
         foreach($prop in (Get-Member -InputObject $Object -MemberType NoteProperty)) {
             if($prop.Name -eq "distinguishedName") {continue} #Dn is always ignored
             if($IgnoredProps -contains $prop.Name) {continue}
-            if(($IncludedProps.Count -gt 0) -and (-not ($IncludedProps -contains $prop.Name))) {continue}
+            if(($IncludedProps.Count -gt 0) -and ($IncludedProps -notcontains $prop.Name)) {continue}
             [System.DirectoryServices.Protocols.DirectoryAttribute]$propMod=new-object System.DirectoryServices.Protocols.DirectoryAttributeModification
             $propMod.Name=$prop.Name
             if($Object.($prop.Name)) {
@@ -892,15 +891,24 @@ Function Rename-LdapObject
             #Existing LDAPConnection object.
         $LdapConnection,
 
-        [parameter(Mandatory = $false)]
-        [System.DirectoryServices.Protocols.DirectoryControl[]]
-            #Additional controls that caller may need to add to request
-        $AdditionalControls=@(),
-
         [parameter(Mandatory = $true)]
             #New name of object
         [String]
-        $NewName
+        $NewName,
+
+        [parameter(Mandatory = $false)]
+            #DN of new parent
+        [String]
+        $NewParent,
+
+            #whether to delete original RDN
+        [Switch]
+        $DeleteOldRdn,
+
+        [parameter(Mandatory = $false)]
+        [System.DirectoryServices.Protocols.DirectoryControl[]]
+            #Additional controls that caller may need to add to request
+        $AdditionalControls=@()
     )
 
     Process
@@ -925,9 +933,12 @@ Function Rename-LdapObject
             }
         }
         $rqModDn.NewName = $NewName
+        if(-not [string]::IsNullOrEmpty($NewParent)) {$rqModDN.NewParentDistinguishedName = $NewParent}
+        $rqModDN.DeleteOldRdn = ($DeleteOldRdn)
         $LdapConnection.SendRequest($rqModDN) -as [System.DirectoryServices.Protocols.ModifyDNResponse] | Out-Null
     }
 }
+
 
 #Helpers
 Add-Type @'
