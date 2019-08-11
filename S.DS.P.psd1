@@ -52,7 +52,9 @@
 #                                   Array flattener is now compiled code, giving the Find-LdapObject better performance
 # 20.7.2019, 1.9.4, Jiri Formacek, Added support for PowerShell Core
 #                                  Rename-LdapObject: Added support for moving of object
-# 11.8.2019, 1.9.5, Jiri Formacek, P/rotocol version for LdapConnection defaults to 3 and is configurable via parameter in Get-LdapConnection command
+# 11.8.2019, 1.9.6, Jiri Formacek, Protocol version for LdapConnection defaults to 3 and is configurable via parameter in Get-LdapConnection command
+#                                  Added support for SSL connections in addition to StartTls. "SSL" encryption type now means connection via secure port (typically 636) and new encryption type "TLS" means secure connection via unsecure port (typically 389) and StartTLS()
+#                                  Tested against OpenLdap server
 
 @{
 
@@ -60,7 +62,7 @@
 RootModule = '.\S.DS.P.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.9.5'
+ModuleVersion = '1.9.6'
 
 # ID used to uniquely identify this module
 GUID = '766cbbc0-85b9-4773-b4db-2fa86cd771ff'

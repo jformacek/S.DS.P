@@ -512,9 +512,10 @@ Function Get-LdapConnection
         $Credential=$null,
 
         [parameter(Mandatory = $false)]
-        [EncryptionType]
+        [ValidateSet('None','TLS','SSL','Kerberos')]
+        [string]
             #Type of encryption to use.
-        $EncryptionType=[EncryptionType]::None,
+        $EncryptionType='None',
         
         [Switch]
             #enable support for Fast Concurrent Bind
@@ -549,21 +550,24 @@ Function Get-LdapConnection
         
         $LdapConnection=new-object System.DirectoryServices.Protocols.LdapConnection($di, $Credential)
         $LdapConnection.SessionOptions.ProtocolVersion=$ProtocolVersion
-        
+
         if ($null -ne $AuthType) {
             $LdapConnection.AuthType = $AuthType
         }
 
         switch($EncryptionType) {
-            [EncryptionType]::None {break}
-            [EncryptionType]::SSL {
-                $LdapConnection.SessionOptions.ProtocolVersion=3
+            'None' {break}
+            'TLS' {
                 $LdapConnection.SessionOptions.StartTransportLayerSecurity($null)
                 break               
             }
-            [EncryptionType]::Kerberos {
+            'Kerberos' {
                 $LdapConnection.SessionOptions.Sealing=$true
                 $LdapConnection.SessionOptions.Signing=$true
+                break
+            }
+            'SSL' {
+                $LdapConnection.SessionOptions.SecureSocketLayer=$true
                 break
             }
         }
@@ -969,15 +973,6 @@ public static class Flattener
         if(i==1) return arr[0];
         return arr;
     }
-}
-'@
-
-Add-Type @'
-public enum EncryptionType
-{
-    None=0,
-    Kerberos,
-    SSL
 }
 '@
 
