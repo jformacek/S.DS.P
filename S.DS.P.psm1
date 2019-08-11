@@ -533,7 +533,13 @@ Function Get-LdapConnection
         [Parameter(Mandatory = $false)]
         [System.DirectoryServices.Protocols.AuthType]
             #The type of authentication to use with the LdapConnection
-        $AuthType
+        $AuthType,
+
+        [Parameter(Mandatory = $false)]
+        [int]
+            #Requested LDAP protocol version
+        $ProtocolVersion = 3
+
     )
     
     Process
@@ -542,7 +548,8 @@ Function Get-LdapConnection
         [System.DirectoryServices.Protocols.LdapDirectoryIdentifier]$di=new-object System.DirectoryServices.Protocols.LdapDirectoryIdentifier($LdapServer, $Port, $FullyQualifiedDomainName, $ConnectionLess)
         
         $LdapConnection=new-object System.DirectoryServices.Protocols.LdapConnection($di, $Credential)
-
+        $LdapConnection.SessionOptions.ProtocolVersion=$ProtocolVersion
+        
         if ($null -ne $AuthType) {
             $LdapConnection.AuthType = $AuthType
         }
@@ -865,7 +872,7 @@ Function Remove-LdapObject
 
 <#
 .SYNOPSIS
-    Change RDN of existing object
+    Changes RDN of existing object or moves the object to a different subtree (or both at the same time)
 
 .OUTPUTS
     Nothing
@@ -873,6 +880,18 @@ Function Remove-LdapObject
 .EXAMPLE
 $Ldap = Get-LdapConnection -LdapServer "mydc.mydomain.com" -EncryptionType Kerberos
 Rename-LdapObject -LdapConnection $Ldap -Object "cn=User1,cn=Users,dc=mydomain,dc=com" -NewName 'cn=User2'
+
+Decription
+----------
+This command changes CN of User1 object to User2. Notice that 'cn=' is part of new name. This is required by protocol, wěhen you do not provide it, you will receive NamingViolation error.
+
+.EXAMPLE
+$Ldap = Get-LdapConnection
+Rename-LdapObject -LdapConnection $Ldap -Object "cn=User1,cn=Users,dc=mydomain,dc=com" -NewName "cn=User1" -NewParent "ou=CompanyUsers,dc=mydomain,dc=com"
+
+Description
+-----------
+This command Moves the User1 object to different OU. Notice the newName parameter - it's the same as old name as we do not rename the object a new name is required parameter for protocol.
 
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
@@ -938,7 +957,6 @@ Function Rename-LdapObject
         $LdapConnection.SendRequest($rqModDN) -as [System.DirectoryServices.Protocols.ModifyDNResponse] | Out-Null
     }
 }
-
 
 #Helpers
 Add-Type @'
