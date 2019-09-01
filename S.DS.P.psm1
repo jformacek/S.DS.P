@@ -325,6 +325,7 @@ Function Find-LdapObject {
                                     }
                                 } else {
                                     #nothing was found
+                                    $vals=$null
                                     $lastRange = $true
                                 }
                             }
@@ -968,6 +969,7 @@ public static class Flattener
 {
     public static System.Object FlattenArray(System.Object[] arr)
     {
+        if(arr==null) return null;
         int i=arr.Length;
         if(i==0) return null;
         if(i==1) return arr[0];
