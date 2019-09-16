@@ -55,7 +55,9 @@
 # 11.8.2019, 1.9.6, Jiri Formacek, Protocol version for LdapConnection defaults to 3 and is configurable via parameter in Get-LdapConnection command
 #                                  Added support for SSL connections in addition to StartTls. "SSL" encryption type now means connection via secure port (typically 636) and new encryption type "TLS" means secure connection via unsecure port (typically 389) and StartTLS()
 #                                  Tested against OpenLdap server
-# 1.9.2019, 1.9.7, Jiri Formacek, Find-LdapObject: Fixed bug in loading of non-existent/empty properties
+# 16.9.2019, 1.9.7, Jiri Formacek, Find-LdapObject: Fixed bug in loading of non-existent/empty properties
+                                  Fixed bug in handling of AdditionalProperties
+                                  SeachBase now can be $null, better supporting AD GC searches
 
 @{
 
