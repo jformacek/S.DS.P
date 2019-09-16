@@ -210,17 +210,21 @@ Function Find-LdapObject {
         $rq=new-object System.DirectoryServices.Protocols.SearchRequest
         
         #search base
-        #we support pipelining of strings, or objects containing distinguishedName property
-        switch($searchBase.GetType().Name) {
-            "String" 
-            {
-                $rq.DistinguishedName=$searchBase
-            }
-            default 
-            {
-                if($null -ne $searchBase.distinguishedName) 
+        #we support passing $null as SearchBase - user for Global Catalog searches
+        if($null -ne $searchBase)
+        {
+            #we support pipelining of strings, or objects containing distinguishedName property
+            switch($searchBase.GetType().Name) {
+                "String" 
                 {
-                    $rq.DistinguishedName=$searchBase.distinguishedName
+                    $rq.DistinguishedName=$searchBase
+                }
+                default 
+                {
+                    if($null -ne $searchBase.distinguishedName) 
+                    {
+                        $rq.DistinguishedName=$searchBase.distinguishedName
+                    }
                 }
             }
         }
@@ -273,25 +277,29 @@ Function Find-LdapObject {
                 $rqAttr=new-object System.DirectoryServices.Protocols.SearchRequest
                 $rqAttr.DistinguishedName=$dn
                 $rqAttr.Scope="Base"
+                foreach($ctrl in $AdditionalControls) {$rqAttr.Controls.Add($ctrl) | Out-Null}
 
                 if($RangeSize -eq 0) {
                     #load all requested properties of object in single call, without ranged retrieval
                     if($PropertiesToLoad.Count -eq 0) {
                         #if no props specified, ask server to return just result without attrs
-                        $PropertiesToLoad+='1.1'
+                        $rqAttr.Attributes.Add('1.1') | Out-Null
                     }
-                    $rqAttr.Attributes.AddRange($PropertiesToLoad) | Out-Null
+                    else {
+                        $rqAttr.Attributes.AddRange($PropertiesToLoad) | Out-Null
+                    }
+
                     $rspAttr = $LdapConnection.SendRequest($rqAttr)
                     foreach ($sr in $rspAttr.Entries) {
-                        foreach($attrName in $sr.Attributes.AttributeNames) {
-                            if($BinaryProperties -contains $attrName) {
-                                $vals=$sr.Attributes[$attrName].GetValues([byte[]])
-                            } else {
-                                $vals = $sr.Attributes[$attrName].GetValues(([string]))
-                            }
+                        foreach($attrName in $PropertiesToLoad) {
                             #protecting against LDAP servers who don't understand '1.1' prop
-                            if($PropertiesToLoad -contains $attrName) {
-                                $data.$attrName = [Flattener]::FlattenArray($vals)
+                            if($sr.Attributes.AttributeNames -contains $attrName) {
+                                if($BinaryProperties -contains $attrName) {
+                                    $data.$attrName += $sr.Attributes[$attrName].GetValues([byte[]])
+                                } else {
+                                    $data.$attrName += $sr.Attributes[$attrName].GetValues(([string]))
+                                }
+                                $data.$attrName = [Flattener]::FlattenArray( $data.$attrName)
                             }
                         }
                     }
@@ -314,23 +322,22 @@ Function Find-LdapObject {
                                     $returnedAttrName=$($sr.Attributes.AttributeNames)
                                     #load binary properties as byte stream, other properties as strings
                                     if($BinaryProperties -contains $attrName) {
-                                        $vals=$sr.Attributes[$returnedAttrName].GetValues([byte[]])
+                                        $data.$attrName+=$sr.Attributes[$returnedAttrName].GetValues([byte[]])
                                     } else {
-                                        $vals = $sr.Attributes[$returnedAttrName].GetValues(([string])) # -as [string[]];
+                                        $data.$attrName += $sr.Attributes[$returnedAttrName].GetValues(([string])) # -as [string[]];
                                     }
-                                    $data.$attrName+=$vals
+                                    #$data.$attrName+=$vals
                                     if($returnedAttrName.EndsWith("-*") -or $returnedAttrName -eq $attrName) {
                                         #last chunk arrived
                                         $lastRange = $true
                                     }
                                 } else {
                                     #nothing was found
-                                    $vals=$null
                                     $lastRange = $true
                                 }
                             }
                         }
-                        $data.$attrName = [Flattener]::FlattenArray($vals)
+                        $data.$attrName = [Flattener]::FlattenArray($data.$attrName)
                     }
                 }
                 #return result to pipeline

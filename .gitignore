@@ -251,3 +251,4 @@ paket-files/
 .idea/
 *.sln.iml
 S.DS.P.zip
+test.ps1
