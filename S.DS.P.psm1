@@ -742,6 +742,14 @@ Function Edit-LdapObject
             #Existing LDAPConnection object.
         $LdapConnection,
 
+        [parameter(Mandatory=$false)]
+        [System.DirectoryServices.Protocols.DirectoryAttributeOperation]
+            #Mode of operation
+            #Replace: Replaces attribute values on target
+            #Add: Adds attribute values to existing values on target
+            #Delete: Removes atribute values from existing values on target
+        $Mode=[System.DirectoryServices.Protocols.DirectoryAttributeOperation]::Replace
+
         [parameter(Mandatory = $false)]
         [System.DirectoryServices.Protocols.DirectoryControl[]]
             #Additional controls that caller may need to add to request
@@ -778,7 +786,7 @@ Function Edit-LdapObject
             if($Object.($prop.Name)) {
                 #we're modifying property
                 if($Object.($prop.Name).Count -gt 0) {
-                    $propMod.Operation=[System.DirectoryServices.Protocols.DirectoryAttributeOperation]::Replace
+                    $propMod.Operation=$Mode
                     if($prop.Name -in $BinaryProps)  {
                         foreach($val in $Object.($prop.Name)) {
                             $propMod.Add([byte[]]$val) | Out-Null

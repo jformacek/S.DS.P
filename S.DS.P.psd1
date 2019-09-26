@@ -58,6 +58,7 @@
 # 16.9.2019, 1.9.7, Jiri Formacek, Find-LdapObject: Fixed bug in loading of non-existent/empty properties
 #                                  Fixed bug in handling of AdditionalProperties
 #                                  SeachBase now can be $null, better supporting AD GC searches
+# 26.9.2019, 1.0.8, Jiri Formacek, Edit-LdapObject: Add and Delete modes now supported in addition to Replace
 
 @{
 
@@ -65,7 +66,7 @@
 RootModule = '.\S.DS.P.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.9.7'
+ModuleVersion = '1.9.8'
 
 # ID used to uniquely identify this module
 GUID = '766cbbc0-85b9-4773-b4db-2fa86cd771ff'
@@ -147,7 +148,7 @@ PrivateData = @{
         # LicenseUri = ''
 
         # A URL to the main website for this project.
-        # ProjectUri = ''
+        # ProjectUri = 'https://github.com/jformacek/S.DS.P'
 
         # A URL to an icon representing this module.
         # IconUri = ''
