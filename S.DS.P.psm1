@@ -748,7 +748,7 @@ Function Edit-LdapObject
             #Replace: Replaces attribute values on target
             #Add: Adds attribute values to existing values on target
             #Delete: Removes atribute values from existing values on target
-        $Mode=[System.DirectoryServices.Protocols.DirectoryAttributeOperation]::Replace
+        $Mode=[System.DirectoryServices.Protocols.DirectoryAttributeOperation]::Replace,
 
         [parameter(Mandatory = $false)]
         [System.DirectoryServices.Protocols.DirectoryControl[]]
