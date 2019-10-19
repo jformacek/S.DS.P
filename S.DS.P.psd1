@@ -58,7 +58,7 @@
 # 16.9.2019, 1.9.7, Jiri Formacek, Find-LdapObject: Fixed bug in loading of non-existent/empty properties
 #                                  Fixed bug in handling of AdditionalProperties
 #                                  SeachBase now can be $null, better supporting AD GC searches
-# 26.9.2019, 1.0.8, Jiri Formacek, Edit-LdapObject: Add and Delete modes now supported in addition to Replace
+# 26.9.2019, 1.9.8, Jiri Formacek, Edit-LdapObject: Add and Delete modes now supported in addition to Replace
 
 @{
 
