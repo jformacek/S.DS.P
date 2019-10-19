@@ -708,6 +708,19 @@ Description
 -----------
 Modifies existing user account in domain.
 
+.EXAMPLE
+$conn = Get-LdapConnection -LdapServer "mydc.mydomain.com" -EncryptionType Kerberos
+$dse = Get-RootDSE -LdapConnection $conn
+$User = Find-LdapObject -LdapConnection $conn -searchFilter '(&(objectClass=user)(objectCategory=organizationalPerson)(sAMAccountName=myUser1))' -searchBase $dse.defaultNamingContext
+$Group = Find-LdapObject -LdapConnection $conn -searchFilter '(&(objectClass=group)(objectCategory=group)(cn=myGroup1))' -searchBase $dse.defaultNamingContext -AdditionalProperties @('member')
+$Group.member=@($User.distinguishedName)
+Edit-LdapObject -LdapConnection $conn -Object $Group -Mode Add
+
+Description
+-----------
+Finds user account in LDAP server and adds it to group
+
+
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
 
