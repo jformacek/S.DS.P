@@ -10,6 +10,7 @@ Feel free to contribute; current functionality:
 - Adding objects via Add-LdapObject
 - Modifying objects via Edit-LdapObject
 - Removal of objects via Remove-LdapObject
+- Change of RDN of an object via Rename-LdapObject
 - Getting information about LDAP server via Get-RootDSE
 
 Looking for testers against non-MS LDAP servers and more complex functionality (copying from object to object, transformations of objects, etc).
