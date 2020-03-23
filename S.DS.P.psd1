@@ -59,6 +59,7 @@
 #                                  Fixed bug in handling of AdditionalProperties
 #                                  SeachBase now can be $null, better supporting AD GC searches
 # 26.9.2019, 1.9.8, Jiri Formacek, Edit-LdapObject: Add and Delete modes now supported in addition to Replace
+# 26.9.2019, 1.9.9, Jiri Formacek, Get-RootDSE: do not continue when initial SendRequest fails
 
 @{
 
@@ -66,7 +67,7 @@
 RootModule = '.\S.DS.P.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.9.8'
+ModuleVersion = '1.9.9'
 
 # ID used to uniquely identify this module
 GUID = '766cbbc0-85b9-4773-b4db-2fa86cd771ff'

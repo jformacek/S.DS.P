@@ -421,8 +421,15 @@ Function Get-RootDSE {
         $exRqc.IsCritical=$false
         $rq.Controls.Add($exRqc) | Out-Null
         
-        $rsp=$LdapConnection.SendRequest($rq)
-        
+        try {
+            $rsp=$LdapConnection.SendRequest($rq)
+        }
+        catch {
+           throw $_.Exception
+           return 
+        }
+        #if there was error, let the exception go to caller and do not continue
+
         $data=new-object PSObject -Property $propDef
             
         if ($rsp.Entries[0].Attributes['configurationNamingContext']) {
