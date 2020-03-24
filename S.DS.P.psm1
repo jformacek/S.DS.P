@@ -510,7 +510,7 @@ Function Get-LdapConnection
     Param
     (
         [parameter(Mandatory = $false)]
-        [String] 
+        [String[]] 
             #LDAP server name
             #Default: default server given by environment
         $LdapServer=[String]::Empty,

@@ -59,7 +59,8 @@
 #                                  Fixed bug in handling of AdditionalProperties
 #                                  SeachBase now can be $null, better supporting AD GC searches
 # 26.9.2019, 1.9.8, Jiri Formacek, Edit-LdapObject: Add and Delete modes now supported in addition to Replace
-# 26.9.2019, 1.9.9, Jiri Formacek, Get-RootDSE: do not continue when initial SendRequest fails
+# 23.3.2020, 1.9.9, Jiri Formacek, Get-RootDSE: do not continue when initial SendRequest fails
+# 23.3.2020, 2.0.0, Jiri Formacek, Get-LdapConnection now supports multiple LDAP servers
 
 @{
 
