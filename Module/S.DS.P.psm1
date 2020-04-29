@@ -299,6 +299,11 @@ Function Find-LdapObject {
                                 } else {
                                     $data.$attrName += $sr.Attributes[$attrName].GetValues(([string]))
                                 }
+                                $transform = @($script:RegisteredTransforms.Where({$_.Action -eq 'Load' -and $_.Attribute -eq $attrName}))[0]
+                                if($null -ne $transform)
+                                {
+                                    $data.$attrName = & $transform.Transform -Values $data.$attrName
+                                }
                                 $data.$attrName = [Flattener]::FlattenArray( $data.$attrName)
                             }
                         }
@@ -336,6 +341,11 @@ Function Find-LdapObject {
                                     $lastRange = $true
                                 }
                             }
+                        }
+                        $transform = @($script:RegisteredTransforms.Where({$_.Action -eq 'Load' -and $_.Attribute -eq $attrName}))[0]
+                        if($null -ne $transform)
+                        {
+                            $data.$attrName = & $transform.Transform -Values $data.$attrName
                         }
                         $data.$attrName = [Flattener]::FlattenArray($data.$attrName)
                     }
@@ -676,6 +686,12 @@ Function Add-LdapObject
             if($IgnoredProps -contains $prop.Name) {continue}
             [System.DirectoryServices.Protocols.DirectoryAttribute]$propAdd=new-object System.DirectoryServices.Protocols.DirectoryAttribute
             $propAdd.Name=$prop.Name
+            #if transform defined -> transform to form accepted by directory
+            $transform = @($script:RegisteredTransforms.Where({$_.Action -eq 'Save' -and $_.Attribute -eq $prop.Name}))[0]
+            if($null -ne $transform)
+            {
+                $Object.($prop.Name) = & $transform.Transform -Values $Object.($prop.Name)
+            }
             if($prop.Name -in $BinaryProps) {
                 foreach($val in $Object.($prop.Name)) {
                     $propAdd.Add([byte[]]$val) | Out-Null
@@ -805,6 +821,14 @@ Function Edit-LdapObject
             $propMod.Name=$prop.Name
             if($Object.($prop.Name)) {
                 #we're modifying property
+
+                #if transform defined -> transform to form accepted by directory
+                $transform = @($script:RegisteredTransforms.Where({$_.Action -eq 'Save' -and $_.Attribute -eq $prop.Name}))[0]
+                if($null -ne $transform)
+                {
+                    $Object.($prop.Name) = & $transform.Transform -Values $Object.($prop.Name)
+                }
+
                 if($Object.($prop.Name).Count -gt 0) {
                     $propMod.Operation=$Mode
                     if($prop.Name -in $BinaryProps)  {
@@ -923,7 +947,7 @@ Rename-LdapObject -LdapConnection $Ldap -Object "cn=User1,cn=Users,dc=mydomain,d
 
 Decription
 ----------
-This command changes CN of User1 object to User2. Notice that 'cn=' is part of new name. This is required by protocol, wěhen you do not provide it, you will receive NamingViolation error.
+This command changes CN of User1 object to User2. Notice that 'cn=' is part of new name. This is required by protocol, when you do not provide it, you will receive NamingViolation error.
 
 .EXAMPLE
 $Ldap = Get-LdapConnection
@@ -996,6 +1020,126 @@ Function Rename-LdapObject
         $rqModDN.DeleteOldRdn = ($DeleteOldRdn)
         $LdapConnection.SendRequest($rqModDN) -as [System.DirectoryServices.Protocols.ModifyDNResponse] | Out-Null
     }
+}
+
+#Transform registration handling support
+
+# Internal holder of registered transforms
+$script:RegisteredTransforms = @()
+
+<#
+.SYNOPSIS
+    Registers attribute transform logic
+
+.OUTPUTS
+    Nothing
+
+.EXAMPLE
+$Ldap = Get-LdapConnection -LdapServer "mydc.mydomain.com" -EncryptionType Kerberos
+$Transform = .\Transforms\ntSecurityDescriptor.ps1 -Action Load
+Register-LdapAttributeTransform -TransformDefinition $Transform
+Find-LdapObject -LdapConnection $Ldap -SearchBase "cn=User1,cn=Users,dc=mydomain,dc=com" -SearchScope Base -PropertiesToLoad 'cn','ntSecurityDescriptor' -BinaryProperties 'ntSecurityDescriptor'
+
+Decription
+----------
+This example registers transform that converts raw byte array in ntSecurityDescriptor property into instance of System.DirectoryServices.ActiveDirectorySecurity
+After command completes, returned object(s) will have instance of System.DirectoryServices.ActiveDirectorySecurity in ntSecurityDescriptor property
+
+.LINK
+More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
+More about attribute transforms and how to create them: https://github.com/jformacek/S.DS.P 
+
+#>
+
+Function Register-LdapAttributeTransform
+{
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
+        $TransformDefinition
+    )
+
+    
+    if($null -eq $TransformDefinition.Action -or $null -eq $TransformDefinition.Attribute -or $TransformDefinition.Transform -isnot [System.Management.Automation.ScriptBlock] -or $TransformDefinition.Transform.Ast.ParamBlock.Parameters[0].Name.VariablePath.UserPath -ne 'Values')
+    {
+        throw new-object System.ArgumentException('Transform is not valid')
+    }
+    $transforms=$script:RegisteredTransforms.Where{$_.Action -eq $TransformDefinition.Action -and $_.Attribute -eq $TransformDefinition.Attribute}
+    if($transforms.Count -eq 0)
+    {
+        $script:RegisteredTransforms+=$TransformDefinition
+    }
+    else
+    {
+        $transforms[0].Transform=$TransformDefinition.Transform
+    }
+}
+
+<#
+.SYNOPSIS
+
+    Unregisters previously registered attribute transform logic
+
+.DESCRIPTION
+
+    Registers attribute transform. Attribute transforms transform attributes from simple types provided by LDAP server to more complex types. Transforms work on attribute level and do not have acces to values of other attributes.
+    Transforms must be constructed using specific logic, see existing transforms and template on GitHub
+
+.EXAMPLE
+
+$Ldap = Get-LdapConnection -LdapServer "mydc.mydomain.com" -EncryptionType Kerberos
+$Transform = .\Transforms\ntSecurityDescriptor.ps1 -Action Load
+Register-LdapAttributeTransform -TransformDefinition $Transform
+Find-LdapObject -LdapConnection $Ldap -SearchBase "cn=User1,cn=Users,dc=mydomain,dc=com" -SearchScope Base -PropertiesToLoad 'cn','ntSecurityDescriptor' -BinaryProperties 'ntSecurityDescriptor'
+#now ntSecurityDescriptor property of returned object contains instance of System.DirectoryServices.ActiveDirectorySecurity
+
+#we no longer need the transform, let's unregister
+Unregister-LdapAttributeTransform -TransformDefinition $Transform
+Find-LdapObject -LdapConnection $Ldap -SearchBase "cn=User1,cn=Users,dc=mydomain,dc=com" -SearchScope Base -PropertiesToLoad 'cn','ntSecurityDescriptor' -BinaryProperties 'ntSecurityDescriptor'
+#now ntSecurityDescriptor property of returned object contains raw byte array
+
+Decription
+----------
+This example registers transform that converts raw byte array in ntSecurityDescriptor property into instance of System.DirectoryServices.ActiveDirectorySecurity
+After command completes, returned object(s) will have instance of System.DirectoryServices.ActiveDirectorySecurity in ntSecurityDescriptor property
+Then transform is unregistered, so subsequent calls do not use it
+
+.LINK
+
+More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
+More about attribute transforms and how to create them: https://github.com/jformacek/S.DS.P 
+
+#>
+
+Function Unregister-LdapAttributeTransform
+{
+    param (
+        [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
+        $TransformDefinition
+    )
+
+    if($null -eq $TransformDefinition.Action -or $null -eq $TransformDefinition.Attribute -or $TransformDefinition.Transform -isnot [System.Management.Automation.ScriptBlock] -or $TransformDefinition.Transform.Ast.ParamBlock.Parameters[0].Name.VariablePath.UserPath -ne 'Values')
+    {
+        throw new-object System.ArgumentException('Transform is not valid')
+    }
+    $script:RegisteredTransforms=$script:RegisteredTransforms.Where{$_.Action -ne $TransformDefinition.Action -and $_.Attribute -ne $TransformDefinition.Attribute}
+}
+
+<#
+.SYNOPSIS
+    Lists registered attribute transform logic
+
+.OUTPUTS
+    LIst of registered transforms
+
+.LINK
+More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
+More about attribute transforms and how to create them: https://github.com/jformacek/S.DS.P 
+
+#>
+Function Get-LdapAttributeTransform
+{
+    $script:RegisteredTransforms
 }
 
 #Helpers
