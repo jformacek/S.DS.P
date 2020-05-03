@@ -12,6 +12,8 @@ Feel free to contribute; current functionality:
 - Removal of objects via Remove-LdapObject
 - Change of RDN of an object via Rename-LdapObject
 - Getting information about LDAP server via Get-RootDSE
+- support for transforms of loaded or saved values
+  - some transforms already provided in Transforms folder - each transform in dedicated script that creates it
 
 Looking for testers against non-MS LDAP servers and more complex functionality (copying from object to object, transformations of objects, etc).
 
