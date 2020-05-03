@@ -62,6 +62,7 @@
 # 23.3.2020, 1.9.9, Jiri Formacek, Get-RootDSE: do not continue when initial SendRequest fails
 #                                  Get-LdapConnection now supports multiple LDAP servers
 # 23.3.2020, 2.0.0, Jiri Formacek, Added support for attribute transforms
+#                                  Fixed bug of improperly flattened attributed with RangeSize 0
 
 @{
 

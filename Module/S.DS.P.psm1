@@ -304,7 +304,6 @@ Function Find-LdapObject {
                                 {
                                     $data.$attrName = & $transform.Transform -Values $data.$attrName
                                 }
-                                $data.$attrName = [Flattener]::FlattenArray( $data.$attrName)
                             }
                         }
                     }
@@ -347,10 +346,11 @@ Function Find-LdapObject {
                         {
                             $data.$attrName = & $transform.Transform -Values $data.$attrName
                         }
-                        $data.$attrName = [Flattener]::FlattenArray($data.$attrName)
                     }
                 }
-                #return result to pipeline
+                #flatten props
+                foreach($prop in $PropertiesToLoad) {$data.$prop = [Flattener]::FlattenArray($data.$prop)}
+                #and return result to pipeline
                 $data
             }
             #the response may contain paged search response. If so, we will need a cookie from it
