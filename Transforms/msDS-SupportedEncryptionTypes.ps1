@@ -3,7 +3,10 @@ param (
     [Parameter(Mandatory=$true)]
     [string]
     [ValidateSet('Load','Save')]
-    $Action
+    $Action,
+    [Parameter(Mandatory=$false)]
+    [string]
+    $AttributeName = 'msDS-SupportedEncryptionTypes'
 )
 
 
@@ -20,7 +23,7 @@ public enum EncryptionTypes
 }
 '@
 
-$prop=[Ordered]@{[string]'Action'=$Action;'Attribute'='msDS-SupportedEncryptionTypes';[string]'Transform' = $null}
+$prop=[Ordered]@{[string]'Action'=$Action;'Attribute'=$AttributeName;[string]'Transform' = $null}
 $codeBlock = new-object PSCustomObject -property $prop
 
 switch($Action)

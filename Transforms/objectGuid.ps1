@@ -3,7 +3,10 @@ param (
     [Parameter(Mandatory=$true)]
     [string]
     [ValidateSet('Load','Save')]
-    $Action
+    $Action,
+    [Parameter(Mandatory=$false)]
+    [string]
+    $AttributeName = 'objectGuid'
 )
 
 # Add any types that are used by transforms
@@ -11,7 +14,7 @@ param (
 
 #define variables necessary to create a transform
 
-$prop=[Ordered]@{[string]'Action'=$Action;'Attribute'='objectGuid';[string]'Transform' = $null}
+$prop=[Ordered]@{[string]'Action'=$Action;'Attribute'=$AttributeName;[string]'Transform' = $null}
 $codeBlock = new-object PSCustomObject -property $prop
 
 switch($Action)

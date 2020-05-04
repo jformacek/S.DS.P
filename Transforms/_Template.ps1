@@ -3,7 +3,10 @@ param (
     [Parameter(Mandatory=$true)]
     [string]
     [ValidateSet('Load','Save')]
-    $Action
+    $Action,
+    [Parameter(Mandatory=$false)]
+    [string]
+    $AttributeName = 'ENTER-ATTRIBUTE-NAME'
 )
 
 # Add any types that are used by transforms
@@ -12,7 +15,7 @@ param (
 #define variables necessary to create a transform
 
 # This is mandatory definition of transform that is expected by transform architecture
-$prop=[Ordered]@{[string]'Action'=$Action;'Attribute'='objectGuid';[string]'Transform' = $null}
+$prop=[Ordered]@{[string]'Action'=$Action;'Attribute'=$AttributeName;[string]'Transform' = $null}
 $codeBlock = new-object PSCustomObject -property $prop
 
 switch($Action)

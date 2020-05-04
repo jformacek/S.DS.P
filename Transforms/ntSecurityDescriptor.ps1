@@ -3,10 +3,13 @@ param (
     [Parameter(Mandatory=$true)]
     [string]
     [ValidateSet('Load','Save')]
-    $Action
+    $Action,
+    [Parameter(Mandatory=$false)]
+    [string]
+    $AttributeName = 'ntSecurityDescriptor'
 )
 
-$prop=[Ordered]@{[string]'Action'=$Action;'Attribute'='ntSecurityDescriptor';[string]'Transform' = $null}
+$prop=[Ordered]@{[string]'Action'=$Action;'Attribute'=$AttributeName;[string]'Transform' = $null}
 $codeBlock = new-object PSCustomObject -property $prop
 
 switch($Action)
