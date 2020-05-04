@@ -11,6 +11,10 @@ param (
 
 #define variables necessary to create a transform
 
+# This is mandatory definition of transform that is expected by transform architecture
+$prop=[Ordered]@{[string]'Action'=$Action;'Attribute'='objectGuid';[string]'Transform' = $null}
+$codeBlock = new-object PSCustomObject -property $prop
+
 switch($Action)
 {
     "Load"

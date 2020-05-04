@@ -11,7 +11,7 @@ param (
 
 #define variables necessary to create a transform
 
-$prop=[Ordered]@{[string]'Action'=$Action;'Attribute'='objectGuid';[string]'Transform' = $null}
+$prop=[Ordered]@{[string]'Action'=$Action;'Attribute'='objectSid';[string]'Transform' = $null}
 $codeBlock = new-object PSCustomObject -property $prop
 
 switch($Action)
@@ -20,11 +20,11 @@ switch($Action)
     {
         $codeBlock.Transform = { 
             param(
-            [object[]]$Values
+            [Object[]]$Values
             )
             foreach($Value in $Values)
             {
-                New-Object System.Guid(,$Value)
+                New-Object System.Security.Principal.SecurityIdentifier($Value,0)
             }
         }
         $codeBlock
@@ -34,12 +34,14 @@ switch($Action)
     {
         $codeBlock.Transform = { 
             param(
-            [Guid[]]$Values
+            [system.security.principal.securityidentifier[]]$Values
             )
             
-            foreach($value in $values)
+            foreach($sid in $Values)
             {
-                $value.ToByteArray()
+                $retVal=new-object system.byte[]($sid.BinaryLength)
+                $sid.GetBinaryForm($retVal,0)
+                $retVal
             }
         }
         $codeBlock
