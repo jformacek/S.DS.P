@@ -1,7 +1,12 @@
-<#
+Function Find-LdapObject {
+    <#
 .SYNOPSIS
     Searches LDAP server in given search root and using given search filter
 
+.DESCRIPTION
+    Searches LDAP server identified by LDAP connection passed as parameter.
+    Attributes of returned objects are retrieved via ranged attribute retrieval by default. This allows to retrieve all attributes, including computed ones, but has impact on performace as each attribute generated own LDAP server query. Tu turn ranged attribute retrieval off, set parameter RangeSize to zero.
+    Optionally, attribute values can be transformed to complex types using transform registered for an attribute with 'Load' action.
 
 .OUTPUTS
     Search results as custom objects with requested properties as strings or byte stream
@@ -94,7 +99,6 @@ This command connects to given LDAP server and performs the search anonymously.
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
 #>
-Function Find-LdapObject {
     Param (
         [parameter(Mandatory = $true)]
         [System.DirectoryServices.Protocols.LdapConnection]
@@ -379,10 +383,14 @@ Function Find-LdapObject {
     }
 }
 
+Function Get-RootDSE {
 <#
 .SYNOPSIS
     Connects to LDAP server and retrieves metadata
 
+.DESCRIPTION
+    Retrieves LDAP server metadata from Root DSE object
+    Current implementation is specialized to metadata foung on Windows LDAP server, so on other platforms, some metadata may be empty.
 
 .OUTPUTS
     Custom object containing information about LDAP server
@@ -397,7 +405,7 @@ This command connects to domain controller of caller's domain on port 389 and re
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
 #>
-Function Get-RootDSE {
+
     Param (
         [parameter(Mandatory = $true, ValueFromPipeline = $true)]
         [System.DirectoryServices.Protocols.LdapConnection]
@@ -497,11 +505,14 @@ Function Get-RootDSE {
     }
 }
 
+Function Get-LdapConnection
+{
 <#
 .SYNOPSIS
     Connects to LDAP server and returns LdapConnection object
     
-
+.DESCRIPTION
+    Creates connection to LDAP server according to parameters passed.
 .OUTPUTS
     LdapConnection object
 
@@ -514,10 +525,7 @@ Returns LdapConnection for caller's domain controller, with active Kerberos Encr
 
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
-#>
-Function Get-LdapConnection
-{
-    Param
+#>    Param
     (
         [parameter(Mandatory = $false)]
         [String[]] 
@@ -565,7 +573,6 @@ Function Get-LdapConnection
         [int]
             #Requested LDAP protocol version
         $ProtocolVersion = 3
-
     )
     
     Process
@@ -605,10 +612,16 @@ Function Get-LdapConnection
      }       
 }
 
+
+Function Add-LdapObject
+{
 <#
 .SYNOPSIS
     Creates a new object in LDAP server
-    
+
+.DESCRIPTION
+    Creates a new object in LDAP server.
+    Optionally performs attribute transforms registered for Save action before saving changes
 
 .OUTPUTS
     Nothing
@@ -619,22 +632,22 @@ $obj = new-object PSObject -Property $Props
 $obj.DistinguishedName = "cn=user1,cn=users,dc=mydomain,dc=com"
 $obj.sAMAccountName = "User1"
 $obj.ObjectClass = "User"
-$obj.unicodePwd = ,([System.Text.Encoding]::Unicode.GetBytes("`"P@ssw0rd`"") -as [byte[]])
+$obj.unicodePwd = "P@ssw0rd"
 $obj.userAccountControl = "512"
 
 $Ldap = Get-LdapConnection -LdapServer "mydc.mydomain.com" -EncryptionType Kerberos
+Register-LdapAttributeTransform (.\Transforms\unicodePwd.ps1 -Action Save)
 Add-LdapObject -LdapConnection $Ldap -Object $obj
 
 Description
 -----------
 Creates new user account in domain.
+Password is transformed to format expected by LDAP services by registered attribute transform
 
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
 
 #>
-Function Add-LdapObject
-{
     Param (
         [parameter(Mandatory = $true, ValueFromPipeline=$true)]
         [PSObject]
@@ -686,18 +699,20 @@ Function Add-LdapObject
             if($IgnoredProps -contains $prop.Name) {continue}
             [System.DirectoryServices.Protocols.DirectoryAttribute]$propAdd=new-object System.DirectoryServices.Protocols.DirectoryAttribute
             $propAdd.Name=$prop.Name
+            $attrVal = $Object.($prop.Name)
+
             #if transform defined -> transform to form accepted by directory
             $transform = @($script:RegisteredTransforms.Where({$_.Action -eq 'Save' -and $_.Attribute -eq $prop.Name}))[0]
             if($null -ne $transform)
             {
-                $Object.($prop.Name) = & $transform.Transform -Values $Object.($prop.Name)
+                $attrVal = & $transform.Transform -Values $Object.($prop.Name)
             }
             if($prop.Name -in $BinaryProps) {
-                foreach($val in $Object.($prop.Name)) {
+                foreach($val in $attrVal) {
                     $propAdd.Add([byte[]]$val) | Out-Null
                 }
             } else {
-                $propAdd.AddRange([string[]]($Object.($prop.Name)))
+                $propAdd.AddRange([string[]]($attrVal))
             }
 
             if($propAdd.Count -gt 0) {
@@ -710,10 +725,15 @@ Function Add-LdapObject
     }
 }
 
+Function Edit-LdapObject
+{
 <#
 .SYNOPSIS
     Modifies existing object in LDAP server
-    
+
+.DESCRIPTION
+    Modifies existing object in LDAP server.
+    Optionally performs attribute transforms registered for Save action before saving changes
 
 .OUTPUTS
     Nothing
@@ -748,8 +768,6 @@ Finds user account in LDAP server and adds it to group
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
 
 #>
-Function Edit-LdapObject
-{
     Param (
         [parameter(Mandatory = $true, ValueFromPipeline=$true)]
         [PSObject]
@@ -819,24 +837,26 @@ Function Edit-LdapObject
             if(($IncludedProps.Count -gt 0) -and ($IncludedProps -notcontains $prop.Name)) {continue}
             [System.DirectoryServices.Protocols.DirectoryAttribute]$propMod=new-object System.DirectoryServices.Protocols.DirectoryAttributeModification
             $propMod.Name=$prop.Name
+
             if($Object.($prop.Name)) {
                 #we're modifying property
+                $attrVal = $Object.($prop.Name)
 
                 #if transform defined -> transform to form accepted by directory
                 $transform = @($script:RegisteredTransforms.Where({$_.Action -eq 'Save' -and $_.Attribute -eq $prop.Name}))[0]
                 if($null -ne $transform)
                 {
-                    $Object.($prop.Name) = & $transform.Transform -Values $Object.($prop.Name)
+                    $attrVal = & $transform.Transform -Values $Object.($prop.Name)
                 }
 
-                if($Object.($prop.Name).Count -gt 0) {
+                if($attrVal.Count -gt 0) {
                     $propMod.Operation=$Mode
                     if($prop.Name -in $BinaryProps)  {
-                        foreach($val in $Object.($prop.Name)) {
+                        foreach($val in $attrVal) {
                             $propMod.Add([byte[]]$val) | Out-Null
                         }
                     } else {
-                        $propMod.AddRange([string[]]($Object.($prop.Name)))
+                        $propMod.AddRange([string[]]($attrVal))
                     }
                     $rqMod.Modifications.Add($propMod) | Out-Null
                 }
@@ -852,10 +872,16 @@ Function Edit-LdapObject
     }
 }
 
+
+Function Remove-LdapObject
+{
 <#
 .SYNOPSIS
     Removes existing object from LDAP server
-    
+
+.DESCRIPTION
+    Removes an object from LDAP server.
+    All proprties of object are ignored and no transforms are performed; only distinguishedName property is used to locate the object.
 
 .OUTPUTS
     Nothing
@@ -880,8 +906,6 @@ Removes existing subtree using TreeDeleteControl
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
 
 #>
-Function Remove-LdapObject
-{
     Param (
         [parameter(Mandatory = $true, ValueFromPipeline=$true)]
         [Object]
@@ -934,9 +958,16 @@ Function Remove-LdapObject
     }
 }
 
+Function Rename-LdapObject
+{
 <#
 .SYNOPSIS
     Changes RDN of existing object or moves the object to a different subtree (or both at the same time)
+
+.DESCRIPTION
+    Performs only rename of object.
+    All properties of object are ignored and no transforms are performed.
+    Only distinguishedName property is used to locate the object.
 
 .OUTPUTS
     Nothing
@@ -961,8 +992,7 @@ This command Moves the User1 object to different OU. Notice the newName paramete
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
 
 #>
-Function Rename-LdapObject
-{
+
     Param (
         [parameter(Mandatory = $true, ValueFromPipeline=$true)]
         [Object]
@@ -1027,9 +1057,16 @@ Function Rename-LdapObject
 # Internal holder of registered transforms
 $script:RegisteredTransforms = @()
 
+
+Function Register-LdapAttributeTransform
+{
 <#
 .SYNOPSIS
     Registers attribute transform logic
+
+.DESCRIPTION
+    Registered attribute transforms are used by various cmdlets to convert value to/from format used by LDAP server to/from more convenient format
+    Sample transforms can be found in GitHub repository
 
 .OUTPUTS
     Nothing
@@ -1047,12 +1084,9 @@ After command completes, returned object(s) will have instance of System.Directo
 
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
-More about attribute transforms and how to create them: https://github.com/jformacek/S.DS.P 
-
+More about attribute transforms and how to create them: https://github.com/jformacek/S.DS.P/tree/master/Transforms
 #>
 
-Function Register-LdapAttributeTransform
-{
     [CmdletBinding()]
     param (
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
@@ -1075,6 +1109,9 @@ Function Register-LdapAttributeTransform
     }
 }
 
+
+Function Unregister-LdapAttributeTransform
+{
 <#
 .SYNOPSIS
 
@@ -1082,7 +1119,7 @@ Function Register-LdapAttributeTransform
 
 .DESCRIPTION
 
-    Registers attribute transform. Attribute transforms transform attributes from simple types provided by LDAP server to more complex types. Transforms work on attribute level and do not have acces to values of other attributes.
+    Unregisters attribute transform. Attribute transforms transform attributes from simple types provided by LDAP server to more complex types. Transforms work on attribute level and do not have acces to values of other attributes.
     Transforms must be constructed using specific logic, see existing transforms and template on GitHub
 
 .EXAMPLE
@@ -1098,7 +1135,7 @@ Unregister-LdapAttributeTransform -TransformDefinition $Transform
 Find-LdapObject -LdapConnection $Ldap -SearchBase "cn=User1,cn=Users,dc=mydomain,dc=com" -SearchScope Base -PropertiesToLoad 'cn','ntSecurityDescriptor' -BinaryProperties 'ntSecurityDescriptor'
 #now ntSecurityDescriptor property of returned object contains raw byte array
 
-Decription
+Description
 ----------
 This example registers transform that converts raw byte array in ntSecurityDescriptor property into instance of System.DirectoryServices.ActiveDirectorySecurity
 After command completes, returned object(s) will have instance of System.DirectoryServices.ActiveDirectorySecurity in ntSecurityDescriptor property
@@ -1107,12 +1144,10 @@ Then transform is unregistered, so subsequent calls do not use it
 .LINK
 
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
-More about attribute transforms and how to create them: https://github.com/jformacek/S.DS.P 
+More about attribute transforms and how to create them: https://github.com/jformacek/S.DS.P/tree/master/Transforms
 
 #>
 
-Function Unregister-LdapAttributeTransform
-{
     param (
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
         $TransformDefinition
@@ -1125,6 +1160,8 @@ Function Unregister-LdapAttributeTransform
     $script:RegisteredTransforms=$script:RegisteredTransforms.Where{$_.Action -ne $TransformDefinition.Action -and $_.Attribute -ne $TransformDefinition.Attribute}
 }
 
+Function Get-LdapAttributeTransform
+{
 <#
 .SYNOPSIS
     Lists registered attribute transform logic
@@ -1137,10 +1174,9 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
 More about attribute transforms and how to create them: https://github.com/jformacek/S.DS.P 
 
 #>
-Function Get-LdapAttributeTransform
-{
     $script:RegisteredTransforms
 }
+
 
 #Helpers
 Add-Type @'
