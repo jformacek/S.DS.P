@@ -6,15 +6,24 @@ param (
     $Action,
     [Parameter(Mandatory=$false)]
     [string]
-    $AttributeName = 'ENTER-ATTRIBUTE-NAME'
+    $AttributeName = 'groupType'
 )
 
-# Add any types that are used by transforms
-# CSharp types added via Add-Type are supported
+# From [MS-SAMR]/2.2.1.11
+# https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/1f8d7ea1-fcc1-4833-839a-f94d67c08fcd
 
-#define variables necessary to create a transform
+Add-Type @'
+using System;
+[Flags]
+public enum GroupType
+{
+    Global = 0x00000002,
+    Local = 0x00000004,
+    Universal = 0x00000008,
+    Security = unchecked((int)0x80000000)
+}
+'@
 
-# This is mandatory definition of transform that is expected by transform architecture
 $prop=[Ordered]@{[string]'Action'=$Action;'Attribute'=$AttributeName;[string]'Transform' = $null}
 $codeBlock = new-object PSCustomObject -property $prop
 
@@ -24,14 +33,13 @@ switch($Action)
     {
         $codeBlock.Transform = { 
             param(
-            [object[]]$Values
+            [int[]]$Values
             )
             Process
             {
                 foreach($Value in $Values)
                 {
-                    #implement a transform
-                    #input values will always come as an array of objects - cast as needed
+                    [GroupType].GetEnumValues().ForEach({if(($Value -band $_) -eq $_) {"$_"}})
                 }
             }
         }
@@ -42,14 +50,14 @@ switch($Action)
     {
         $codeBlock.Transform = { 
             param(
-            [Object[]]$Values
+            [System.String[]]$Values
             )
             
             Process
             {
-                #implement a transform used when saving attribute value
-                #input value type here depends on what comes from Load-time transform - update parameter type as needed
-
+                $retVal = 0
+                $Values | ForEach-Object{ $val =$_; [GroupType].GetEnumValues() | ForEach-Object{ if($val -eq "$_") {$retVal+=$_}}}
+                $retVal
             }
         }
         $codeBlock

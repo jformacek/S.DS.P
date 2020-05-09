@@ -26,10 +26,13 @@ switch($Action)
             param(
             [object[]]$Values
             )
-            foreach($Value in $Values)
+            Process
             {
-                #we intentionally do not do any transform here as password is not readable fro AD
-                $value
+                foreach($Value in $Values)
+                {
+                    #we intentionally do not do any transform here as password is not readable fro AD
+                    $value
+                }
             }
         }
         $codeBlock
@@ -42,11 +45,13 @@ switch($Action)
             [string[]]$Values
             )
             
-            foreach($Value in $Values)
+            Process
             {
-                ,([System.Text.Encoding]::Unicode.GetBytes("`"$Value`"") -as [byte[]])
+                foreach($Value in $Values)
+                {
+                    ,([System.Text.Encoding]::Unicode.GetBytes("`"$Value`"") -as [byte[]])
+                }
             }
-
         }
         $codeBlock
         break;

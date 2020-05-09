@@ -25,9 +25,12 @@ switch($Action)
             param(
             [object[]]$Values
             )
-            foreach($Value in $Values)
+            Process
             {
-                New-Object System.Guid(,$Value)
+                foreach($Value in $Values)
+                {
+                    New-Object System.Guid(,$Value)
+                }
             }
         }
         $codeBlock
@@ -39,10 +42,12 @@ switch($Action)
             param(
             [Guid[]]$Values
             )
-            
-            foreach($value in $values)
+            Process
             {
-                $value.ToByteArray()
+                foreach($value in $values)
+                {
+                    $value.ToByteArray()
+                }
             }
         }
         $codeBlock

@@ -34,9 +34,12 @@ switch($Action)
             param(
             [int[]]$Values
             )
-            foreach($Value in $Values)
+            Process
             {
-                [EncryptionTypes].GetEnumValues().ForEach({if(($Value -band $_) -eq $_) {"$_"}})
+                foreach($Value in $Values)
+                {
+                    [EncryptionTypes].GetEnumValues().ForEach({if(($Value -band $_) -eq $_) {"$_"}})
+                }
             }
         }
         $codeBlock
@@ -49,10 +52,12 @@ switch($Action)
             [System.String[]]$Values
             )
             
-            
-            $retVal = 0
-            $Values | ForEach-Object{ $val =$_; [EncryptionTypes].GetEnumValues() | ForEach-Object{ if($val -eq "$_") {$retVal+=$_}}}
-            $retVal
+            Process
+            {
+                $retVal = 0
+                $Values | ForEach-Object{ $val =$_; [EncryptionTypes].GetEnumValues() | ForEach-Object{ if($val -eq "$_") {$retVal+=$_}}}
+                $retVal
+            }
         }
         $codeBlock
         break;

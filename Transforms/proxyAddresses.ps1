@@ -72,9 +72,12 @@ switch($Action)
             param(
             [object[]]$Values
             )
-            foreach($Value in $Values)
+            Process
             {
-                new-object ProxyAddress($Value)
+                foreach($Value in $Values)
+                {
+                    new-object ProxyAddress($Value)
+                }
             }
         }
         $codeBlock
@@ -86,10 +89,12 @@ switch($Action)
             param(
             [ProxyAddress[]]$Values
             )
-            
-            foreach($Value in $Values)
+            Process
             {
-                $Value.ToString()
+                foreach($Value in $Values)
+                {
+                    $Value.ToString()
+                }
             }
         }
         $codeBlock

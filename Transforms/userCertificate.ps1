@@ -6,7 +6,7 @@ param (
     $Action,
     [Parameter(Mandatory=$false)]
     [string]
-    $AttributeName = 'ENTER-ATTRIBUTE-NAME'
+    $AttributeName = 'userCertificate'
 )
 
 # Add any types that are used by transforms
@@ -24,14 +24,13 @@ switch($Action)
     {
         $codeBlock.Transform = { 
             param(
-            [object[]]$Values
+            [byte[][]]$Values
             )
             Process
             {
                 foreach($Value in $Values)
                 {
-                    #implement a transform
-                    #input values will always come as an array of objects - cast as needed
+                    new-object System.Security.Cryptography.X509Certificates.X509Certificate2(,$Value)
                 }
             }
         }
@@ -42,13 +41,15 @@ switch($Action)
     {
         $codeBlock.Transform = { 
             param(
-            [Object[]]$Values
+            [System.Security.Cryptography.X509Certificates.X509Certificate2[]]$Values
             )
             
             Process
             {
-                #implement a transform used when saving attribute value
-                #input value type here depends on what comes from Load-time transform - update parameter type as needed
+                foreach($Value in $Values)
+                {
+                    $Value.RawData
+                }
 
             }
         }

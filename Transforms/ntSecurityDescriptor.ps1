@@ -20,11 +20,14 @@ switch($Action)
             param(
             [byte[][]]$Values
             )
-            foreach($value in $Values)
+            Process
             {
-                $dacl = new-object System.DirectoryServices.ActiveDirectorySecurity
-                $dacl.SetSecurityDescriptorBinaryForm($value)
-                $dacl
+                foreach($value in $Values)
+                {
+                    $dacl = new-object System.DirectoryServices.ActiveDirectorySecurity
+                    $dacl.SetSecurityDescriptorBinaryForm($value)
+                    $dacl
+                }
             }
         }
         $codeBlock
@@ -36,7 +39,10 @@ switch($Action)
             param(
             [System.DirectoryServices.ActiveDirectorySecurity]$Values
             )
-            $Values.GetSecurityDescriptorBinaryForm()
+            Process
+            {
+                $Values.GetSecurityDescriptorBinaryForm()
+            }
         }
         $codeBlock
         break;

@@ -6,7 +6,7 @@ param (
     $Action,
     [Parameter(Mandatory=$false)]
     [string]
-    $AttributeName = 'ENTER-ATTRIBUTE-NAME'
+    $AttributeName = 'ms-Mcs-AdmPwdExpirationTime'
 )
 
 # Add any types that are used by transforms
@@ -30,8 +30,7 @@ switch($Action)
             {
                 foreach($Value in $Values)
                 {
-                    #implement a transform
-                    #input values will always come as an array of objects - cast as needed
+                    [DateTime]::FromFileTimeUtc([long]::Parse($Value))
                 }
             }
         }
@@ -42,13 +41,15 @@ switch($Action)
     {
         $codeBlock.Transform = { 
             param(
-            [Object[]]$Values
+            [DateTime[]]$Values
             )
             
             Process
             {
-                #implement a transform used when saving attribute value
-                #input value type here depends on what comes from Load-time transform - update parameter type as needed
+                foreach($Value in $Values)
+                {
+                    $Value.ToFileTimeUtc()
+                }
 
             }
         }

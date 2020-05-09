@@ -25,9 +25,12 @@ switch($Action)
             param(
             [Object[]]$Values
             )
-            foreach($Value in $Values)
+            Process
             {
-                New-Object System.Security.Principal.SecurityIdentifier($Value,0)
+                foreach($Value in $Values)
+                {
+                    New-Object System.Security.Principal.SecurityIdentifier($Value,0)
+                }
             }
         }
         $codeBlock
@@ -39,12 +42,14 @@ switch($Action)
             param(
             [system.security.principal.securityidentifier[]]$Values
             )
-            
-            foreach($sid in $Values)
+            Process
             {
-                $retVal=new-object system.byte[]($sid.BinaryLength)
-                $sid.GetBinaryForm($retVal,0)
-                $retVal
+                foreach($sid in $Values)
+                {
+                    $retVal=new-object system.byte[]($sid.BinaryLength)
+                    $sid.GetBinaryForm($retVal,0)
+                    $retVal
+                }
             }
         }
         $codeBlock
