@@ -424,7 +424,6 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             'supportedLdapPolicies'=$null; 'supportedSASLMechanisms'=$null; 'supportedControl'=$null;`
             'currentTime'=$null; 'approximateHighestInternalObjectID'=$null `
             }
-
     }
     Process {
 
@@ -472,7 +471,13 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             }
         }
         if($null -ne $rsp.Entries[0].Attributes['currentTime']) {            
-            $data.currentTime = ( ($rsp.Entries[0].Attributes['currentTime'].GetValues([string])) | Sort-Object )
+            $val = ($rsp.Entries[0].Attributes['currentTime'].GetValues([string]))[0]
+            try {
+                $data.currentTime = [DateTime]::ParseExact($val,'yyyyMMddhhmmss.fZ',[CultureInfo]::InvariantCulture,[System.Globalization.DateTimeStyles]::None)
+            }
+            catch {
+                $data.currentTime=$val
+            }
         }
         if($null -ne $rsp.Entries[0].Attributes['dnsHostName']) {            
             $data.dnsHostName = ($rsp.Entries[0].Attributes['dnsHostName'].GetValues([string]))[0]
@@ -480,11 +485,25 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         if($null -ne $rsp.Entries[0].Attributes['ldapServiceName']) {            
             $data.ldapServiceName = ($rsp.Entries[0].Attributes['ldapServiceName'].GetValues([string]))[0]
         }
-        if($null -ne $rsp.Entries[0].Attributes['dsServiceName']) {            
-            $data.dsServiceName = ($rsp.Entries[0].Attributes['dsServiceName'].GetValues([string]))[0]
+        if($null -ne $rsp.Entries[0].Attributes['dsServiceName']) {
+            $val = ($rsp.Entries[0].Attributes['dsServiceName'].GetValues([string]))[0]
+            if($val.Contains(';'))
+            {
+                $data.dsServiceName = $val.Split(';')
+            }
+            else {
+                $data.dsServiceName=$val
+            }
         }
-            if($null -ne $rsp.Entries[0].Attributes['serverName']) {            
-            $data.serverName = ($rsp.Entries[0].Attributes['serverName'].GetValues([string]))[0]
+        if($null -ne $rsp.Entries[0].Attributes['serverName']) {        
+            $val = ($rsp.Entries[0].Attributes['serverName'].GetValues([string]))[0]
+            if($val.Contains(';'))
+            {
+                $data.serverName = $val.Split(';')
+            }
+            else {
+                $data.serverName=$val
+            }
         }
         if($null -ne $rsp.Entries[0].Attributes['supportedControl']) {            
             $data.supportedControl = ( ($rsp.Entries[0].Attributes['supportedControl'].GetValues([string])) | Sort-Object )
