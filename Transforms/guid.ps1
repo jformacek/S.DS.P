@@ -2,7 +2,7 @@
 # CSharp types added via Add-Type are supported
 
 'Load','Save' | ForEach-Object {
-    $TransformName = 'ENTER-NAME'
+    $TransformName = 'guid'
     #add attributes that can be used with this transform
     $SupportedAttributes = @()
     $Action = $_
@@ -21,14 +21,13 @@
             #transform that executes when loading attribute from LDAP server
             $codeBlock.Transform = { 
                 param(
-                [object[]]$Values
+                [byte[][]]$Values
                 )
                 Process
                 {
                     foreach($Value in $Values)
                     {
-                        #implement a transform
-                        #input values will always come as an array of objects - cast as needed
+                        New-Object System.Guid(,$Value)
                     }
                 }
             }
@@ -40,15 +39,14 @@
             #transform that executes when loading attribute from LDAP server
             $codeBlock.Transform = { 
                 param(
-                [object[]]$Values
+                [Guid[]]$Values
                 )
                 
                 Process
                 {
-                    foreach($Value in $Values)
+                    foreach($value in $values)
                     {
-                        #implement a transform used when saving attribute value
-                        #input value type here depends on what comes from Load-time transform - update parameter type as needed
+                        $value.ToByteArray()
                     }
                 }
             }

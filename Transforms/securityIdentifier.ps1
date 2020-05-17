@@ -2,9 +2,9 @@
 # CSharp types added via Add-Type are supported
 
 'Load','Save' | ForEach-Object {
-    $TransformName = 'ENTER-NAME'
+    $TransformName = 'securityIdentifier'
     #add attributes that can be used with this transform
-    $SupportedAttributes = @()
+    $SupportedAttributes = @('objectSid')
     $Action = $_
     # This is mandatory definition of transform that is expected by transform architecture
     $prop=[Ordered]@{
@@ -21,14 +21,13 @@
             #transform that executes when loading attribute from LDAP server
             $codeBlock.Transform = { 
                 param(
-                [object[]]$Values
+                [byte[][]]$Values
                 )
                 Process
                 {
                     foreach($Value in $Values)
                     {
-                        #implement a transform
-                        #input values will always come as an array of objects - cast as needed
+                        New-Object System.Security.Principal.SecurityIdentifier($Value,0)
                     }
                 }
             }
@@ -40,15 +39,16 @@
             #transform that executes when loading attribute from LDAP server
             $codeBlock.Transform = { 
                 param(
-                [object[]]$Values
+                [system.security.principal.securityidentifier[]]$Values
                 )
                 
                 Process
                 {
-                    foreach($Value in $Values)
+                    foreach($sid in $Values)
                     {
-                        #implement a transform used when saving attribute value
-                        #input value type here depends on what comes from Load-time transform - update parameter type as needed
+                        $retVal=new-object system.byte[]($sid.BinaryLength)
+                        $sid.GetBinaryForm($retVal,0)
+                        $retVal
                     }
                 }
             }

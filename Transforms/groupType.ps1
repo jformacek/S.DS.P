@@ -1,17 +1,5 @@
-[CmdletBinding()]
-param (
-    [Parameter(Mandatory=$true)]
-    [string]
-    [ValidateSet('Load','Save')]
-    $Action,
-    [Parameter(Mandatory=$false)]
-    [string]
-    $AttributeName = 'groupType'
-)
-
 # From [MS-SAMR]/2.2.1.11
 # https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/1f8d7ea1-fcc1-4833-839a-f94d67c08fcd
-
 Add-Type @'
 using System;
 [Flags]
@@ -24,43 +12,53 @@ public enum GroupType
 }
 '@
 
-$prop=[Ordered]@{[string]'Action'=$Action;'Attribute'=$AttributeName;[string]'Transform' = $null}
-$codeBlock = new-object PSCustomObject -property $prop
+'Load','Save' | ForEach-Object {
+    $TransformName = 'groupType'
+    $SupportedAttributes = @('groupType')
+    $Action = $_
 
-switch($Action)
-{
-    "Load"
+    $prop=[Ordered]@{
+        Name=$TransformName
+        Action=$Action
+        SupportedAttributes=$SupportedAttributes
+        Transform = $null
+    }
+    $codeBlock = new-object PSCustomObject -property $prop
+    switch($Action)
     {
-        $codeBlock.Transform = { 
-            param(
-            [int[]]$Values
-            )
-            Process
-            {
-                foreach($Value in $Values)
+        "Load"
+        {
+            $codeBlock.Transform = { 
+                param(
+                [int[]]$Values
+                )
+                Process
                 {
-                    [GroupType].GetEnumValues().ForEach({if(($Value -band $_) -eq $_) {"$_"}})
+                    foreach($Value in $Values)
+                    {
+                        [GroupType].GetEnumValues().ForEach({if(($Value -band $_) -eq $_) {"$_"}})
+                    }
                 }
             }
+            $codeBlock
+            break;
         }
-        $codeBlock
-        break;
-    }
-    "Save"
-    {
-        $codeBlock.Transform = { 
-            param(
-            [System.String[]]$Values
-            )
-            
-            Process
-            {
-                $retVal = 0
-                $Values | ForEach-Object{ $val =$_; [GroupType].GetEnumValues() | ForEach-Object{ if($val -eq "$_") {$retVal+=$_}}}
-                $retVal
+        "Save"
+        {
+            $codeBlock.Transform = { 
+                param(
+                [System.String[]]$Values
+                )
+                
+                Process
+                {
+                    $retVal = 0
+                    $Values | ForEach-Object{ $val =$_; [GroupType].GetEnumValues() | ForEach-Object{ if($val -eq "$_") {$retVal+=$_}}}
+                    $retVal
+                }
             }
+            $codeBlock
+            break;
         }
-        $codeBlock
-        break;
     }
 }

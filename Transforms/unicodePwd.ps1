@@ -1,59 +1,38 @@
-[CmdletBinding()]
-param (
-    [Parameter(Mandatory=$true)]
-    [string]
-    [ValidateSet('Load','Save')]
-    $Action,
-    [Parameter(Mandatory=$false)]
-    [string]
-    $AttributeName = 'unicodePwd'
-)
-
 # Add any types that are used by transforms
 # CSharp types added via Add-Type are supported
 
-#define variables necessary to create a transform
-
-# This is mandatory definition of transform that is expected by transform architecture
-$prop=[Ordered]@{[string]'Action'=$Action;'Attribute'=$AttributeName;[string]'Transform' = $null}
-$codeBlock = new-object PSCustomObject -property $prop
-
-switch($Action)
-{
-    "Load"
-    {
-        $codeBlock.Transform = { 
-            param(
-            [object[]]$Values
-            )
-            Process
-            {
-                foreach($Value in $Values)
-                {
-                    #we intentionally do not do any transform here as password is not readable fro AD
-                    $value
-                }
-            }
-        }
-        $codeBlock
-        break;
+'Save' | ForEach-Object {
+    $TransformName = 'unicodePwd'
+    #add attributes that can be used with this transform
+    $SupportedAttributes = @('unicodePwd')
+    $Action = $_
+    # This is mandatory definition of transform that is expected by transform architecture
+    $prop=[Ordered]@{
+        Name=$TransformName
+        Action=$Action
+        SupportedAttributes=$SupportedAttributes
+        Transform = $null
     }
-    "Save"
+    $codeBlock = new-object PSCustomObject -property $prop
+    switch($Action)
     {
-        $codeBlock.Transform = { 
-            param(
-            [string[]]$Values
-            )
-            
-            Process
-            {
-                foreach($Value in $Values)
+        "Save"
+        {
+            #transform that executes when loading attribute from LDAP server
+            $codeBlock.Transform = { 
+                param(
+                [string[]]$Values
+                )
+                
+                Process
                 {
-                    ,([System.Text.Encoding]::Unicode.GetBytes("`"$Value`"") -as [byte[]])
+                    foreach($Value in $Values)
+                    {
+                        ,([System.Text.Encoding]::Unicode.GetBytes("`"$Value`"") -as [byte[]])                    }
                 }
             }
+            $codeBlock
+            break;
         }
-        $codeBlock
-        break;
     }
 }

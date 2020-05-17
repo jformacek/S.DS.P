@@ -1,17 +1,5 @@
-[CmdletBinding()]
-param (
-    [Parameter(Mandatory=$true)]
-    [string]
-    [ValidateSet('Load','Save')]
-    $Action,
-    [Parameter(Mandatory=$false)]
-    [string]
-    $AttributeName = 'userAccountControl'
-)
-
 # From [MS-SAMR]/2.2.1.13
 # https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/10bf6c8e-34af-4cf9-8dff-6b6330922863
-
 Add-Type @'
 using System;
 [Flags]
@@ -44,43 +32,59 @@ public enum UserAccountControl
 }
 '@
 
-$prop=[Ordered]@{[string]'Action'=$Action;'Attribute'=$AttributeName;[string]'Transform' = $null}
-$codeBlock = new-object PSCustomObject -property $prop
-
-switch($Action)
-{
-    "Load"
+'Load','Save' | ForEach-Object {
+    $TransformName = 'userAccountControl'
+    #add attributes that can be used with this transform
+    $SupportedAttributes = @('userAccountControl')
+    $Action = $_
+    # This is mandatory definition of transform that is expected by transform architecture
+    $prop=[Ordered]@{
+        Name=$TransformName
+        Action=$Action
+        SupportedAttributes=$SupportedAttributes
+        Transform = $null
+    }
+    $codeBlock = new-object PSCustomObject -property $prop
+    switch($Action)
     {
-        $codeBlock.Transform = { 
-            param(
-            [int[]]$Values
-            )
-            Process
-            {
-                foreach($Value in $Values)
+        "Load"
+        {
+            #transform that executes when loading attribute from LDAP server
+            $codeBlock.Transform = { 
+                param(
+                [object[]]$Values
+                )
+                Process
                 {
-                    [UserAccountControl].GetEnumValues().ForEach({if(($Value -band $_) -eq $_) {"$_"}})
+                    foreach($Value in $Values)
+                    {
+                        [UserAccountControl].GetEnumValues().ForEach({if(($Value -band $_) -eq $_) {"$_"}})
+                    }
                 }
             }
+            $codeBlock
+            break;
         }
-        $codeBlock
-        break;
-    }
-    "Save"
-    {
-        $codeBlock.Transform = { 
-            param(
-            [System.String[]]$Values
-            )
-            
-            Process
-            {
-                $retVal = 0
-                $Values | ForEach-Object{ $val =$_; [UserAccountControl].GetEnumValues() | ForEach-Object{ if($val -eq "$_") {$retVal+=$_}}}
-                $retVal
+        "Save"
+        {
+            #transform that executes when loading attribute from LDAP server
+            $codeBlock.Transform = { 
+                param(
+                [int[]]$Values
+                )
+                
+                Process
+                {
+                    foreach($Value in $Values)
+                    {
+                        $retVal = 0
+                        $Values | ForEach-Object{ $val =$_; [UserAccountControl].GetEnumValues() | ForEach-Object{ if($val -eq "$_") {$retVal+=$_}}}
+                        $retVal
+                    }
+                }
             }
+            $codeBlock
+            break;
         }
-        $codeBlock
-        break;
     }
 }

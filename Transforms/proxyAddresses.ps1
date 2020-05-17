@@ -1,15 +1,3 @@
-[CmdletBinding()]
-param (
-    [Parameter(Mandatory=$true)]
-    [string]
-    [ValidateSet('Load','Save')]
-    $Action,
-    [Parameter(Mandatory=$false)]
-    [string]
-    $AttributeName = 'proxyAddresses'
-
-)
-
 Add-Type @'
 using System;
 public class ProxyAddress
@@ -60,44 +48,57 @@ public class ProxyAddress
 }
 '@
 
-# This is mandatory definition of transform that is expected by transform architecture
-$prop=[Ordered]@{[string]'Action'=$Action;'Attribute'=$AttributeName;[string]'Transform' = $null}
-$codeBlock = new-object PSCustomObject -property $prop
-
-switch($Action)
-{
-    "Load"
-    {
-        $codeBlock.Transform = { 
-            param(
-            [object[]]$Values
-            )
-            Process
-            {
-                foreach($Value in $Values)
-                {
-                    new-object ProxyAddress($Value)
-                }
-            }
-        }
-        $codeBlock
-        break;
+'Load','Save' | ForEach-Object {
+    $TransformName = 'proxyAddress'
+    #add attributes that can be used with this transform
+    $SupportedAttributes = @('proxyAddresses')
+    $Action = $_
+    # This is mandatory definition of transform that is expected by transform architecture
+    $prop=[Ordered]@{
+        Name=$TransformName
+        Action=$Action
+        SupportedAttributes=$SupportedAttributes
+        Transform = $null
     }
-    "Save"
+    $codeBlock = new-object PSCustomObject -property $prop
+    switch($Action)
     {
-        $codeBlock.Transform = { 
-            param(
-            [ProxyAddress[]]$Values
-            )
-            Process
-            {
-                foreach($Value in $Values)
+        "Load"
+        {
+            #transform that executes when loading attribute from LDAP server
+            $codeBlock.Transform = { 
+                param(
+                [string[]]$Values
+                )
+                Process
                 {
-                    $Value.ToString()
+                    foreach($Value in $Values)
+                    {
+                        new-object ProxyAddress($Value)
+                    }
                 }
             }
+            $codeBlock
+            break;
         }
-        $codeBlock
-        break;
+        "Save"
+        {
+            #transform that executes when loading attribute from LDAP server
+            $codeBlock.Transform = { 
+                param(
+                [ProxyAddress[]]$Values
+                )
+                
+                Process
+                {
+                    foreach($Value in $Values)
+                    {
+                        $Value.ToString()
+                    }
+                }
+            }
+            $codeBlock
+            break;
+        }
     }
 }

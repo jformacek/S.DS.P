@@ -1,10 +1,20 @@
-# Add any types that are used by transforms
-# CSharp types added via Add-Type are supported
+Add-Type @'
+using System;
+[Flags]
+public enum EncryptionTypes
+{
+    DES_CBC_CRC = 0x1,
+    DES_CBC_MD5 = 0x2,
+    RC4_HMAC_MD5 = 0x4,
+    AES128_CTS_HMAC_SHA1_96 = 0x8,
+    AES256_CTS_HMAC_SHA1_96 = 0x10
+}
+'@
 
 'Load','Save' | ForEach-Object {
-    $TransformName = 'ENTER-NAME'
+    $TransformName = 'supportedEncryptionTypes'
     #add attributes that can be used with this transform
-    $SupportedAttributes = @()
+    $SupportedAttributes = @('msDS-SupportedEncryptionTypes')
     $Action = $_
     # This is mandatory definition of transform that is expected by transform architecture
     $prop=[Ordered]@{
@@ -27,8 +37,7 @@
                 {
                     foreach($Value in $Values)
                     {
-                        #implement a transform
-                        #input values will always come as an array of objects - cast as needed
+                        [EncryptionTypes].GetEnumValues().ForEach({if(($Value -band $_) -eq $_) {"$_"}})
                     }
                 }
             }
@@ -47,8 +56,9 @@
                 {
                     foreach($Value in $Values)
                     {
-                        #implement a transform used when saving attribute value
-                        #input value type here depends on what comes from Load-time transform - update parameter type as needed
+                        $retVal = 0
+                        $Values | ForEach-Object{ $val = $_; [EncryptionTypes].GetEnumValues() | ForEach-Object{ if($val -eq "$_") {$retVal+=$_}}}
+                        $retVal
                     }
                 }
             }

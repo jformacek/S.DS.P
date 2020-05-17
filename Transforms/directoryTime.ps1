@@ -2,9 +2,9 @@
 # CSharp types added via Add-Type are supported
 
 'Load','Save' | ForEach-Object {
-    $TransformName = 'ENTER-NAME'
+    $TransformName = 'directoryTime'
     #add attributes that can be used with this transform
-    $SupportedAttributes = @()
+    $SupportedAttributes = @('createTimestamp','dsCorePropagationData','modifyTimestamp','whenCreated','whenChanged')
     $Action = $_
     # This is mandatory definition of transform that is expected by transform architecture
     $prop=[Ordered]@{
@@ -21,16 +21,14 @@
             #transform that executes when loading attribute from LDAP server
             $codeBlock.Transform = { 
                 param(
-                [object[]]$Values
+                [string[]]$Values
                 )
                 Process
                 {
                     foreach($Value in $Values)
                     {
-                        #implement a transform
-                        #input values will always come as an array of objects - cast as needed
+                        [DateTime]::ParseExact($val,'yyyyMMddHHmmss.fZ',[CultureInfo]::InvariantCulture,[System.Globalization.DateTimeStyles]::None)                    }
                     }
-                }
             }
             $codeBlock
             break;
@@ -40,15 +38,14 @@
             #transform that executes when loading attribute from LDAP server
             $codeBlock.Transform = { 
                 param(
-                [object[]]$Values
+                [datetime[]]$Values
                 )
                 
                 Process
                 {
                     foreach($Value in $Values)
                     {
-                        #implement a transform used when saving attribute value
-                        #input value type here depends on what comes from Load-time transform - update parameter type as needed
+                        $Value.ToString('yyyyMMddHHmmss.0Z')
                     }
                 }
             }

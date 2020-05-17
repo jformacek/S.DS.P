@@ -303,10 +303,11 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                                 } else {
                                     $data.$attrName += $sr.Attributes[$attrName].GetValues(([string]))
                                 }
-                                $transform = @($script:RegisteredTransforms.Where({$_.Action -eq 'Load' -and $_.Attribute -eq $attrName}))[0]
-                                if($null -ne $transform)
+                                #perform transform if registered
+                                if($script:RegisteredTransforms.Keys -contains $attrName)
                                 {
-                                    $data.$attrName = & $transform.Transform -Values $data.$attrName
+                                    $transform = $script:RegisteredTransforms[$attrName].Where({$_.Action -eq 'Load'})[0]
+                                    if($null -ne $transform) {$data.$attrName = & $transform.Transform -Values $data.$attrName}
                                 }
                             }
                         }
@@ -345,10 +346,11 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                                 }
                             }
                         }
-                        $transform = @($script:RegisteredTransforms.Where({$_.Action -eq 'Load' -and $_.Attribute -eq $attrName}))[0]
-                        if($null -ne $transform)
+                        #perform transform if registered
+                        if($script:RegisteredTransforms.Keys -contains $attrName)
                         {
-                            $data.$attrName = & $transform.Transform -Values $data.$attrName
+                            $transform = $script:RegisteredTransforms[$attrName].Where({$_.Action -eq 'Load'})[0]
+                            if($null -ne $transform) {$data.$attrName = & $transform.Transform -Values $data.$attrName}
                         }
                     }
                 }
@@ -473,7 +475,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         if($null -ne $rsp.Entries[0].Attributes['currentTime']) {            
             $val = ($rsp.Entries[0].Attributes['currentTime'].GetValues([string]))[0]
             try {
-                $data.currentTime = [DateTime]::ParseExact($val,'yyyyMMddhhmmss.fZ',[CultureInfo]::InvariantCulture,[System.Globalization.DateTimeStyles]::None)
+                $data.currentTime = [DateTime]::ParseExact($val,'yyyyMMddHHmmss.fZ',[CultureInfo]::InvariantCulture,[System.Globalization.DateTimeStyles]::None)
             }
             catch {
                 $data.currentTime=$val
@@ -529,7 +531,7 @@ Function Get-LdapConnection
 <#
 .SYNOPSIS
     Connects to LDAP server and returns LdapConnection object
-    
+ 
 .DESCRIPTION
     Creates connection to LDAP server according to parameters passed.
 .OUTPUTS
@@ -544,7 +546,8 @@ Returns LdapConnection for caller's domain controller, with active Kerberos Encr
 
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
-#>    Param
+#>
+    Param
     (
         [parameter(Mandatory = $false)]
         [String[]] 
@@ -721,10 +724,10 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             $attrVal = $Object.($prop.Name)
 
             #if transform defined -> transform to form accepted by directory
-            $transform = @($script:RegisteredTransforms.Where({$_.Action -eq 'Save' -and $_.Attribute -eq $prop.Name}))[0]
-            if($null -ne $transform)
+            if($script:RegisteredTransforms.Keys -contains $prop.Name)
             {
-                $attrVal = & $transform.Transform -Values $Object.($prop.Name)
+                $transform = $script:RegisteredTransforms[$prop.Name].Where({$_.Action -eq 'Save'})[0]
+                if($null -ne $transform) {$attrVal = & $transform.Transform -Values $attrVal}
             }
             if($prop.Name -in $BinaryProps) {
                 foreach($val in $attrVal) {
@@ -862,12 +865,12 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                 $attrVal = $Object.($prop.Name)
 
                 #if transform defined -> transform to form accepted by directory
-                $transform = @($script:RegisteredTransforms.Where({$_.Action -eq 'Save' -and $_.Attribute -eq $prop.Name}))[0]
-                if($null -ne $transform)
+                if($script:RegisteredTransforms.Keys -contains $prop.Name)
                 {
-                    $attrVal = & $transform.Transform -Values $Object.($prop.Name)
+                    $transform = $script:RegisteredTransforms[$prop.Name].Where({$_.Action -eq 'Save'})[0]
+                    if($null -ne $transform) {$attrVal = & $transform.Transform -Values $attrVal}
                 }
-
+    
                 if($attrVal.Count -gt 0) {
                     $propMod.Operation=$Mode
                     if($prop.Name -in $BinaryProps)  {
@@ -1074,7 +1077,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
 #Transform registration handling support
 
 # Internal holder of registered transforms
-$script:RegisteredTransforms = @()
+$script:RegisteredTransforms = @{}
 
 
 Function Register-LdapAttributeTransform
@@ -1109,22 +1112,31 @@ More about attribute transforms and how to create them: https://github.com/jform
     [CmdletBinding()]
     param (
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
-        $TransformDefinition
+        $TransformDefinition,
+        [Parameter(Mandatory)]
+        [string]
+        $AttributeName
     )
-
     
-    if($null -eq $TransformDefinition.Action -or $null -eq $TransformDefinition.Attribute -or $TransformDefinition.Transform -isnot [System.Management.Automation.ScriptBlock] -or $TransformDefinition.Transform.Ast.ParamBlock.Parameters[0].Name.VariablePath.UserPath -ne 'Values')
+    if($null -eq $TransformDefinition.Action -or $null -eq $TransformDefinition.SupportedAttributes -or $TransformDefinition.Transform -isnot [System.Management.Automation.ScriptBlock] -or $TransformDefinition.Transform.Ast.ParamBlock.Parameters[0].Name.VariablePath.UserPath -ne 'Values')
     {
         throw new-object System.ArgumentException('Transform is not valid')
     }
-    $transforms=$script:RegisteredTransforms.Where{$_.Action -eq $TransformDefinition.Action -and $_.Attribute -eq $TransformDefinition.Attribute}
-    if($transforms.Count -eq 0)
+    if($null -ne $script:RegisteredTransforms[$AttributeName])
     {
-        $script:RegisteredTransforms+=$TransformDefinition
+        $transforms=$script:RegisteredTransforms[$AttributeName].Where{$_.Action -eq $TransformDefinition.Action}
+        if($transforms.Count -eq 0)
+        {
+            $script:RegisteredTransforms[$AttributeName]+=$TransformDefinition
+        }
+        else
+        {
+            $transforms[0].Transform=$TransformDefinition.Transform
+        }
     }
     else
     {
-        $transforms[0].Transform=$TransformDefinition.Transform
+        $script:RegisteredTransforms[$AttributeName]=@($transformDefinition)
     }
 }
 
@@ -1169,14 +1181,21 @@ More about attribute transforms and how to create them: https://github.com/jform
 
     param (
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
-        $TransformDefinition
+        $TransformDefinition,
+        [Parameter(Mandatory=$true)]
+        [string]
+        $AttributeName
     )
 
-    if($null -eq $TransformDefinition.Action -or $null -eq $TransformDefinition.Attribute -or $TransformDefinition.Transform -isnot [System.Management.Automation.ScriptBlock] -or $TransformDefinition.Transform.Ast.ParamBlock.Parameters[0].Name.VariablePath.UserPath -ne 'Values')
+    if($null -eq $TransformDefinition.Action -or $TransformDefinition.Transform -isnot [System.Management.Automation.ScriptBlock] -or $TransformDefinition.Transform.Ast.ParamBlock.Parameters[0].Name.VariablePath.UserPath -ne 'Values')
     {
         throw new-object System.ArgumentException('Transform is not valid')
     }
-    $script:RegisteredTransforms=$script:RegisteredTransforms.Where{$_.Action -ne $TransformDefinition.Action -and $_.Attribute -ne $TransformDefinition.Attribute}
+    if($null -ne $script:RegisteredTransforms[$AttributeName])
+    {
+        $script:RegisteredTransforms[$AttributeName] = $script:RegisteredTransforms[$AttributeName].Where{$_.Action -ne $TransformDefinition.Action}
+
+    }
 }
 
 Function Get-LdapAttributeTransform
@@ -1186,7 +1205,7 @@ Function Get-LdapAttributeTransform
     Lists registered attribute transform logic
 
 .OUTPUTS
-    LIst of registered transforms
+    List of registered transforms
 
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
