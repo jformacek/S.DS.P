@@ -1095,10 +1095,10 @@ $Ldap = Get-LdapConnection -LdapServer "mydc.mydomain.com" -EncryptionType Kerbe
 #get list of available transforms
 Get-LdapAttributeTransform -ListAvailable
 #register necessary transforms
-Register-LdapAttributeTransform -TransformName Guid -AttributeName objectGuid
-Register-LdapAttributeTransform -TransformName SecurityDescriptor -AttributeName ntSecurityDescriptor
-Register-LdapAttributeTransform -TransformName Certificate -AttributeName userCert
-Register-LdapAttributeTransform -TransformName Certificate -AttributeName userCertificate
+Register-LdapAttributeTransform -Name Guid -AttributeName objectGuid
+Register-LdapAttributeTransform -Name SecurityDescriptor -AttributeName ntSecurityDescriptor
+Register-LdapAttributeTransform -Name Certificate -AttributeName userCert
+Register-LdapAttributeTransform -Name Certificate -AttributeName userCertificate
 Find-LdapObject -LdapConnection $Ldap -SearchBase "cn=User1,cn=Users,dc=mydomain,dc=com" -SearchScope Base -PropertiesToLoad 'cn','ntSecurityDescriptor','userCert,'userCertificate' -BinaryProperties 'ntSecurityDescriptor','userCert,'userCertificate'
 
 Decription
@@ -1174,7 +1174,7 @@ $Ldap = Get-LdapConnection -LdapServer "mydc.mydomain.com" -EncryptionType Kerbe
 #get list of available transforms
 Get-LdapAttributeTransform -ListAvailable
 #register necessary transforms
-Register-LdapAttributeTransform -TransformName Guid -AttributeName objectGuid
+Register-LdapAttributeTransform -Name Guid -AttributeName objectGuid
 
 #we no longer need the transform, let's unregister
 Unregister-LdapAttributeTransform -AttributeName objectGuid
@@ -1195,15 +1195,18 @@ More about attribute transforms and how to create them: https://github.com/jform
 #>
 
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
         [string]
             #Name of the attribute to unregister transform from
         $AttributeName
     )
 
-    if($null -ne $script:RegisteredTransforms[$AttributeName])
+    Process
     {
-        $script:RegisteredTransforms[$AttributeName] = $null
+        if($script:RegisteredTransforms.Keys -contains $AttributeName)
+        {
+            $script:RegisteredTransforms.Remove($AttributeName)
+        }
     }
 }
 
@@ -1239,12 +1242,11 @@ More about attribute transforms and how to create them: https://github.com/jform
         }
     }
     else {
-        foreach($attrName in $script:RegisteredTransforms.Keys)
+        foreach($attrName in ($script:RegisteredTransforms.Keys | Sort-object))
         {
             New-Object PSCustomObject -Property ([Ordered]@{
-                Name = $script:RegisteredTransforms[$attrName].Name
                 AttributeName = $attrName
-                SupportedAttributes = $script:RegisteredTransforms[$attrName].SupportedAttributes
+                Name = $script:RegisteredTransforms[$attrName].Name
             })
         }
     }
