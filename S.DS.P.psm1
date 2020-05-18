@@ -1095,9 +1095,14 @@ Function Register-LdapAttributeTransform
 
 .EXAMPLE
 $Ldap = Get-LdapConnection -LdapServer "mydc.mydomain.com" -EncryptionType Kerberos
-$Transform = .\Transforms\ntSecurityDescriptor.ps1 -Action Load
-Register-LdapAttributeTransform -TransformDefinition $Transform
-Find-LdapObject -LdapConnection $Ldap -SearchBase "cn=User1,cn=Users,dc=mydomain,dc=com" -SearchScope Base -PropertiesToLoad 'cn','ntSecurityDescriptor' -BinaryProperties 'ntSecurityDescriptor'
+#get list of available transforms
+Get-LdapAttributeTransform -ListAvailable
+#register necessary transforms
+Register-LdapAttributeTransform -TransformName Guid -AttributeName objectGuid
+Register-LdapAttributeTransform -TransformName SecurityDescriptor -AttributeName ntSecurityDescriptor
+Register-LdapAttributeTransform -TransformName Certificate -AttributeName userCert
+Register-LdapAttributeTransform -TransformName Certificate -AttributeName userCertificate
+Find-LdapObject -LdapConnection $Ldap -SearchBase "cn=User1,cn=Users,dc=mydomain,dc=com" -SearchScope Base -PropertiesToLoad 'cn','ntSecurityDescriptor','userCert,'userCertificate' -BinaryProperties 'ntSecurityDescriptor','userCert,'userCertificate'
 
 Decription
 ----------
@@ -1113,9 +1118,11 @@ More about attribute transforms and how to create them: https://github.com/jform
     param (
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
         [string]
+            #Name of the transform
         $TransformName,
         [Parameter(Mandatory)]
         [string]
+            #Name of the attribute that will be processed by transform
         $AttributeName
     )
     $TransformDefinitions = . $PSScriptRoot\Transforms\$transformName.ps1
@@ -1164,15 +1171,15 @@ Function Unregister-LdapAttributeTransform
 .EXAMPLE
 
 $Ldap = Get-LdapConnection -LdapServer "mydc.mydomain.com" -EncryptionType Kerberos
-$Transform = .\Transforms\ntSecurityDescriptor.ps1 -Action Load
-Register-LdapAttributeTransform -TransformDefinition $Transform
-Find-LdapObject -LdapConnection $Ldap -SearchBase "cn=User1,cn=Users,dc=mydomain,dc=com" -SearchScope Base -PropertiesToLoad 'cn','ntSecurityDescriptor' -BinaryProperties 'ntSecurityDescriptor'
-#now ntSecurityDescriptor property of returned object contains instance of System.DirectoryServices.ActiveDirectorySecurity
+#get list of available transforms
+Get-LdapAttributeTransform -ListAvailable
+#register necessary transforms
+Register-LdapAttributeTransform -TransformName Guid -AttributeName objectGuid
 
 #we no longer need the transform, let's unregister
-Unregister-LdapAttributeTransform -TransformDefinition $Transform
-Find-LdapObject -LdapConnection $Ldap -SearchBase "cn=User1,cn=Users,dc=mydomain,dc=com" -SearchScope Base -PropertiesToLoad 'cn','ntSecurityDescriptor' -BinaryProperties 'ntSecurityDescriptor'
-#now ntSecurityDescriptor property of returned object contains raw byte array
+Unregister-LdapAttributeTransform -AttributeName objectGuid
+Find-LdapObject -LdapConnection $Ldap -SearchBase "cn=User1,cn=Users,dc=mydomain,dc=com" -SearchScope Base -PropertiesToLoad 'cn',objectGuid -BinaryProperties 'objectGuid'
+#now objectGuid property of returned object contains raw byte array
 
 Description
 ----------
@@ -1190,6 +1197,7 @@ More about attribute transforms and how to create them: https://github.com/jform
     param (
         [Parameter(Mandatory=$true)]
         [string]
+            #Name of the attribute to unregister transform from
         $AttributeName
     )
 
@@ -1218,6 +1226,7 @@ More about attribute transforms and how to create them: https://github.com/jform
     param (
         [Parameter()]
         [Switch]
+            #Lists all tranforms available
         $ListAvailable
     )
     if($ListAvailable)
