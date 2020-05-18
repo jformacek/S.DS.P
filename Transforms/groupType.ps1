@@ -1,3 +1,11 @@
+[CmdletBinding()]
+param (
+    [Parameter()]
+    [Switch]
+    $FullLoad
+)
+if($FullLoad)
+{
 # From [MS-SAMR]/2.2.1.11
 # https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/1f8d7ea1-fcc1-4833-839a-f94d67c08fcd
 Add-Type @'
@@ -11,54 +19,33 @@ public enum GroupType
     Security = unchecked((int)0x80000000)
 }
 '@
+}
 
-'Load','Save' | ForEach-Object {
-    $TransformName = 'GroupType'
-    $SupportedAttributes = @('groupType')
-    $Action = $_
-
-    $prop=[Ordered]@{
-        Name=$TransformName
-        Action=$Action
-        SupportedAttributes=$SupportedAttributes
-        Transform = $null
-    }
-    $codeBlock = new-object PSCustomObject -property $prop
-    switch($Action)
+$prop=[Ordered]@{
+    SupportedAttributes=@('groupType')
+    OnLoad = $null
+    OnSave = $null
+}
+$codeBlock = new-object PSCustomObject -property $prop
+$codeBlock.OnLoad = { 
+    param(
+    [int[]]$Values
+    )
+    Process
     {
-        "Load"
-        {
-            $codeBlock.Transform = { 
-                param(
-                [int[]]$Values
-                )
-                Process
-                {
-                    foreach($Value in $Values)
-                    {
-                        [GroupType].GetEnumValues().ForEach({if(($Value -band $_) -eq $_) {"$_"}})
-                    }
-                }
-            }
-            $codeBlock
-            break;
-        }
-        "Save"
-        {
-            $codeBlock.Transform = { 
-                param(
-                [System.String[]]$Values
-                )
-                
-                Process
-                {
-                    $retVal = 0
-                    $Values | ForEach-Object{ $val =$_; [GroupType].GetEnumValues() | ForEach-Object{ if($val -eq "$_") {$retVal+=$_}}}
-                    $retVal
-                }
-            }
-            $codeBlock
-            break;
-        }
+        [GroupType].GetEnumValues().ForEach({if(($Value -band $_) -eq $_) {"$_"}})
     }
 }
+$codeBlock.OnSave = { 
+    param(
+    [System.String[]]$Values
+    )
+    
+    Process
+    {
+        $retVal = 0
+        $Values.ForEach({ [GroupType]$val=$_; $retVal+=$val})
+        $retVal
+    }
+}
+$codeBlock

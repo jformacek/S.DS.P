@@ -304,10 +304,9 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                                     $data.$attrName += $sr.Attributes[$attrName].GetValues(([string]))
                                 }
                                 #perform transform if registered
-                                if($script:RegisteredTransforms.Keys -contains $attrName)
+                                if($null -ne $script:RegisteredTransforms[$attrName] -and $null -ne $script:RegisteredTransforms[$attrName].OnLoad)
                                 {
-                                    $transform = $script:RegisteredTransforms[$attrName].Where({$_.Action -eq 'Load'})[0]
-                                    if($null -ne $transform) {$data.$attrName = & $transform.Transform -Values $data.$attrName}
+                                    $data.$attrName = (& $script:RegisteredTransforms[$attrName].OnLoad -Values $data.$attrName)
                                 }
                             }
                         }
@@ -347,10 +346,9 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                             }
                         }
                         #perform transform if registered
-                        if($script:RegisteredTransforms.Keys -contains $attrName)
+                        if($null -ne $script:RegisteredTransforms[$attrName] -and $null -ne $script:RegisteredTransforms[$attrName].OnLoad)
                         {
-                            $transform = $script:RegisteredTransforms[$attrName].Where({$_.Action -eq 'Load'})[0]
-                            if($null -ne $transform) {$data.$attrName = & $transform.Transform -Values $data.$attrName}
+                            $data.$attrName = (& $script:RegisteredTransforms[$attrName].OnLoad -Values $data.$attrName)
                         }
                     }
                 }
@@ -724,11 +722,11 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             $attrVal = $Object.($prop.Name)
 
             #if transform defined -> transform to form accepted by directory
-            if($script:RegisteredTransforms.Keys -contains $prop.Name)
+            if($null -ne $script:RegisteredTransforms[$prop.Name] -and $null -ne $script:RegisteredTransforms[$prop.Name].OnSave)
             {
-                $transform = $script:RegisteredTransforms[$prop.Name].Where({$_.Action -eq 'Save'})[0]
-                if($null -ne $transform) {$attrVal = & $transform.Transform -Values $attrVal}
+                $attrVal = (& $script:RegisteredTransforms[$prop.Name].OnSave -Values $attrVal)
             }
+
             if($prop.Name -in $BinaryProps) {
                 foreach($val in $attrVal) {
                     $propAdd.Add([byte[]]$val) | Out-Null
@@ -865,10 +863,9 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                 $attrVal = $Object.($prop.Name)
 
                 #if transform defined -> transform to form accepted by directory
-                if($script:RegisteredTransforms.Keys -contains $prop.Name)
+                if($null -ne $script:RegisteredTransforms[$prop.Name] -and $null -ne $script:RegisteredTransforms[$prop.Name].OnSave)
                 {
-                    $transform = $script:RegisteredTransforms[$prop.Name].Where({$_.Action -eq 'Save'})[0]
-                    if($null -ne $transform) {$attrVal = & $transform.Transform -Values $attrVal}
+                    $attrVal = (& $script:RegisteredTransforms[$prop.Name].OnSave -Values $attrVal)
                 }
     
                 if($attrVal.Count -gt 0) {
@@ -1116,42 +1113,22 @@ More about attribute transforms and how to create them: https://github.com/jform
 
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
+        [Parameter(Mandatory=$true)]
         [string]
             #Name of the transform
         $TransformName,
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory, ValueFromPipeline=$true)]
         [string]
             #Name of the attribute that will be processed by transform
         $AttributeName
     )
-    $TransformDefinitions = . $PSScriptRoot\Transforms\$transformName.ps1
-    foreach($transformDefinition in $TransformDefinitions)
-    {
-        if($null -eq $TransformDefinition.Action -or $null -eq $TransformDefinition.SupportedAttributes -or $TransformDefinition.Transform -isnot [System.Management.Automation.ScriptBlock] -or $TransformDefinition.Transform.Ast.ParamBlock.Parameters[0].Name.VariablePath.UserPath -ne 'Values')
-        {
-            throw new-object System.ArgumentException('Transform is not valid')
-        }
-        if($AttributeName -notin $transformDefinition.SupportedAttributes)
-        {
-            throw new-object System.ArgumentException('Transform is not supported on this attribute')
-        }
-        if($null -ne $script:RegisteredTransforms[$AttributeName])
-        {
-            $transforms=$script:RegisteredTransforms[$AttributeName].Where{$_.Action -eq $TransformDefinition.Action}
-            if($transforms.Count -eq 0)
-            {
-                $script:RegisteredTransforms[$AttributeName]+=$TransformDefinition
-            }
-            else
-            {
-                $transforms[0].Transform=$TransformDefinition.Transform
-            }
-        }
-        else
-        {
-            $script:RegisteredTransforms[$AttributeName]=@($transformDefinition)
-        }
+    $transform = (. $PSScriptRoot\Transforms\$transformName.ps1 -FullLoad)
+    if($AttributeName -in $transform.SupportedAttributes) {
+        $transform = $transform | Add-Member -MemberType NoteProperty -Name 'Name' -Value $TransformName -PassThru
+        $script:RegisteredTransforms[$AttributeName]= $transform
+    }
+    else {
+        throw new-object System.ArgumentException "Attribute $AttributeName is not supported by this transform"
     }
 }
 
@@ -1204,7 +1181,6 @@ More about attribute transforms and how to create them: https://github.com/jform
     if($null -ne $script:RegisteredTransforms[$AttributeName])
     {
         $script:RegisteredTransforms[$AttributeName] = $null
-
     }
 }
 
@@ -1232,26 +1208,21 @@ More about attribute transforms and how to create them: https://github.com/jform
     if($ListAvailable)
     {
         $TransformList = Get-ChildItem -Path $PSScriptRoot\Transforms\*.ps1 -ErrorAction SilentlyContinue
-        foreach($transform in $TransformList)
+        foreach($transformFile in $TransformList)
         {
-            if($transform.Name -eq [System.IO.Path]::GetFileNameWithoutExtension($transform.FullName))
-            {
-                & $transform.FullName
-            }
+            $transform = (& $transformFile.FullName)
+            $transform = $transform | Add-Member -MemberType NoteProperty -Name 'Name' -Value ([System.IO.Path]::GetFileNameWithoutExtension($transformFile.FullName)) -PassThru
+            $transform | Select-Object Name,SupportedAttributes
         }
     }
     else {
-        $propDef = [ordered]@{Attribute=$null;Action=$null;TransformName=$null}
         foreach($attrName in $script:RegisteredTransforms.Keys)
         {
-            foreach($transform in $script:RegisteredTransforms[$attrName])
-            {
-                $data = new-object PSCustomObject -Property $propDef
-                $data.attribute = $attrName
-                $data.Action = $transform.action
-                $data.TransformName = $transform.Name
-                $data
-            }
+            New-Object PSCustomObject -Property ([Ordered]@{
+                Name = $script:RegisteredTransforms[$attrName].Name
+                AttributeName = $attrName
+                SupportedAttributes = $script:RegisteredTransforms[$attrName].SupportedAttributes
+            })
         }
     }
 }

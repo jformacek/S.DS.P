@@ -1,3 +1,12 @@
+[CmdletBinding()]
+param (
+    [Parameter()]
+    [Switch]
+    $FullLoad
+)
+
+if($FullLoad)
+{
 Add-Type @'
 using System;
 public class ProxyAddress
@@ -47,58 +56,37 @@ public class ProxyAddress
     }
 }
 '@
+}
 
-'Load','Save' | ForEach-Object {
-    $TransformName = 'ProxyAddress'
-    #add attributes that can be used with this transform
-    $SupportedAttributes = @('proxyAddresses')
-    $Action = $_
-    # This is mandatory definition of transform that is expected by transform architecture
-    $prop=[Ordered]@{
-        Name=$TransformName
-        Action=$Action
-        SupportedAttributes=$SupportedAttributes
-        Transform = $null
-    }
-    $codeBlock = new-object PSCustomObject -property $prop
-    switch($Action)
+$prop=[Ordered]@{
+    SupportedAttributes=@('proxyAddresses','targetAddress')
+    OnLoad = $null
+    OnSave = $null
+}
+$codeBlock = new-object PSCustomObject -property $prop
+$codeBlock.OnLoad = { 
+    param(
+    [object[]]$Values
+    )
+    Process
     {
-        "Load"
+        foreach($Value in $Values)
         {
-            #transform that executes when loading attribute from LDAP server
-            $codeBlock.Transform = { 
-                param(
-                [string[]]$Values
-                )
-                Process
-                {
-                    foreach($Value in $Values)
-                    {
-                        new-object ProxyAddress($Value)
-                    }
-                }
-            }
-            $codeBlock
-            break;
-        }
-        "Save"
-        {
-            #transform that executes when loading attribute from LDAP server
-            $codeBlock.Transform = { 
-                param(
-                [ProxyAddress[]]$Values
-                )
-                
-                Process
-                {
-                    foreach($Value in $Values)
-                    {
-                        $Value.ToString()
-                    }
-                }
-            }
-            $codeBlock
-            break;
+            new-object ProxyAddress($Value)
         }
     }
 }
+$codeBlock.OnSave = { 
+    param(
+    [ProxyAddress[]]$Values
+    )
+    
+    Process
+    {
+        foreach($Value in $Values)
+        {
+            $Value.ToString()
+        }
+    }
+}
+$codeBlock

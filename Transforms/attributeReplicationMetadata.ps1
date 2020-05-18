@@ -1,55 +1,44 @@
 
-'Load','Save' | ForEach-Object {
-    $TransformName = 'AttributeReplicationMetadata'
-    #add attributes that can be used with this transform
-    $SupportedAttributes = @('msDS-ReplAttributeMetaData')
-    $Action = $_
-    # This is mandatory definition of transform that is expected by transform architecture
-    $prop=[Ordered]@{
-        Name=$TransformName
-        Action=$Action
-        SupportedAttributes=$SupportedAttributes
-        Transform = $null
-    }
-    $codeBlock = new-object PSCustomObject -property $prop
-    switch($Action)
+[CmdletBinding()]
+param (
+    [Parameter()]
+    [Switch]
+    $FullLoad
+)
+
+$prop=[Ordered]@{
+    SupportedAttributes=@('msDS-ReplAttributeMetaData')
+    OnLoad = $null
+    OnSave = $null
+}
+
+$codeBlock = new-object PSCustomObject -property $prop
+
+$codeBlock.OnLoad = { 
+    param(
+    [object[]]$Values
+    )
+    Process
     {
-        "Load"
+        foreach($Value in $Values)
         {
-            #transform that executes when loading attribute from LDAP server
-            $codeBlock.Transform = { 
-                param(
-                [object[]]$Values
-                )
-                Process
-                {
-                    foreach($Value in $Values)
-                    {
-                        [xml]$Value
-                    }
-                }
-            }
-            $codeBlock
-            break;
-        }
-        "Save"
-        {
-            #transform that executes when loading attribute from LDAP server
-            $codeBlock.Transform = { 
-                param(
-                [object[]]$Values
-                )
-                
-                Process
-                {
-                    foreach($Value in $Values)
-                    {
-                        $Value.InnerXml
-                    }
-                }
-            }
-            $codeBlock
-            break;
+            [xml]$Value
         }
     }
 }
+$codeBlock.OnSave = { 
+    param(
+    [object[]]$Values
+    )
+    
+    Process
+    {
+        foreach($Value in $Values)
+        {
+            $Value.InnerXml
+        }
+    }
+}
+
+$codeBlock
+

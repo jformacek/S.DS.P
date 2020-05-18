@@ -1,3 +1,12 @@
+[CmdletBinding()]
+param (
+    [Parameter()]
+    [Switch]
+    $FullLoad
+)
+
+if($FullLoad)
+{
 Add-Type @'
 using System;
 [Flags]
@@ -10,60 +19,36 @@ public enum EncryptionTypes
     AES256_CTS_HMAC_SHA1_96 = 0x10
 }
 '@
+}
 
-'Load','Save' | ForEach-Object {
-    $TransformName = 'SupportedEncryptionTypes'
-    #add attributes that can be used with this transform
-    $SupportedAttributes = @('msDS-SupportedEncryptionTypes')
-    $Action = $_
-    # This is mandatory definition of transform that is expected by transform architecture
-    $prop=[Ordered]@{
-        Name=$TransformName
-        Action=$Action
-        SupportedAttributes=$SupportedAttributes
-        Transform = $null
-    }
-    $codeBlock = new-object PSCustomObject -property $prop
-    switch($Action)
+$prop=[Ordered]@{
+    SupportedAttributes=@('msDS-SupportedEncryptionTypes')
+    OnLoad = $null
+    OnSave = $null
+}
+$codeBlock = new-object PSCustomObject -property $prop
+$codeBlock.OnLoad = { 
+    param(
+    [object[]]$Values
+    )
+    Process
     {
-        "Load"
+        foreach($Value in $Values)
         {
-            #transform that executes when loading attribute from LDAP server
-            $codeBlock.Transform = { 
-                param(
-                [object[]]$Values
-                )
-                Process
-                {
-                    foreach($Value in $Values)
-                    {
-                        [EncryptionTypes].GetEnumValues().ForEach({if(($Value -band $_) -eq $_) {"$_"}})
-                    }
-                }
-            }
-            $codeBlock
-            break;
-        }
-        "Save"
-        {
-            #transform that executes when loading attribute from LDAP server
-            $codeBlock.Transform = { 
-                param(
-                [object[]]$Values
-                )
-                
-                Process
-                {
-                    foreach($Value in $Values)
-                    {
-                        $retVal = 0
-                        $Values | ForEach-Object{ $val = $_; [EncryptionTypes].GetEnumValues() | ForEach-Object{ if($val -eq "$_") {$retVal+=$_}}}
-                        $retVal
-                    }
-                }
-            }
-            $codeBlock
-            break;
+            [EncryptionTypes].GetEnumValues().ForEach({if(($Value -band $_) -eq $_) {"$_"}})
         }
     }
 }
+$codeBlock.OnSave = { 
+    param(
+    [object[]]$Values
+    )
+    
+    Process
+    {
+        $retVal = 0
+        $Values.ForEach({ [EncryptionTypes]$val=$_; $retVal+=$val})
+        $retVal
+    }
+}
+$codeBlock
