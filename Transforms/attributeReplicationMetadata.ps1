@@ -22,7 +22,7 @@ $codeBlock.OnLoad = {
     {
         foreach($Value in $Values)
         {
-            [xml]$Value
+            [xml]$Value.SubString(0,$Value.Length-2)
         }
     }
 }

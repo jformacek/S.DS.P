@@ -1113,22 +1113,45 @@ More about attribute transforms and how to create them: https://github.com/jform
 
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory,ParameterSetName='Names')]
         [string]
             #Name of the transform
-        $TransformName,
-        [Parameter(Mandatory, ValueFromPipeline=$true)]
+        $Name,
+        [Parameter(Mandatory,ValueFromPipeline,ParameterSetName='Names')]
         [string]
             #Name of the attribute that will be processed by transform
-        $AttributeName
+        $AttributeName,
+        [Parameter(Mandatory,ValueFromPipeline,ParameterSetName='TransformObject')]
+        [PSCustomObject]
+        $Transform
     )
-    $transform = (. $PSScriptRoot\Transforms\$transformName.ps1 -FullLoad)
-    if($AttributeName -in $transform.SupportedAttributes) {
-        $transform = $transform | Add-Member -MemberType NoteProperty -Name 'Name' -Value $TransformName -PassThru
-        $script:RegisteredTransforms[$AttributeName]= $transform
-    }
-    else {
-        throw new-object System.ArgumentException "Attribute $AttributeName is not supported by this transform"
+
+    Process
+    {
+        switch($PSCmdlet.ParameterSetName)
+        {
+            'Names' {
+                $transform = (. "$PSScriptRoot\Transforms\$Name.ps1" -FullLoad)
+                if($AttributeName -in $transform.SupportedAttributes) {
+                    $transform = $transform | Add-Member -MemberType NoteProperty -Name 'Name' -Value $Name -PassThru
+                    $script:RegisteredTransforms[$AttributeName]= $transform
+                }
+                else {
+                    throw new-object System.ArgumentException "Attribute $AttributeName is not supported by this transform"
+                }
+                break;
+            }
+            'TransformObject' {
+                $attribs = (& "$PSScriptRoot\Transforms\$($transform.Name).ps1").SupportedAttributes
+                foreach($attr in $attribs)
+                {
+                    $t = (. "$PSScriptRoot\Transforms\$($transform.Name).ps1" -FullLoad)
+                    $t = $t | Add-Member -MemberType NoteProperty -Name 'Name' -Value $Transform.Name -PassThru
+                    $script:RegisteredTransforms[$attr]= $t
+                }
+                break;
+            }
+        }
     }
 }
 
@@ -1207,7 +1230,7 @@ More about attribute transforms and how to create them: https://github.com/jform
     )
     if($ListAvailable)
     {
-        $TransformList = Get-ChildItem -Path $PSScriptRoot\Transforms\*.ps1 -ErrorAction SilentlyContinue
+        $TransformList = Get-ChildItem -Path "$PSScriptRoot\Transforms\*.ps1" -ErrorAction SilentlyContinue
         foreach($transformFile in $TransformList)
         {
             $transform = (& $transformFile.FullName)

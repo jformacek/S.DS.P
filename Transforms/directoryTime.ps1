@@ -23,7 +23,7 @@ $codeBlock.OnLoad = {
     {
         foreach($Value in $Values)
         {
-            [DateTime]::ParseExact($val,'yyyyMMddHHmmss.fZ',[CultureInfo]::InvariantCulture,[System.Globalization.DateTimeStyles]::None)                    }
+            [DateTime]::ParseExact($Value,'yyyyMMddHHmmss.fZ',[CultureInfo]::InvariantCulture,[System.Globalization.DateTimeStyles]::None)                    }
         }
 }
 $codeBlock.OnSave = { 
