@@ -1,17 +1,14 @@
 [CmdletBinding()]
 param (
-    [Parameter(Mandatory=$true)]
-    [string]
-    [ValidateSet('Load','Save')]
-    $Action,
-    [Parameter(Mandatory=$false)]
-    [string]
-    $AttributeName = 'userAccountControl'
+    [Parameter()]
+    [Switch]
+    $FullLoad
 )
 
+if($FullLoad)
+{
 # From [MS-SAMR]/2.2.1.13
 # https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/10bf6c8e-34af-4cf9-8dff-6b6330922863
-
 Add-Type @'
 using System;
 [Flags]
@@ -43,44 +40,38 @@ public enum UserAccountControl
     UF_USE_AES_KEYS = 0x8000000
 }
 '@
+}
 
-$prop=[Ordered]@{[string]'Action'=$Action;'Attribute'=$AttributeName;[string]'Transform' = $null}
+$prop=[Ordered]@{
+    SupportedAttributes=@('userAccountControl')
+    OnLoad = $null
+    OnSave = $null
+}
 $codeBlock = new-object PSCustomObject -property $prop
-
-switch($Action)
-{
-    "Load"
+$codeBlock.OnLoad = { 
+    param(
+    [object[]]$Values
+    )
+    Process
     {
-        $codeBlock.Transform = { 
-            param(
-            [int[]]$Values
-            )
-            Process
-            {
-                foreach($Value in $Values)
-                {
-                    [UserAccountControl].GetEnumValues().ForEach({if(($Value -band $_) -eq $_) {"$_"}})
-                }
-            }
+        foreach($Value in $Values)
+        {
+            [UserAccountControl].GetEnumValues().ForEach({if(($Value -band $_) -eq $_) {"$_"}})
         }
-        $codeBlock
-        break;
-    }
-    "Save"
-    {
-        $codeBlock.Transform = { 
-            param(
-            [System.String[]]$Values
-            )
-            
-            Process
-            {
-                $retVal = 0
-                $Values | ForEach-Object{ $val =$_; [UserAccountControl].GetEnumValues() | ForEach-Object{ if($val -eq "$_") {$retVal+=$_}}}
-                $retVal
-            }
-        }
-        $codeBlock
-        break;
     }
 }
+$codeBlock.OnSave = { 
+    param(
+    [object[]]$Values
+    )
+    
+    Process
+    {
+        $retVal = 0
+        $Values.ForEach({ [UserAccountControl]$val=$_; $retVal+=$val})
+        $retVal
+ 
+    }
+}
+$codeBlock
+

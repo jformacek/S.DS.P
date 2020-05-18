@@ -1,15 +1,12 @@
 [CmdletBinding()]
 param (
-    [Parameter(Mandatory=$true)]
-    [string]
-    [ValidateSet('Load','Save')]
-    $Action,
-    [Parameter(Mandatory=$false)]
-    [string]
-    $AttributeName = 'proxyAddresses'
-
+    [Parameter()]
+    [Switch]
+    $FullLoad
 )
 
+if($FullLoad)
+{
 Add-Type @'
 using System;
 public class ProxyAddress
@@ -59,45 +56,37 @@ public class ProxyAddress
     }
 }
 '@
+}
 
-# This is mandatory definition of transform that is expected by transform architecture
-$prop=[Ordered]@{[string]'Action'=$Action;'Attribute'=$AttributeName;[string]'Transform' = $null}
+$prop=[Ordered]@{
+    SupportedAttributes=@('proxyAddresses','targetAddress')
+    OnLoad = $null
+    OnSave = $null
+}
 $codeBlock = new-object PSCustomObject -property $prop
-
-switch($Action)
-{
-    "Load"
+$codeBlock.OnLoad = { 
+    param(
+    [object[]]$Values
+    )
+    Process
     {
-        $codeBlock.Transform = { 
-            param(
-            [object[]]$Values
-            )
-            Process
-            {
-                foreach($Value in $Values)
-                {
-                    new-object ProxyAddress($Value)
-                }
-            }
+        foreach($Value in $Values)
+        {
+            new-object ProxyAddress($Value)
         }
-        $codeBlock
-        break;
-    }
-    "Save"
-    {
-        $codeBlock.Transform = { 
-            param(
-            [ProxyAddress[]]$Values
-            )
-            Process
-            {
-                foreach($Value in $Values)
-                {
-                    $Value.ToString()
-                }
-            }
-        }
-        $codeBlock
-        break;
     }
 }
+$codeBlock.OnSave = { 
+    param(
+    [ProxyAddress[]]$Values
+    )
+    
+    Process
+    {
+        foreach($Value in $Values)
+        {
+            $Value.ToString()
+        }
+    }
+}
+$codeBlock

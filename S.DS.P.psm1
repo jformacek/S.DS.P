@@ -303,10 +303,10 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                                 } else {
                                     $data.$attrName += $sr.Attributes[$attrName].GetValues(([string]))
                                 }
-                                $transform = @($script:RegisteredTransforms.Where({$_.Action -eq 'Load' -and $_.Attribute -eq $attrName}))[0]
-                                if($null -ne $transform)
+                                #perform transform if registered
+                                if($null -ne $script:RegisteredTransforms[$attrName] -and $null -ne $script:RegisteredTransforms[$attrName].OnLoad)
                                 {
-                                    $data.$attrName = & $transform.Transform -Values $data.$attrName
+                                    $data.$attrName = (& $script:RegisteredTransforms[$attrName].OnLoad -Values $data.$attrName)
                                 }
                             }
                         }
@@ -345,10 +345,10 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                                 }
                             }
                         }
-                        $transform = @($script:RegisteredTransforms.Where({$_.Action -eq 'Load' -and $_.Attribute -eq $attrName}))[0]
-                        if($null -ne $transform)
+                        #perform transform if registered
+                        if($null -ne $script:RegisteredTransforms[$attrName] -and $null -ne $script:RegisteredTransforms[$attrName].OnLoad)
                         {
-                            $data.$attrName = & $transform.Transform -Values $data.$attrName
+                            $data.$attrName = (& $script:RegisteredTransforms[$attrName].OnLoad -Values $data.$attrName)
                         }
                     }
                 }
@@ -473,7 +473,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         if($null -ne $rsp.Entries[0].Attributes['currentTime']) {            
             $val = ($rsp.Entries[0].Attributes['currentTime'].GetValues([string]))[0]
             try {
-                $data.currentTime = [DateTime]::ParseExact($val,'yyyyMMddhhmmss.fZ',[CultureInfo]::InvariantCulture,[System.Globalization.DateTimeStyles]::None)
+                $data.currentTime = [DateTime]::ParseExact($val,'yyyyMMddHHmmss.fZ',[CultureInfo]::InvariantCulture,[System.Globalization.DateTimeStyles]::None)
             }
             catch {
                 $data.currentTime=$val
@@ -529,7 +529,7 @@ Function Get-LdapConnection
 <#
 .SYNOPSIS
     Connects to LDAP server and returns LdapConnection object
-    
+ 
 .DESCRIPTION
     Creates connection to LDAP server according to parameters passed.
 .OUTPUTS
@@ -544,7 +544,8 @@ Returns LdapConnection for caller's domain controller, with active Kerberos Encr
 
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
-#>    Param
+#>
+    Param
     (
         [parameter(Mandatory = $false)]
         [String[]] 
@@ -721,11 +722,11 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             $attrVal = $Object.($prop.Name)
 
             #if transform defined -> transform to form accepted by directory
-            $transform = @($script:RegisteredTransforms.Where({$_.Action -eq 'Save' -and $_.Attribute -eq $prop.Name}))[0]
-            if($null -ne $transform)
+            if($null -ne $script:RegisteredTransforms[$prop.Name] -and $null -ne $script:RegisteredTransforms[$prop.Name].OnSave)
             {
-                $attrVal = & $transform.Transform -Values $Object.($prop.Name)
+                $attrVal = (& $script:RegisteredTransforms[$prop.Name].OnSave -Values $attrVal)
             }
+
             if($prop.Name -in $BinaryProps) {
                 foreach($val in $attrVal) {
                     $propAdd.Add([byte[]]$val) | Out-Null
@@ -862,12 +863,11 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                 $attrVal = $Object.($prop.Name)
 
                 #if transform defined -> transform to form accepted by directory
-                $transform = @($script:RegisteredTransforms.Where({$_.Action -eq 'Save' -and $_.Attribute -eq $prop.Name}))[0]
-                if($null -ne $transform)
+                if($null -ne $script:RegisteredTransforms[$prop.Name] -and $null -ne $script:RegisteredTransforms[$prop.Name].OnSave)
                 {
-                    $attrVal = & $transform.Transform -Values $Object.($prop.Name)
+                    $attrVal = (& $script:RegisteredTransforms[$prop.Name].OnSave -Values $attrVal)
                 }
-
+    
                 if($attrVal.Count -gt 0) {
                     $propMod.Operation=$Mode
                     if($prop.Name -in $BinaryProps)  {
@@ -1074,7 +1074,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
 #Transform registration handling support
 
 # Internal holder of registered transforms
-$script:RegisteredTransforms = @()
+$script:RegisteredTransforms = @{}
 
 
 Function Register-LdapAttributeTransform
@@ -1092,9 +1092,14 @@ Function Register-LdapAttributeTransform
 
 .EXAMPLE
 $Ldap = Get-LdapConnection -LdapServer "mydc.mydomain.com" -EncryptionType Kerberos
-$Transform = .\Transforms\ntSecurityDescriptor.ps1 -Action Load
-Register-LdapAttributeTransform -TransformDefinition $Transform
-Find-LdapObject -LdapConnection $Ldap -SearchBase "cn=User1,cn=Users,dc=mydomain,dc=com" -SearchScope Base -PropertiesToLoad 'cn','ntSecurityDescriptor' -BinaryProperties 'ntSecurityDescriptor'
+#get list of available transforms
+Get-LdapAttributeTransform -ListAvailable
+#register necessary transforms
+Register-LdapAttributeTransform -Name Guid -AttributeName objectGuid
+Register-LdapAttributeTransform -Name SecurityDescriptor -AttributeName ntSecurityDescriptor
+Register-LdapAttributeTransform -Name Certificate -AttributeName userCert
+Register-LdapAttributeTransform -Name Certificate -AttributeName userCertificate
+Find-LdapObject -LdapConnection $Ldap -SearchBase "cn=User1,cn=Users,dc=mydomain,dc=com" -SearchScope Base -PropertiesToLoad 'cn','ntSecurityDescriptor','userCert,'userCertificate' -BinaryProperties 'ntSecurityDescriptor','userCert,'userCertificate'
 
 Decription
 ----------
@@ -1108,23 +1113,45 @@ More about attribute transforms and how to create them: https://github.com/jform
 
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
-        $TransformDefinition
+        [Parameter(Mandatory,ParameterSetName='Names')]
+        [string]
+            #Name of the transform
+        $Name,
+        [Parameter(Mandatory,ValueFromPipeline,ParameterSetName='Names')]
+        [string]
+            #Name of the attribute that will be processed by transform
+        $AttributeName,
+        [Parameter(Mandatory,ValueFromPipeline,ParameterSetName='TransformObject')]
+        [PSCustomObject]
+        $Transform
     )
 
-    
-    if($null -eq $TransformDefinition.Action -or $null -eq $TransformDefinition.Attribute -or $TransformDefinition.Transform -isnot [System.Management.Automation.ScriptBlock] -or $TransformDefinition.Transform.Ast.ParamBlock.Parameters[0].Name.VariablePath.UserPath -ne 'Values')
+    Process
     {
-        throw new-object System.ArgumentException('Transform is not valid')
-    }
-    $transforms=$script:RegisteredTransforms.Where{$_.Action -eq $TransformDefinition.Action -and $_.Attribute -eq $TransformDefinition.Attribute}
-    if($transforms.Count -eq 0)
-    {
-        $script:RegisteredTransforms+=$TransformDefinition
-    }
-    else
-    {
-        $transforms[0].Transform=$TransformDefinition.Transform
+        switch($PSCmdlet.ParameterSetName)
+        {
+            'Names' {
+                $transform = (. "$PSScriptRoot\Transforms\$Name.ps1" -FullLoad)
+                if($AttributeName -in $transform.SupportedAttributes) {
+                    $transform = $transform | Add-Member -MemberType NoteProperty -Name 'Name' -Value $Name -PassThru
+                    $script:RegisteredTransforms[$AttributeName]= $transform
+                }
+                else {
+                    throw new-object System.ArgumentException "Attribute $AttributeName is not supported by this transform"
+                }
+                break;
+            }
+            'TransformObject' {
+                $attribs = (& "$PSScriptRoot\Transforms\$($transform.Name).ps1").SupportedAttributes
+                foreach($attr in $attribs)
+                {
+                    $t = (. "$PSScriptRoot\Transforms\$($transform.Name).ps1" -FullLoad)
+                    $t = $t | Add-Member -MemberType NoteProperty -Name 'Name' -Value $Transform.Name -PassThru
+                    $script:RegisteredTransforms[$attr]= $t
+                }
+                break;
+            }
+        }
     }
 }
 
@@ -1144,15 +1171,15 @@ Function Unregister-LdapAttributeTransform
 .EXAMPLE
 
 $Ldap = Get-LdapConnection -LdapServer "mydc.mydomain.com" -EncryptionType Kerberos
-$Transform = .\Transforms\ntSecurityDescriptor.ps1 -Action Load
-Register-LdapAttributeTransform -TransformDefinition $Transform
-Find-LdapObject -LdapConnection $Ldap -SearchBase "cn=User1,cn=Users,dc=mydomain,dc=com" -SearchScope Base -PropertiesToLoad 'cn','ntSecurityDescriptor' -BinaryProperties 'ntSecurityDescriptor'
-#now ntSecurityDescriptor property of returned object contains instance of System.DirectoryServices.ActiveDirectorySecurity
+#get list of available transforms
+Get-LdapAttributeTransform -ListAvailable
+#register necessary transforms
+Register-LdapAttributeTransform -Name Guid -AttributeName objectGuid
 
 #we no longer need the transform, let's unregister
-Unregister-LdapAttributeTransform -TransformDefinition $Transform
-Find-LdapObject -LdapConnection $Ldap -SearchBase "cn=User1,cn=Users,dc=mydomain,dc=com" -SearchScope Base -PropertiesToLoad 'cn','ntSecurityDescriptor' -BinaryProperties 'ntSecurityDescriptor'
-#now ntSecurityDescriptor property of returned object contains raw byte array
+Unregister-LdapAttributeTransform -AttributeName objectGuid
+Find-LdapObject -LdapConnection $Ldap -SearchBase "cn=User1,cn=Users,dc=mydomain,dc=com" -SearchScope Base -PropertiesToLoad 'cn',objectGuid -BinaryProperties 'objectGuid'
+#now objectGuid property of returned object contains raw byte array
 
 Description
 ----------
@@ -1168,15 +1195,19 @@ More about attribute transforms and how to create them: https://github.com/jform
 #>
 
     param (
-        [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
-        $TransformDefinition
+        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+        [string]
+            #Name of the attribute to unregister transform from
+        $AttributeName
     )
 
-    if($null -eq $TransformDefinition.Action -or $null -eq $TransformDefinition.Attribute -or $TransformDefinition.Transform -isnot [System.Management.Automation.ScriptBlock] -or $TransformDefinition.Transform.Ast.ParamBlock.Parameters[0].Name.VariablePath.UserPath -ne 'Values')
+    Process
     {
-        throw new-object System.ArgumentException('Transform is not valid')
+        if($script:RegisteredTransforms.Keys -contains $AttributeName)
+        {
+            $script:RegisteredTransforms.Remove($AttributeName)
+        }
     }
-    $script:RegisteredTransforms=$script:RegisteredTransforms.Where{$_.Action -ne $TransformDefinition.Action -and $_.Attribute -ne $TransformDefinition.Attribute}
 }
 
 Function Get-LdapAttributeTransform
@@ -1186,14 +1217,39 @@ Function Get-LdapAttributeTransform
     Lists registered attribute transform logic
 
 .OUTPUTS
-    LIst of registered transforms
+    List of registered transforms
 
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
 More about attribute transforms and how to create them: https://github.com/jformacek/S.DS.P 
 
 #>
-    $script:RegisteredTransforms
+    [CmdletBinding()]
+    param (
+        [Parameter()]
+        [Switch]
+            #Lists all tranforms available
+        $ListAvailable
+    )
+    if($ListAvailable)
+    {
+        $TransformList = Get-ChildItem -Path "$PSScriptRoot\Transforms\*.ps1" -ErrorAction SilentlyContinue
+        foreach($transformFile in $TransformList)
+        {
+            $transform = (& $transformFile.FullName)
+            $transform = $transform | Add-Member -MemberType NoteProperty -Name 'Name' -Value ([System.IO.Path]::GetFileNameWithoutExtension($transformFile.FullName)) -PassThru
+            $transform | Select-Object Name,SupportedAttributes
+        }
+    }
+    else {
+        foreach($attrName in ($script:RegisteredTransforms.Keys | Sort-object))
+        {
+            New-Object PSCustomObject -Property ([Ordered]@{
+                AttributeName = $attrName
+                Name = $script:RegisteredTransforms[$attrName].Name
+            })
+        }
+    }
 }
 
 
