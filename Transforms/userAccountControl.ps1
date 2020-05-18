@@ -33,7 +33,7 @@ public enum UserAccountControl
 '@
 
 'Load','Save' | ForEach-Object {
-    $TransformName = 'userAccountControl'
+    $TransformName = 'UserAccountControl'
     #add attributes that can be used with this transform
     $SupportedAttributes = @('userAccountControl')
     $Action = $_

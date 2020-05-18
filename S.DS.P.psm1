@@ -1112,31 +1112,39 @@ More about attribute transforms and how to create them: https://github.com/jform
     [CmdletBinding()]
     param (
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
-        $TransformDefinition,
+        [string]
+        $TransformName,
         [Parameter(Mandatory)]
         [string]
         $AttributeName
     )
-    
-    if($null -eq $TransformDefinition.Action -or $null -eq $TransformDefinition.SupportedAttributes -or $TransformDefinition.Transform -isnot [System.Management.Automation.ScriptBlock] -or $TransformDefinition.Transform.Ast.ParamBlock.Parameters[0].Name.VariablePath.UserPath -ne 'Values')
+    $TransformDefinitions = . $PSScriptRoot\Transforms\$transformName.ps1
+    foreach($transformDefinition in $TransformDefinitions)
     {
-        throw new-object System.ArgumentException('Transform is not valid')
-    }
-    if($null -ne $script:RegisteredTransforms[$AttributeName])
-    {
-        $transforms=$script:RegisteredTransforms[$AttributeName].Where{$_.Action -eq $TransformDefinition.Action}
-        if($transforms.Count -eq 0)
+        if($null -eq $TransformDefinition.Action -or $null -eq $TransformDefinition.SupportedAttributes -or $TransformDefinition.Transform -isnot [System.Management.Automation.ScriptBlock] -or $TransformDefinition.Transform.Ast.ParamBlock.Parameters[0].Name.VariablePath.UserPath -ne 'Values')
         {
-            $script:RegisteredTransforms[$AttributeName]+=$TransformDefinition
+            throw new-object System.ArgumentException('Transform is not valid')
+        }
+        if($AttributeName -notin $transformDefinition.SupportedAttributes)
+        {
+            throw new-object System.ArgumentException('Transform is not supported on this attribute')
+        }
+        if($null -ne $script:RegisteredTransforms[$AttributeName])
+        {
+            $transforms=$script:RegisteredTransforms[$AttributeName].Where{$_.Action -eq $TransformDefinition.Action}
+            if($transforms.Count -eq 0)
+            {
+                $script:RegisteredTransforms[$AttributeName]+=$TransformDefinition
+            }
+            else
+            {
+                $transforms[0].Transform=$TransformDefinition.Transform
+            }
         }
         else
         {
-            $transforms[0].Transform=$TransformDefinition.Transform
+            $script:RegisteredTransforms[$AttributeName]=@($transformDefinition)
         }
-    }
-    else
-    {
-        $script:RegisteredTransforms[$AttributeName]=@($transformDefinition)
     }
 }
 
@@ -1180,20 +1188,14 @@ More about attribute transforms and how to create them: https://github.com/jform
 #>
 
     param (
-        [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
-        $TransformDefinition,
         [Parameter(Mandatory=$true)]
         [string]
         $AttributeName
     )
 
-    if($null -eq $TransformDefinition.Action -or $TransformDefinition.Transform -isnot [System.Management.Automation.ScriptBlock] -or $TransformDefinition.Transform.Ast.ParamBlock.Parameters[0].Name.VariablePath.UserPath -ne 'Values')
-    {
-        throw new-object System.ArgumentException('Transform is not valid')
-    }
     if($null -ne $script:RegisteredTransforms[$AttributeName])
     {
-        $script:RegisteredTransforms[$AttributeName] = $script:RegisteredTransforms[$AttributeName].Where{$_.Action -ne $TransformDefinition.Action}
+        $script:RegisteredTransforms[$AttributeName] = $null
 
     }
 }
@@ -1212,7 +1214,37 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
 More about attribute transforms and how to create them: https://github.com/jformacek/S.DS.P 
 
 #>
-    $script:RegisteredTransforms
+    [CmdletBinding()]
+    param (
+        [Parameter()]
+        [Switch]
+        $ListAvailable
+    )
+    if($ListAvailable)
+    {
+        $TransformList = Get-ChildItem -Path $PSScriptRoot\Transforms\*.ps1 -ErrorAction SilentlyContinue
+        foreach($transform in $TransformList)
+        {
+            if($transform.Name -eq [System.IO.Path]::GetFileNameWithoutExtension($transform.FullName))
+            {
+                & $transform.FullName
+            }
+        }
+    }
+    else {
+        $propDef = [ordered]@{Attribute=$null;Action=$null;TransformName=$null}
+        foreach($attrName in $script:RegisteredTransforms.Keys)
+        {
+            foreach($transform in $script:RegisteredTransforms[$attrName])
+            {
+                $data = new-object PSCustomObject -Property $propDef
+                $data.attribute = $attrName
+                $data.Action = $transform.action
+                $data.TransformName = $transform.Name
+                $data
+            }
+        }
+    }
 }
 
 

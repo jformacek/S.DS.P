@@ -2,7 +2,7 @@
 # CSharp types added via Add-Type are supported
 
 'Save' | ForEach-Object {
-    $TransformName = 'unicodePwd'
+    $TransformName = 'UnicodePwd'
     #add attributes that can be used with this transform
     $SupportedAttributes = @('unicodePwd')
     $Action = $_

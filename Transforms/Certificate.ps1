@@ -2,7 +2,7 @@
 # CSharp types added via Add-Type are supported
 
 'Load','Save' | ForEach-Object {
-    $TransformName = 'certificate'
+    $TransformName = 'Certificate'
     #add attributes that can be used with this transform
     $SupportedAttributes = @('userCertificate','userCert')
     $Action = $_

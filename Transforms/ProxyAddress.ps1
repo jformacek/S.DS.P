@@ -49,7 +49,7 @@ public class ProxyAddress
 '@
 
 'Load','Save' | ForEach-Object {
-    $TransformName = 'proxyAddress'
+    $TransformName = 'ProxyAddress'
     #add attributes that can be used with this transform
     $SupportedAttributes = @('proxyAddresses')
     $Action = $_

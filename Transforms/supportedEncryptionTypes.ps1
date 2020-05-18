@@ -12,7 +12,7 @@ public enum EncryptionTypes
 '@
 
 'Load','Save' | ForEach-Object {
-    $TransformName = 'supportedEncryptionTypes'
+    $TransformName = 'SupportedEncryptionTypes'
     #add attributes that can be used with this transform
     $SupportedAttributes = @('msDS-SupportedEncryptionTypes')
     $Action = $_

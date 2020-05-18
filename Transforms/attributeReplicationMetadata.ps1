@@ -1,6 +1,6 @@
 
 'Load','Save' | ForEach-Object {
-    $TransformName = 'attributeReplicationMetadata'
+    $TransformName = 'AttributeReplicationMetadata'
     #add attributes that can be used with this transform
     $SupportedAttributes = @('msDS-ReplAttributeMetaData')
     $Action = $_

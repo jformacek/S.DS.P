@@ -13,7 +13,7 @@ public enum GroupType
 '@
 
 'Load','Save' | ForEach-Object {
-    $TransformName = 'groupType'
+    $TransformName = 'GroupType'
     $SupportedAttributes = @('groupType')
     $Action = $_
 

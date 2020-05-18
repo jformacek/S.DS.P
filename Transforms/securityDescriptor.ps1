@@ -2,7 +2,7 @@
 # CSharp types added via Add-Type are supported
 
 'Load','Save' | ForEach-Object {
-    $TransformName = 'securityDescriptor'
+    $TransformName = 'SecurityDescriptor'
     #add attributes that can be used with this transform
     $SupportedAttributes = @('ntSecurityDescriptor')
     $Action = $_

@@ -2,7 +2,7 @@
 # CSharp types added via Add-Type are supported
 
 'Load','Save' | ForEach-Object {
-    $TransformName = 'fileTime'
+    $TransformName = 'FileTime'
     #add attributes that can be used with this transform
     $SupportedAttributes = @('badPasswordTime','lastLogon','lastLogonTimestamp','ms-Mcs-AdmPwdExpirationTime')
     $Action = $_

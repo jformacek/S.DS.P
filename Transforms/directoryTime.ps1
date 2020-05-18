@@ -2,7 +2,7 @@
 # CSharp types added via Add-Type are supported
 
 'Load','Save' | ForEach-Object {
-    $TransformName = 'directoryTime'
+    $TransformName = 'DirectoryTime'
     #add attributes that can be used with this transform
     $SupportedAttributes = @('createTimestamp','dsCorePropagationData','modifyTimestamp','whenCreated','whenChanged')
     $Action = $_
