@@ -30,7 +30,7 @@ jobs:
         Copy-Item -Path "$env:GITHUB_WORKSPACE\S.DS.P.psm1" -Destination "$env:GITHUB_WORKSPACE\S.DS.P\" -Force
         Copy-Item -Path "$env:GITHUB_WORKSPACE\LICENSE.TXT" -Destination "$env:GITHUB_WORKSPACE\S.DS.P\" -Force
         Copy-Item -Path "$env:GITHUB_WORKSPACE\Transforms\" -Destination "$env:GITHUB_WORKSPACE\S.DS.P\" -Recurse -Force 
-   - name: Publish
+    - name: Publish
       shell: pwsh
       env:
         SECRET: ${{ secrets.PSGallery_APIKey }}
