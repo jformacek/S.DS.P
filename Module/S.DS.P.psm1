@@ -16,7 +16,7 @@ Find-LdapObject -LdapConnection [string]::Empty -SearchFilter:"(&(sn=smith)(obje
 
 Description
 -----------
-This command connects to domain controller of caller's domain on port 389 and performs the search 
+This command connects to domain controller of caller's domain on port 389 and performs the search
 
 .EXAMPLE
 $Ldap = Get-LdapConnection
@@ -105,49 +105,48 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             #existing LDAPConnection object retrieved with cmdlet Get-LdapConnection
             #When we perform many searches, it is more effective to use the same conbnection rather than create new connection for each search request.
         $LdapConnection,
-        
+
         [parameter(Mandatory = $true)]
-        [String] 
+        [String]
             #Search filter in LDAP syntax
         $searchFilter,
-        
+
         [parameter(Mandatory = $false, ValueFromPipeline=$true)]
-        [Object] 
+        [Object]
             #DN of container where to search
         $searchBase,
-        
-        
+
         [parameter(Mandatory = $false)]
         [System.DirectoryServices.Protocols.SearchScope]
             #Search scope
             #Default: Subtree
         $searchScope='Subtree',
-        
+
         [parameter(Mandatory = $false)]
         [String[]]
             #List of properties we want to return for objects we find.
             #Default: empty array, meaning no properties are returned
         $PropertiesToLoad=@(),
-        
+
         [parameter(Mandatory = $false)]
         [String]
             #Name of attribute for ASQ search. Note that searchScope must be set to Base for this type of seach
             #Default: empty string
         $ASQ,
-        
+
         [parameter(Mandatory = $false)]
         [UInt32]
             #Page size for paged search. Zero means that paging is disabled
             #Default: 500
         $PageSize=500,
-        
+
         [parameter(Mandatory = $false)]
         [UInt32]
             #Range size for ranged attribute value retrieval. Zero means that ranged attribute value retrieval is disabled and attribute values are returned in single request.
             #Note: Default in query policy in AD is 1500; we use 1000 as default here.
             #Default: 1000
         $RangeSize=1000,
-        
+
         [parameter(Mandatory = $false)]
         [String[]]
             #List of properties that we want to load as byte stream.
@@ -170,7 +169,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         [System.DirectoryServices.Protocols.DirectoryControl[]]
             #additional controls that caller may need to add to request
         $AdditionalControls=@(),
-        
+
         [parameter(Mandatory = $false)]
         [Timespan]
             #Number of seconds before request times out.
@@ -189,10 +188,10 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         #also remove '1.1' if present as this is special prop and is in conflict with standard props
         $propDef.Add('distinguishedName','')
         $PropertiesToLoad=@($propertiesToLoad | where-object {$_ -notin @('distinguishedName','1.1')})
-                    
+
         #prepare template for output object
         foreach($prop in $PropertiesToLoad) { $propDef.Add($prop,@()) }
-        
+
         #define additional properties, skipping props that may have been specified in propertiesToLoad
         foreach($prop in $AdditionalProperties) {
             if($propDef.ContainsKey($prop)) { continue }
@@ -212,20 +211,20 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
     Process {
         #build request
         $rq=new-object System.DirectoryServices.Protocols.SearchRequest
-        
+
         #search base
         #we support passing $null as SearchBase - user for Global Catalog searches
         if($null -ne $searchBase)
         {
             #we support pipelining of strings, or objects containing distinguishedName property
             switch($searchBase.GetType().Name) {
-                "String" 
+                "String"
                 {
                     $rq.DistinguishedName=$searchBase
                 }
-                default 
+                default
                 {
-                    if($null -ne $searchBase.distinguishedName) 
+                    if($null -ne $searchBase.distinguishedName)
                     {
                         $rq.DistinguishedName=$searchBase.distinguishedName
                     }
@@ -267,7 +266,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         while ($true)
         {
             $rsp = $LdapConnection.SendRequest($rq, $Timeout) -as [System.DirectoryServices.Protocols.SearchResponse];
-            
+
             #now process the returned list of distinguishedNames and fetch required properties directly from returned objects
             foreach ($sr in $rsp.Entries)
             {
@@ -437,18 +436,18 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         [System.DirectoryServices.Protocols.ExtendedDNControl]$exRqc = new-object System.DirectoryServices.Protocols.ExtendedDNControl('StandardString')
         $exRqc.IsCritical=$false
         $rq.Controls.Add($exRqc) | Out-Null
-        
+
         try {
             $rsp=$LdapConnection.SendRequest($rq)
         }
         catch {
            throw $_.Exception
-           return 
+           return
         }
         #if there was error, let the exception go to caller and do not continue
 
         $data=new-object PSObject -Property $propDef
-            
+
         if ($rsp.Entries[0].Attributes['configurationNamingContext']) {
             $data.configurationNamingContext = [NamingContext]::Parse($rsp.Entries[0].Attributes['configurationNamingContext'].GetValues([string])[0])
         }
@@ -467,10 +466,10 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             }
             catch {
                 #it isn't a numeric, just return what's stored without parsing
-                $data.approximateHighestInternalObjectID=$rsp.Entries[0].Attributes['approximateHighestInternalObjectID'].GetValues([string])                    
+                $data.approximateHighestInternalObjectID=$rsp.Entries[0].Attributes['approximateHighestInternalObjectID'].GetValues([string])
             }
         }
-        if($null -ne $rsp.Entries[0].Attributes['currentTime']) {            
+        if($null -ne $rsp.Entries[0].Attributes['currentTime']) {
             $val = ($rsp.Entries[0].Attributes['currentTime'].GetValues([string]))[0]
             try {
                 $data.currentTime = [DateTime]::ParseExact($val,'yyyyMMddHHmmss.fZ',[CultureInfo]::InvariantCulture,[System.Globalization.DateTimeStyles]::None)
@@ -479,10 +478,10 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                 $data.currentTime=$val
             }
         }
-        if($null -ne $rsp.Entries[0].Attributes['dnsHostName']) {            
+        if($null -ne $rsp.Entries[0].Attributes['dnsHostName']) {
             $data.dnsHostName = ($rsp.Entries[0].Attributes['dnsHostName'].GetValues([string]))[0]
         }
-        if($null -ne $rsp.Entries[0].Attributes['ldapServiceName']) {            
+        if($null -ne $rsp.Entries[0].Attributes['ldapServiceName']) {
             $data.ldapServiceName = ($rsp.Entries[0].Attributes['ldapServiceName'].GetValues([string]))[0]
         }
         if($null -ne $rsp.Entries[0].Attributes['dsServiceName']) {
@@ -495,7 +494,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                 $data.dsServiceName=$val
             }
         }
-        if($null -ne $rsp.Entries[0].Attributes['serverName']) {        
+        if($null -ne $rsp.Entries[0].Attributes['serverName']) {
             $val = ($rsp.Entries[0].Attributes['serverName'].GetValues([string]))[0]
             if($val.Contains(';'))
             {
@@ -505,13 +504,13 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                 $data.serverName=$val
             }
         }
-        if($null -ne $rsp.Entries[0].Attributes['supportedControl']) {            
+        if($null -ne $rsp.Entries[0].Attributes['supportedControl']) {
             $data.supportedControl = ( ($rsp.Entries[0].Attributes['supportedControl'].GetValues([string])) | Sort-Object )
         }
-        if($null -ne $rsp.Entries[0].Attributes['supportedLdapPolicies']) {            
+        if($null -ne $rsp.Entries[0].Attributes['supportedLdapPolicies']) {
             $data.supportedLdapPolicies = ( ($rsp.Entries[0].Attributes['supportedLdapPolicies'].GetValues([string])) | Sort-Object )
         }
-        if($null -ne $rsp.Entries[0].Attributes['supportedSASLMechanisms']) {            
+        if($null -ne $rsp.Entries[0].Attributes['supportedSASLMechanisms']) {
             $data.supportedSASLMechanisms = ( ($rsp.Entries[0].Attributes['supportedSASLMechanisms'].GetValues([string])) | Sort-Object )
         }
         if($null -ne $rsp.Entries[0].Attributes['namingContexts']) {
@@ -529,7 +528,7 @@ Function Get-LdapConnection
 <#
 .SYNOPSIS
     Connects to LDAP server and returns LdapConnection object
- 
+
 .DESCRIPTION
     Creates connection to LDAP server according to parameters passed.
 .OUTPUTS
@@ -548,19 +547,19 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
     Param
     (
         [parameter(Mandatory = $false)]
-        [String[]] 
+        [String[]]
             #LDAP server name
             #Default: default server given by environment
         $LdapServer=[String]::Empty,
-        
+
         [parameter(Mandatory = $false)]
-        [Int32] 
+        [Int32]
             #LDAP server port
             #Default: 389
         $Port=389,
 
         [parameter(Mandatory = $false)]
-        [System.Net.NetworkCredential]
+        [PSCredential]
             #Use different credentials when connecting
         $Credential=$null,
 
@@ -569,11 +568,11 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         [string]
             #Type of encryption to use.
         $EncryptionType='None',
-        
+
         [Switch]
             #enable support for Fast Concurrent Bind
         $FastConcurrentBind,
-        
+
         [Switch]
         #enable support for UDP transport
         $ConnectionLess,
@@ -594,13 +593,13 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             #Requested LDAP protocol version
         $ProtocolVersion = 3
     )
-    
+
     Process
-    {   
+    {
         $FullyQualifiedDomainName=$false;
         [System.DirectoryServices.Protocols.LdapDirectoryIdentifier]$di=new-object System.DirectoryServices.Protocols.LdapDirectoryIdentifier($LdapServer, $Port, $FullyQualifiedDomainName, $ConnectionLess)
-        
-        $LdapConnection=new-object System.DirectoryServices.Protocols.LdapConnection($di, $Credential)
+
+        $LdapConnection=new-object System.DirectoryServices.Protocols.LdapConnection($di, $Credential.GetNetworkCredential())
         $LdapConnection.SessionOptions.ProtocolVersion=$ProtocolVersion
 
         if ($null -ne $AuthType) {
@@ -611,7 +610,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             'None' {break}
             'TLS' {
                 $LdapConnection.SessionOptions.StartTransportLayerSecurity($null)
-                break               
+                break
             }
             'Kerberos' {
                 $LdapConnection.SessionOptions.Sealing=$true
@@ -629,7 +628,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             $LdapConnection.SessionOptions.FastConcurrentBind()
         }
         $LdapConnection
-     }       
+     }
 }
 
 
@@ -690,7 +689,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         [System.DirectoryServices.Protocols.LdapConnection]
             #Existing LDAPConnection object.
         $LdapConnection,
-        
+
         [parameter(Mandatory = $false)]
         [System.DirectoryServices.Protocols.DirectoryControl[]]
             #Additional controls that caller may need to add to request
@@ -847,7 +846,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         $permissiveModifyRqc = new-object System.DirectoryServices.Protocols.PermissiveModifyControl
         $permissiveModifyRqc.IsCritical = $false
         $rqMod.Controls.Add($permissiveModifyRqc) | Out-Null
-        
+
         #add additional controls that caller may have passed
         foreach($ctrl in $AdditionalControls) {$rqMod.Controls.Add($ctrl) | Out-Null}
 
@@ -867,7 +866,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                 {
                     $attrVal = (& $script:RegisteredTransforms[$prop.Name].OnSave -Values $attrVal)
                 }
-    
+
                 if($attrVal.Count -gt 0) {
                     $propMod.Operation=$Mode
                     if($prop.Name -in $BinaryProps)  {
@@ -939,7 +938,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         [System.DirectoryServices.Protocols.DirectoryControl[]]
             #Additional controls that caller may need to add to request
         $AdditionalControls=@(),
-        
+
         [parameter(Mandatory = $false)]
         [Switch]
             #Whether or not to use TreeDeleteControl.
@@ -954,13 +953,13 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
 
         switch($Object.GetType().Name)
         {
-            "String" 
+            "String"
             {
                 $rqDel.DistinguishedName=$Object
             }
-            default 
+            default
             {
-                if($null -ne $Object.distinguishedName) 
+                if($null -ne $Object.distinguishedName)
                 {
                     $rqDel.DistinguishedName=$Object.distinguishedName
                 }
@@ -1048,13 +1047,13 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         [System.DirectoryServices.Protocols.ModifyDNRequest]$rqModDN=new-object System.DirectoryServices.Protocols.ModifyDNRequest
         switch($Object.GetType().Name)
         {
-            "String" 
+            "String"
             {
                 $rqModDN.DistinguishedName=$Object
             }
-            default 
+            default
             {
-                if($Object.distinguishedName) 
+                if($Object.distinguishedName)
                 {
                     $rqModDN.DistinguishedName=$Object.distinguishedName
                 }
@@ -1221,7 +1220,7 @@ Function Get-LdapAttributeTransform
 
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
-More about attribute transforms and how to create them: https://github.com/jformacek/S.DS.P 
+More about attribute transforms and how to create them: https://github.com/jformacek/S.DS.P
 
 #>
     [CmdletBinding()]
