@@ -25,9 +25,10 @@ jobs:
     - name: Build
       shell: pwsh
       run: |
-        New-Item -Path "$env:GITHUB_WORKSPACE" -Name S.DS.P -ItemType Directory -Force
+        New-Item -Path  "$env:GITHUB_WORKSPACE" -Name S.DS.P -ItemType Directory -Force
         Copy-Item -Path "$env:GITHUB_WORKSPACE\S.DS.P.psd1" -Destination "$env:GITHUB_WORKSPACE\S.DS.P\" -Force
         Copy-Item -Path "$env:GITHUB_WORKSPACE\S.DS.P.psm1" -Destination "$env:GITHUB_WORKSPACE\S.DS.P\" -Force
+        Copy-Item -Path "$env:GITHUB_WORKSPACE\LICENSE" -Destination "$env:GITHUB_WORKSPACE\S.DS.P\" -Force
         Copy-Item -Path "$env:GITHUB_WORKSPACE\Transforms\" -Destination "$env:GITHUB_WORKSPACE\S.DS.P\" -Force -Recurse
    - name: Publish
       shell: pwsh
