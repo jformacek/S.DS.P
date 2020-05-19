@@ -20,18 +20,5 @@ jobs:
       shell: pwsh
       run: |
         write-host "Checking repo structure: $env:GITHUB_WORKSPACE"
-        if(-not Test-Path -Path "$env:GITHUB_WORKSPACE\S.DS.P.psd1")
-        {
-          Write-Host "Missing S.DS.P.psd1"
-          throw 3
-        }
-        if(-not Test-Path -Path "$env:GITHUB_WORKSPACE\S.DS.P.psm1")
-        {
-          Write-Host "Missing S.DS.P.psm1"
-          throw 3
-        }
-        if(-not Test-Path -Path "$env:GITHUB_WORKSPACE\Transforms")
-        {
-          Write-Host "Missing Transforms folder"
-          throw 3
-        }
+        dir "$env:GITHUB_WORKSPACE"
+        
