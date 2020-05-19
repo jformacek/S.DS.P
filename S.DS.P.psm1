@@ -599,7 +599,14 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         $FullyQualifiedDomainName=$false;
         [System.DirectoryServices.Protocols.LdapDirectoryIdentifier]$di=new-object System.DirectoryServices.Protocols.LdapDirectoryIdentifier($LdapServer, $Port, $FullyQualifiedDomainName, $ConnectionLess)
 
-        $LdapConnection=new-object System.DirectoryServices.Protocols.LdapConnection($di, $Credential.GetNetworkCredential())
+        if($null -ne $Credential)
+        {
+            $LdapConnection=new-object System.DirectoryServices.Protocols.LdapConnection($di, $Credential.GetNetworkCredential())
+        }
+        else 
+        {
+            $LdapConnection=new-object System.DirectoryServices.Protocols.LdapConnection($di)
+        }
         $LdapConnection.SessionOptions.ProtocolVersion=$ProtocolVersion
 
         if ($null -ne $AuthType) {

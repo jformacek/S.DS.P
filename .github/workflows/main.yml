@@ -38,4 +38,5 @@ jobs:
         catch
         {
           Write-Host "Error: $($_.Exception)"
+          throw
         }

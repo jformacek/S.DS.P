@@ -1,0 +1,37 @@
+name: CI
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  # This workflow contains a single job called "publishToGallery"
+  checkFileLocations:
+    # The type of runner that the job will run on
+    runs-on: windows-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+    - name: Checkout
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      uses: actions/checkout@v2
+      #copy files
+    - name: Check
+      shell: pwsh
+      run: |
+        write-host "Checking repo structure: $env:GITHUB_WORKSPACE"
+        if(-not Test-Path -Path "$env:GITHUB_WORKSPACE\S.DS.P.psd1")
+        {
+          Write-Host "Missing S.DS.P.psd1"
+          throw 3
+        }
+        if(-not Test-Path -Path "$env:GITHUB_WORKSPACE\S.DS.P.psm1")
+        {
+          Write-Host "Missing S.DS.P.psm1"
+          throw 3
+        }
+        if(-not Test-Path -Path "$env:GITHUB_WORKSPACE\Transforms")
+        {
+          Write-Host "Missing Transforms folder"
+          throw 3
+        }
