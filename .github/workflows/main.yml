@@ -26,4 +26,6 @@ jobs:
       shell: pwsh
       env:
         SECRET: ${{ secrets.PSGallery_APIKey }}
-      run: Publish-Module -Path .\Module -NuGetApiKey "$env:SECRET"
+      run: |
+        write-host "$env:GITHUB_WORKSPACE\Module"
+        Publish-Module -Path "$env:GITHUB_WORKSPACE\Module" -NuGetApiKey "$env:SECRET"
