@@ -19,7 +19,8 @@ jobs:
     - name: Build
       shell: pwsh
       run: |
-        New-Item -Path  "$env:GITHUB_WORKSPACE" -Name S.DS.P -ItemType Directory -Force
+        write-host "Building in: $env:GITHUB_WORKSPACE\S.DS.P"
+        New-Item -Path  "$env:GITHUB_WORKSPACE" -Name S.DS.P -ItemType Directory -Force | Out-Null
         Copy-Item -Path "$env:GITHUB_WORKSPACE\S.DS.P.psd1" -Destination "$env:GITHUB_WORKSPACE\S.DS.P\" -Force
         Copy-Item -Path "$env:GITHUB_WORKSPACE\S.DS.P.psm1" -Destination "$env:GITHUB_WORKSPACE\S.DS.P\" -Force
         Copy-Item -Path "$env:GITHUB_WORKSPACE\LICENSE.TXT" -Destination "$env:GITHUB_WORKSPACE\S.DS.P\" -Force
@@ -29,5 +30,12 @@ jobs:
       env:
         SECRET: ${{ secrets.PSGallery_APIKey }}
       run: |
-        write-host "$env:GITHUB_WORKSPACE\S.DS.P"
-        Publish-Module -Path "$env:GITHUB_WORKSPACE\S.DS.P" -NuGetApiKey "$env:SECRET" -Force
+        write-host "Publishing from: $env:GITHUB_WORKSPACE\S.DS.P"
+        try
+        {
+          Publish-Module -Path "$env:GITHUB_WORKSPACE\S.DS.P" -NuGetApiKey "$env:SECRET"
+        }
+        catch
+        {
+          Write-Host "Error: $($_.Exception)"
+        }
