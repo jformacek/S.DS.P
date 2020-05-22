@@ -21,7 +21,7 @@ jobs:
       run: |
         write-host "Checking repo structure: $env:GITHUB_WORKSPACE"
         dir "$env:GITHUB_WORKSPACE"
-        if(Test-Path "$env:GITHUB_WORKSPACE\S.DS.P.psd1" -and Test-Path "$env:GITHUB_WORKSPACE\S.DS.P.psm1" -and Test-Path "$env:GITHUB_WORKSPACE\Transforms")
+        if((Test-Path "$env:GITHUB_WORKSPACE\S.DS.P.psd1") -and (Test-Path "$env:GITHUB_WORKSPACE\S.DS.P.psm1") -and (Test-Path "$env:GITHUB_WORKSPACE\Transforms"))
         {
           write-host "File structure OK!"
           return 0
