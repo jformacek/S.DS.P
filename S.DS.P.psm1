@@ -661,7 +661,7 @@ $obj.unicodePwd = "P@ssw0rd"
 $obj.userAccountControl = "512"
 
 $Ldap = Get-LdapConnection -LdapServer "mydc.mydomain.com" -EncryptionType Kerberos
-Register-LdapAttributeTransform (.\Transforms\unicodePwd.ps1 -Action Save)
+Register-LdapAttributeTransform -name UnicodePwd -AttributeName unicodePwd
 Add-LdapObject -LdapConnection $Ldap -Object $obj
 
 Description
@@ -1122,9 +1122,10 @@ More about attribute transforms and how to create them: https://github.com/jform
         [string]
             #Name of the transform
         $Name,
-        [Parameter(Mandatory,ValueFromPipeline,ParameterSetName='Names')]
+        [Parameter(Mandatory=$false,ValueFromPipeline,ParameterSetName='Names')]
         [string]
             #Name of the attribute that will be processed by transform
+            #If transform supported on single attribute only, name of attribute is optional
         $AttributeName,
         [Parameter(Mandatory,ValueFromPipeline,ParameterSetName='TransformObject')]
         [PSCustomObject]
@@ -1137,6 +1138,10 @@ More about attribute transforms and how to create them: https://github.com/jform
         {
             'Names' {
                 $transform = (. "$PSScriptRoot\Transforms\$Name.ps1" -FullLoad)
+                if([string]::IsNullOrEmpty($AttributeName) -and $transform.SupportedAttributes.Count -eq 1)
+                {
+                    $AttributeName = $transform.SupportedAttributes[0]
+                }
                 if($AttributeName -in $transform.SupportedAttributes) {
                     $transform = $transform | Add-Member -MemberType NoteProperty -Name 'Name' -Value $Name -PassThru
                     $script:RegisteredTransforms[$AttributeName]= $transform
