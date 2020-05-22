@@ -56,8 +56,7 @@ Description
 This one-liner lists sAMAccountName, first and last name, and DN of all users who are members of at least one group whose name starts with "SEC_" string
 
 .EXAMPLE
-$cred=new-object System.Net.NetworkCredential("myUserName","MyPassword","MyDomain")
-$Ldap = Get-LdapConnection -Credential $cred
+$Ldap = Get-LdapConnection -Credential (Get-Credential)
 Find-LdapObject -LdapConnection $Ldap -SearchFilter:"(&(cn=myComputer)(objectClass=computer)(objectCategory=organizationalPerson))" -SearchBase:"ou=Computers,dc=myDomain,dc=com" -PropertiesToLoad:@("cn","managedBy") -RangeSize 0
 
 Description

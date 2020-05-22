@@ -6,7 +6,7 @@ param (
 )
 
 $prop=[Ordered]@{
-    SupportedAttributes=@('objectSid')
+    SupportedAttributes=@('objectSid','tokenGroups','tokenGroupsGlobalAndUniversal','tokenGroupsNoGCAcceptable')
     OnLoad = $null
     OnSave = $null
 }
