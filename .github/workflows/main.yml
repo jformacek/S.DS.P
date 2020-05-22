@@ -3,6 +3,10 @@ on:
   push:
     branches:
       - master
+    paths:
+      - '**.psd1'
+      - '**.psm1'
+      - '**.ps1'
 
 jobs:
   # This workflow contains a single job called "publishToGallery"
