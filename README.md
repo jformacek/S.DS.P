@@ -36,25 +36,26 @@ $Ldap = Get-LdapConnection -LdapServer ldap.mydomain.com -EncryptionType TLS
 
 #Connects to LDAP server with SSL encryption
 #Note: Port must be SSL port
-$Ldap = Get-LdapConnection -LdapServer ldap.mydomain.com -EncryptionType TLS -Port 636
+$Ldap = Get-LdapConnection -LdapServer ldap.mydomain.com -EncryptionType SSL -Port 636
 
 #Connects to LDAP server with Kerberos encryption - does not require SSL cert on LDAP server!
 $Ldap = Get-LdapConnection -LdapServer ldap.mydomain.com -EncryptionType Kerberos
 ```
 ### Credentials and authentication
-```ps
+```powershell
 #Connects to LDAP server with explicit credentials and Basic authentication
 #Note: Server may require encryption to allow connection or searching of data
 $Ldap = Get-LdapConnection -LdapServer ldap.mydomain.com -EncryptionType Kerberos -Credential (Get-Credential) -AuthType Basic
 
 #Connects to LDAP server with explicit credentials and password retrieved on the fly via AdmPwd.E
-$credential = New-Object PSCredential("mydomain\myAccount",(Get-AdmPwdManagedAccountPassword -AccountName myAccount -AsSecureString).Password)
+$admpwd = Get-AdmPwdManagedAccountPassword -AccountName myAccount -AsSecureString
+$credential = New-Object PSCredential($admpwd.Name, $admpwd.Password)
 $Ldap = Get-LdapConnection -LdapServer ldap.mydomain.com -EncryptionType Kerberos -Credential $credential -AuthType Basic
 ```
 
 ## Capabilities of your LDAP server
 ### Supported controls
-```ps
+```powershell
 #Can my LDAP server support paged search?
 $Ldap = Get-LdapConnection -LdapServer ldap.mydomain.com
 $dse = Get-RootDse -LdapConnection $Ldap
@@ -70,13 +71,13 @@ if($dse.supportedControl -contains '1.2.840.113556.1.4.802')
 }
 ```
 ### How time on my LDAP server differs from my time?
-```ps
+```powershell
 $Ldap = Get-LdapConnection -LdapServer ldap.mydomain.com
 (Get-RootDse -LdapConnection $Ldap).CurrentTime - [DateTime]::Now
 ```
 ## Attribute transforms
 Attributes can be transformed from raw string or byte arrays to more comfortable objects
-```ps
+```powershell
 #For list of available transforms and attributes that they can be applied on, run Get-LdapAttributeTransform -ListAvailable
 Register-LdapAttributeTransform -Name SecurityIdentifier -AttributeName objectSid
 $Ldap = Get-LdapConnection
@@ -89,7 +90,7 @@ Find-LdapObject -LdapConnection $Ldap -SearchFilter:"(&(cn=jsmith)(objectClass=u
 
 ## Modifications of objects
 Module supports modification of objects
-```ps
+```powershell
 Function Perform-Modification
 {
   Param
@@ -108,11 +109,11 @@ $Ldap = Get-LdapConnection
 #gets RootDSE object
 $Dse = $Ldap | Get-RootDSE
 #disable many user accounts
-Find-LdapObject -LdapConnection $Ldap -SearchFilter:"(&(cn=a*)(objectClass=user)(objectCategory=organizationalPerson))" -SearchBase:"ou=Users,$($Dse.defaultNamingContext)" -PropertiesToLoad:@('userAccountControl' | Perform-Modification | Edit-LdapObject
+Find-LdapObject -LdapConnection $Ldap -SearchFilter:"(&(cn=a*)(objectClass=user)(objectCategory=organizationalPerson))" -SearchBase:"ou=Users,$($Dse.defaultNamingContext)" -PropertiesToLoad:@('userAccountControl') | Perform-Modification | Edit-LdapObject -LdapConnection $Ldap -IncludedProps 'userAccountControl'
 
 ```
 And the same with attribute transform
-```ps
+```powershell
 Function Perform-Modification
 {
   Param
@@ -133,21 +134,21 @@ $Dse = $Ldap | Get-RootDSE
 #Register the transform
 Register-LdapAttributeTransform -Name UserAccountControl -AttributeName userAccountControl
 #disable many user accounts
-Find-LdapObject -LdapConnection $Ldap -SearchFilter:"(&(cn=a*)(objectClass=user)(objectCategory=organizationalPerson))" -SearchBase:"ou=Users,$($Dse.defaultNamingContext)" -PropertiesToLoad:@('userAccountControl' | Perform-Modification | Edit-LdapObject
+Find-LdapObject -LdapConnection $Ldap -SearchFilter:"(&(cn=a*)(objectClass=user)(objectCategory=organizationalPerson))" -SearchBase:"ou=Users,$($Dse.defaultNamingContext)" -PropertiesToLoad:@('userAccountControl' | Perform-Modification | Edit-LdapObject -LdapConnection $Ldap -IncludedProps 'userAccountControl'
 ```
 ## Creation of LDAP objects
-```ps
+```powershell
 #We use transforms to convert some values to LDAP native format
 Register-LdapAttributeTransform -Name UnicodePwd
 Register-LdapAttributeTransform -Name UserAccountControl
 
 #Design the object
 $Props = @{
-  'distinguishedName'='cn=user1,cn=users,dc=mydomain,dc=com'
-  'objectClass'='user'
-  'sAMAccountName'='User1'
-  'unicodePwd'='S3cur3Pa$$word'
-  'userAccountControl='UF_NORMAL_ACCOUNT'
+  distinguishedName='cn=user1,cn=users,dc=mydomain,dc=com'
+  objectClass='user'
+  sAMAccountName='User1'
+  unicodePwd='S3cur3Pa$$word'
+  userAccountControl='UF_NORMAL_ACCOUNT'
   }
 
 #Create the object according to design

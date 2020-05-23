@@ -662,7 +662,7 @@ $obj.userAccountControl = "512"
 
 $Ldap = Get-LdapConnection -LdapServer "mydc.mydomain.com" -EncryptionType Kerberos
 Register-LdapAttributeTransform -name UnicodePwd -AttributeName unicodePwd
-Add-LdapObject -LdapConnection $Ldap -Object $obj
+Add-LdapObject -LdapConnection $Ldap -Object $obj -BinaryProps unicodePwd
 
 Description
 -----------
@@ -729,7 +729,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             #if transform defined -> transform to form accepted by directory
             if($null -ne $script:RegisteredTransforms[$prop.Name] -and $null -ne $script:RegisteredTransforms[$prop.Name].OnSave)
             {
-                $attrVal = (& $script:RegisteredTransforms[$prop.Name].OnSave -Values $attrVal)
+                $attrVal = ,(& $script:RegisteredTransforms[$prop.Name].OnSave -Values $attrVal)
             }
 
             if($prop.Name -in $BinaryProps) {
@@ -838,7 +838,11 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         [timespan]
             #Time before request times out.
             #Default: 120 seconds
-        $Timeout = (New-Object System.TimeSpan(0,0,120))
+        $Timeout = (New-Object System.TimeSpan(0,0,120)),
+
+        [Switch]
+            #when turned on, we are returning modified object to pipeline
+        $Passthrough
     )
 
     Process
@@ -893,6 +897,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         if($rqMod.Modifications.Count -gt 0) {
             $LdapConnection.SendRequest($rqMod, $Timeout) -as [System.DirectoryServices.Protocols.ModifyResponse] | Out-Null
         }
+        if($Passthrough) {$Object}
     }
 }
 
