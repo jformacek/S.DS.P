@@ -48,9 +48,8 @@ $Ldap = Get-LdapConnection -LdapServer ldap.mydomain.com -EncryptionType Kerbero
 $Ldap = Get-LdapConnection -LdapServer ldap.mydomain.com -EncryptionType Kerberos -Credential (Get-Credential) -AuthType Basic
 
 #Connects to LDAP server with explicit credentials and password retrieved on the fly via AdmPwd.E
-$admpwd = Get-AdmPwdManagedAccountPassword -AccountName myAccount -AsSecureString
-$credential = New-Object PSCredential($admpwd.Name, $admpwd.Password)
-$Ldap = Get-LdapConnection -LdapServer ldap.mydomain.com -EncryptionType Kerberos -Credential $credential -AuthType Basic
+$credential = Get-AdmPwdCredential -UserName myAccount@mydomain.com
+$Ldap = Get-LdapConnection -LdapServer ldap.mydomain.com -EncryptionType Kerberos -Credential $Credential
 ```
 
 ## Capabilities of your LDAP server
@@ -160,7 +159,14 @@ $Ldap = Get-LdapConnection -EncryptionType Kerberos
 Add-LdapObject -LdapConnection $Ldap -Object $obj
 ```
 ## Deletion of objects
-```ps
+Deletion of individual objects:
+```powershell
 $Ldap = Get-LdapConnection -LdapServer "mydc.mydomain.com" -EncryptionType Kerberos
 Remove-LdapObject -LdapConnection $Ldap -Object "cn=User1,cn=Users,dc=mydomain,dc=com"
+```
+Deletion of directory subtree:
+```powershell
+$Ldap = Get-LdapConnection -LdapServer "mydc.mydomain.com" -EncryptionType Kerberos
+#With TreeDeleteControl, deletion of objects in container happens on server side
+Remove-LdapObject -LdapConnection $Ldap -Object "ou=myContainer,dc=mydomain,dc=com" -UseTreeDelete
 ```

@@ -540,6 +540,13 @@ Description
 -----------
 Returns LdapConnection for caller's domain controller, with active Kerberos Encryption for data transfer security
 
+.EXAMPLE
+Get-LdapConnection -LdapServer "mydc.mydomain.com" -EncryptionType Kerberos -Credential (Get-AdmPwdCredential
+
+Description
+-----------
+Returns LdapConnection for caller's domain controller, with active Kerberos Encryption for data transfer security
+
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
 #>
@@ -874,7 +881,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                 #if transform defined -> transform to form accepted by directory
                 if($null -ne $script:RegisteredTransforms[$prop.Name] -and $null -ne $script:RegisteredTransforms[$prop.Name].OnSave)
                 {
-                    $attrVal = (& $script:RegisteredTransforms[$prop.Name].OnSave -Values $attrVal)
+                    $attrVal = ,(& $script:RegisteredTransforms[$prop.Name].OnSave -Values $attrVal)
                 }
 
                 if($attrVal.Count -gt 0) {
@@ -900,7 +907,6 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         if($Passthrough) {$Object}
     }
 }
-
 
 Function Remove-LdapObject
 {
