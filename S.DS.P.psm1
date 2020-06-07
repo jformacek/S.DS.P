@@ -540,6 +540,13 @@ Description
 -----------
 Returns LdapConnection for caller's domain controller, with active Kerberos Encryption for data transfer security
 
+.EXAMPLE
+Get-LdapConnection -LdapServer "mydc.mydomain.com" -EncryptionType Kerberos -Credential (Get-AdmPwdCredential
+
+Description
+-----------
+Returns LdapConnection for caller's domain controller, with active Kerberos Encryption for data transfer security
+
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
 #>
@@ -661,8 +668,8 @@ $obj.unicodePwd = "P@ssw0rd"
 $obj.userAccountControl = "512"
 
 $Ldap = Get-LdapConnection -LdapServer "mydc.mydomain.com" -EncryptionType Kerberos
-Register-LdapAttributeTransform (.\Transforms\unicodePwd.ps1 -Action Save)
-Add-LdapObject -LdapConnection $Ldap -Object $obj
+Register-LdapAttributeTransform -name UnicodePwd -AttributeName unicodePwd
+Add-LdapObject -LdapConnection $Ldap -Object $obj -BinaryProps unicodePwd
 
 Description
 -----------
@@ -729,7 +736,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             #if transform defined -> transform to form accepted by directory
             if($null -ne $script:RegisteredTransforms[$prop.Name] -and $null -ne $script:RegisteredTransforms[$prop.Name].OnSave)
             {
-                $attrVal = (& $script:RegisteredTransforms[$prop.Name].OnSave -Values $attrVal)
+                $attrVal = ,(& $script:RegisteredTransforms[$prop.Name].OnSave -Values $attrVal)
             }
 
             if($prop.Name -in $BinaryProps) {
@@ -838,7 +845,11 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         [timespan]
             #Time before request times out.
             #Default: 120 seconds
-        $Timeout = (New-Object System.TimeSpan(0,0,120))
+        $Timeout = (New-Object System.TimeSpan(0,0,120)),
+
+        [Switch]
+            #when turned on, we are returning modified object to pipeline
+        $Passthrough
     )
 
     Process
@@ -870,7 +881,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                 #if transform defined -> transform to form accepted by directory
                 if($null -ne $script:RegisteredTransforms[$prop.Name] -and $null -ne $script:RegisteredTransforms[$prop.Name].OnSave)
                 {
-                    $attrVal = (& $script:RegisteredTransforms[$prop.Name].OnSave -Values $attrVal)
+                    $attrVal = ,(& $script:RegisteredTransforms[$prop.Name].OnSave -Values $attrVal)
                 }
 
                 if($attrVal.Count -gt 0) {
@@ -893,9 +904,9 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         if($rqMod.Modifications.Count -gt 0) {
             $LdapConnection.SendRequest($rqMod, $Timeout) -as [System.DirectoryServices.Protocols.ModifyResponse] | Out-Null
         }
+        if($Passthrough) {$Object}
     }
 }
-
 
 Function Remove-LdapObject
 {
@@ -1122,9 +1133,10 @@ More about attribute transforms and how to create them: https://github.com/jform
         [string]
             #Name of the transform
         $Name,
-        [Parameter(Mandatory,ValueFromPipeline,ParameterSetName='Names')]
+        [Parameter(Mandatory=$false,ValueFromPipeline,ParameterSetName='Names')]
         [string]
             #Name of the attribute that will be processed by transform
+            #If transform supported on single attribute only, name of attribute is optional
         $AttributeName,
         [Parameter(Mandatory,ValueFromPipeline,ParameterSetName='TransformObject')]
         [PSCustomObject]
@@ -1137,6 +1149,10 @@ More about attribute transforms and how to create them: https://github.com/jform
         {
             'Names' {
                 $transform = (. "$PSScriptRoot\Transforms\$Name.ps1" -FullLoad)
+                if([string]::IsNullOrEmpty($AttributeName) -and $transform.SupportedAttributes.Count -eq 1)
+                {
+                    $AttributeName = $transform.SupportedAttributes[0]
+                }
                 if($AttributeName -in $transform.SupportedAttributes) {
                     $transform = $transform | Add-Member -MemberType NoteProperty -Name 'Name' -Value $Name -PassThru
                     $script:RegisteredTransforms[$AttributeName]= $transform
