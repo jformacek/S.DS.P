@@ -738,17 +738,20 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             {
                 $attrVal = ,(& $script:RegisteredTransforms[$prop.Name].OnSave -Values $attrVal)
             }
-
-            if($prop.Name -in $BinaryProps) {
-                foreach($val in $attrVal) {
-                    $propAdd.Add([byte[]]$val) | Out-Null
+            
+            if($null -ne $attrVal)  #ignore empty props
+            {
+                if($prop.Name -in $BinaryProps) {
+                    foreach($val in $attrVal) {
+                        $propAdd.Add([byte[]]$val) | Out-Null
+                    }
+                } else {
+                    $propAdd.AddRange([string[]]($attrVal))
                 }
-            } else {
-                $propAdd.AddRange([string[]]($attrVal))
-            }
 
-            if($propAdd.Count -gt 0) {
-                $rqAdd.Attributes.Add($propAdd) | Out-Null
+                if($propAdd.Count -gt 0) {
+                    $rqAdd.Attributes.Add($propAdd) | Out-Null
+                }
             }
         }
         if($rqAdd.Attributes.Count -gt 0) {
