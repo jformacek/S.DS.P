@@ -876,17 +876,16 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             if(($IncludedProps.Count -gt 0) -and ($IncludedProps -notcontains $prop.Name)) {continue}
             [System.DirectoryServices.Protocols.DirectoryAttribute]$propMod=new-object System.DirectoryServices.Protocols.DirectoryAttributeModification
             $propMod.Name=$prop.Name
+            $attrVal = $Object.($prop.Name)
 
-            if($Object.($prop.Name)) {
+            #if transform defined -> transform to form accepted by directory
+            if($null -ne $script:RegisteredTransforms[$prop.Name] -and $null -ne $script:RegisteredTransforms[$prop.Name].OnSave)
+            {
+                $attrVal = ,(& $script:RegisteredTransforms[$prop.Name].OnSave -Values $attrVal)
+            }
+
+            if($null -ne $attrVal) {
                 #we're modifying property
-                $attrVal = $Object.($prop.Name)
-
-                #if transform defined -> transform to form accepted by directory
-                if($null -ne $script:RegisteredTransforms[$prop.Name] -and $null -ne $script:RegisteredTransforms[$prop.Name].OnSave)
-                {
-                    $attrVal = ,(& $script:RegisteredTransforms[$prop.Name].OnSave -Values $attrVal)
-                }
-
                 if($attrVal.Count -gt 0) {
                     $propMod.Operation=$Mode
                     if($prop.Name -in $BinaryProps)  {
