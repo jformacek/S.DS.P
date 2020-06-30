@@ -75,7 +75,7 @@ jobs:
     - name: CreateRelease
       uses: actions/create-release@latest
       with:
-        artifacts: ".\s.ds.p.zip"
+        artifacts: "s.ds.p.zip"
         token: ${{ secrets.GITHUB_TOKEN }}
 
 
