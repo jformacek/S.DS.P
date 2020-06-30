@@ -67,13 +67,14 @@
 # 19.5.2020, 2.0.2, Jiri Formacek, Fixed regressions
 # 22.5.2020, 2.0.3, Jiri FOrmacek, Fixed example on usage of credentials
 # 7.6.2020,  2.0.4, Jiri Formacek, Fixed bug in flattening of transformed objects
+# 30.6.2020, 2.0.5, Jiri Formacek, Add-LdapObject: Enhanced handling of null values
 @{
 
     # Script module or binary module file associated with this manifest
     RootModule = '.\S.DS.P.psm1'
 
     # Version number of this module.
-    ModuleVersion = '2.0.4'
+    ModuleVersion = '2.0.5'
 
     # ID used to uniquely identify this module
     GUID = '766cbbc0-85b9-4773-b4db-2fa86cd771ff'
