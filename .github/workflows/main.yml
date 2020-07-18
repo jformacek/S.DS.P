@@ -7,13 +7,14 @@ on:
       - '**.psd1'
       - '**.psm1'
       - '**.ps1'
-    tags:
-      - 'v*'
-
 
 jobs:
-  checkoutCode:
+  # This workflow contains a single job called "publishToGallery"
+  publishToGallery:
+    # The type of runner that the job will run on
     runs-on: windows-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     - name: Checkout
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
@@ -28,14 +29,6 @@ jobs:
         Copy-Item -Path "$env:GITHUB_WORKSPACE\S.DS.P.psm1" -Destination "$env:GITHUB_WORKSPACE\S.DS.P\" -Force
         Copy-Item -Path "$env:GITHUB_WORKSPACE\LICENSE.TXT" -Destination "$env:GITHUB_WORKSPACE\S.DS.P\" -Force
         Copy-Item -Path "$env:GITHUB_WORKSPACE\Transforms\" -Destination "$env:GITHUB_WORKSPACE\S.DS.P\" -Recurse -Force 
-
-  # This workflow contains a single job called "publishToGallery"
-  publishToGallery:
-    # The type of runner that the job will run on
-    runs-on: windows-latest
-    needs: checkoutCode
-    # Steps represent a sequence of tasks that will be executed as part of the job
-    steps:
     - name: Publish
       shell: pwsh
       env:
@@ -51,32 +44,3 @@ jobs:
           Write-Host "Error: $($_.Exception)"
           throw
         }
-  createRelease:
-    runs-on: windows-latest
-    needs: checkoutCode
-    steps:
-    - name: Install 7Zip PowerShell Module
-      shell: pwsh
-      run: Install-Module 7Zip4PowerShell -Force -Verbose
-    - name: Compress
-      shell: pwsh
-      run: |
-        write-host "Compressing: $env:GITHUB_WORKSPACE\S.DS.P"
-        try
-        {
-            Compress-7Zip -Format Zip -Path "$env:GITHUB_WORKSPACE\S.DS.P" -ArchiveFileName .\s.ds.p.zip
-            write-host "Compression done"
-        }
-        catch
-        {
-          Write-Host "Error: $($_.Exception)"
-          throw
-        }
-    - name: CreateRelease
-      uses: actions/create-release@latest
-      with:
-        artifacts: "s.ds.p.zip"
-        token: ${{ secrets.GITHUB_TOKEN }}
-
-
-
