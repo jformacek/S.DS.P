@@ -181,7 +181,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         #initialize output objects via hashtable --> faster than add-member
         #create default initializer beforehand
         #and just once for processing
-        $propDef=@{}
+        $propDef=[ordered]@{}
         #we always return at least distinguishedName
         #so add it explicitly to object template and remove from propsToLoad if specified
         #also remove '1.1' if present as this is special prop and is in conflict with standard props
@@ -1112,17 +1112,28 @@ Function Register-LdapAttributeTransform
 $Ldap = Get-LdapConnection -LdapServer "mydc.mydomain.com" -EncryptionType Kerberos
 #get list of available transforms
 Get-LdapAttributeTransform -ListAvailable
-#register necessary transforms
+
+#register transform for specific attributes only
 Register-LdapAttributeTransform -Name Guid -AttributeName objectGuid
 Register-LdapAttributeTransform -Name SecurityDescriptor -AttributeName ntSecurityDescriptor
-Register-LdapAttributeTransform -Name Certificate -AttributeName userCert
-Register-LdapAttributeTransform -Name Certificate -AttributeName userCertificate
+
+#register for all supported attributes
+Register-LdapAttributeTransform -Name Certificate
+
+#find objects, applying registered transforms as necessary
 Find-LdapObject -LdapConnection $Ldap -SearchBase "cn=User1,cn=Users,dc=mydomain,dc=com" -SearchScope Base -PropertiesToLoad 'cn','ntSecurityDescriptor','userCert,'userCertificate' -BinaryProperties 'ntSecurityDescriptor','userCert,'userCertificate'
 
 Decription
 ----------
 This example registers transform that converts raw byte array in ntSecurityDescriptor property into instance of System.DirectoryServices.ActiveDirectorySecurity
 After command completes, returned object(s) will have instance of System.DirectoryServices.ActiveDirectorySecurity in ntSecurityDescriptor property
+
+.EXAMPLE
+$Ldap = Get-LdapConnection -LdapServer "mydc.mydomain.com" -EncryptionType Kerberos
+#register all available transforms
+Get-LdapAttributeTransform -ListAvailable | Register-LdapAttributeTransform
+#find objects, applying registered transforms as necessary
+Find-LdapObject -LdapConnection $Ldap -SearchBase "cn=User1,cn=Users,dc=mydomain,dc=com" -SearchScope Base -PropertiesToLoad 'cn','ntSecurityDescriptor','userCert,'userCertificate' -BinaryProperties 'ntSecurityDescriptor','userCert,'userCertificate'
 
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
@@ -1131,14 +1142,14 @@ More about attribute transforms and how to create them: https://github.com/jform
 
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory,ParameterSetName='Names')]
+        [Parameter(Mandatory,ParameterSetName='Name')]
         [string]
             #Name of the transform
         $Name,
-        [Parameter(Mandatory=$false,ValueFromPipeline,ParameterSetName='Names')]
+        [Parameter(Mandatory=$false)]
         [string]
             #Name of the attribute that will be processed by transform
-            #If transform supported on single attribute only, name of attribute is optional
+            #If not specified, transform will be registered on all supported attributes
         $AttributeName,
         [Parameter(Mandatory,ValueFromPipeline,ParameterSetName='TransformObject')]
         [PSCustomObject]
@@ -1149,31 +1160,44 @@ More about attribute transforms and how to create them: https://github.com/jform
     {
         switch($PSCmdlet.ParameterSetName)
         {
-            'Names' {
-                $transform = (. "$PSScriptRoot\Transforms\$Name.ps1" -FullLoad)
-                if([string]::IsNullOrEmpty($AttributeName) -and $transform.SupportedAttributes.Count -eq 1)
+            'TransformObject' {
+                $Name = $transform.Name
+                break;
+            }
+        }
+
+        if(-not (Test-Path -Path "$PSScriptRoot\Transforms\$Name.ps1") )
+        {
+            throw new-object System.ArgumentException "Transform $Name not found"
+        }
+
+        $SupportedAttributes = (& "$PSScriptRoot\Transforms\$Name.ps1").SupportedAttributes
+        switch($PSCmdlet.ParameterSetName)
+        {
+            'Name' {
+                if([string]::IsNullOrEmpty($AttributeName))
                 {
-                    $AttributeName = $transform.SupportedAttributes[0]
+                    $attribs = $SupportedAttributes
                 }
-                if($AttributeName -in $transform.SupportedAttributes) {
-                    $transform = $transform | Add-Member -MemberType NoteProperty -Name 'Name' -Value $Name -PassThru
-                    $script:RegisteredTransforms[$AttributeName]= $transform
-                }
-                else {
-                    throw new-object System.ArgumentException "Attribute $AttributeName is not supported by this transform"
+                else
+                {
+                    if($supportedAttributes -contains $AttributeName)
+                    {
+                        $attribs = @($AttributeName)
+                    }
                 }
                 break;
             }
             'TransformObject' {
-                $attribs = (& "$PSScriptRoot\Transforms\$($transform.Name).ps1").SupportedAttributes
-                foreach($attr in $attribs)
-                {
-                    $t = (. "$PSScriptRoot\Transforms\$($transform.Name).ps1" -FullLoad)
-                    $t = $t | Add-Member -MemberType NoteProperty -Name 'Name' -Value $Transform.Name -PassThru
-                    $script:RegisteredTransforms[$attr]= $t
-                }
+                $attribs = $SupportedAttributes
                 break;
             }
+        }
+        foreach($attr in $attribs)
+        {
+            $t = (. "$PSScriptRoot\Transforms\$Name.ps1" -FullLoad)
+            $t = $t | Add-Member -MemberType NoteProperty -Name 'Name' -Value $Name -PassThru
+            $script:RegisteredTransforms[$attr]= $t
         }
     }
 }
