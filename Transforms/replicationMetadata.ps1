@@ -7,7 +7,7 @@ param (
 )
 
 $prop=[Ordered]@{
-    SupportedAttributes=@('msDS-ReplAttributeMetaData')
+    SupportedAttributes=@('msDS-ReplAttributeMetaData','msDS-ReplValueMetaData','msDS-NCReplCursors','msDS-NCReplInboundNeighbors')
     OnLoad = $null
     OnSave = $null
 }

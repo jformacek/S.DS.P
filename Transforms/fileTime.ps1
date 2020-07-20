@@ -6,7 +6,7 @@ param (
 )
 
 $prop=[Ordered]@{
-    SupportedAttributes=@('badPasswordTime','lastLogon','lastLogonTimestamp','ms-Mcs-AdmPwdExpirationTime')
+    SupportedAttributes=@('badPasswordTime','lastLogon','lastLogonTimestamp','ms-Mcs-AdmPwdExpirationTime','pwdLastSet')
     OnLoad = $null
     OnSave = $null
 }
