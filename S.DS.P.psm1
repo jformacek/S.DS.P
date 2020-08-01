@@ -419,9 +419,15 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             'rootDomainNamingContext'=$null; 'configurationNamingContext'=$null; 'schemaNamingContext'=$null; `
             'defaultNamingContext'=$null; 'namingContexts'=$null; `
             'dnsHostName'=$null; 'ldapServiceName'=$null; 'dsServiceName'=$null; 'serverName'=$null;`
-            'supportedLdapPolicies'=$null; 'supportedSASLMechanisms'=$null; 'supportedControl'=$null;`
-            'currentTime'=$null; 'approximateHighestInternalObjectID'=$null `
-            }
+            'supportedLdapPolicies'=$null; 'supportedSASLMechanisms'=$null; 'supportedControl'=$null; 'supportedConfigurableSettings'=$null; `
+            'currentTime'=$null; 'highestCommittedUSN' = $null; 'approximateHighestInternalObjectID'=$null; `
+            'dsSchemaAttrCount'=$null; 'dsSchemaClassCount'=$null; 'dsSchemaPrefixCount'=$null; `
+            'isGlobalCatalogReady'=$null; 'isSynchronized'=$null; 'pendingPropagations'=$null; `
+            'domainControllerFunctionality' = $null; 'domainFunctionality'=$null; 'forestFunctionality'=$null; `
+            'subSchemaSubEntry'=$null; `
+            'msDS-ReplAllInboundNeighbors'=$null; 'msDS-ReplConnectionFailures'=$null; 'msDS-ReplLinkFailures'=$null; 'msDS-ReplPendingOps'=$null; `
+            'dsaVersionString'=$null; 'serviceAccountInfo'=$null; 'LDAPPoliciesEffective'=$null `
+        }
     }
     Process {
 
@@ -445,6 +451,11 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         }
         #if there was error, let the exception go to caller and do not continue
 
+        #sometimes server does not return nothing if we ask for property that is not supported by protocol
+        if($rsp.Entries.Count -eq 0) {
+            return;
+        }
+
         $data=new-object PSObject -Property $propDef
 
         if ($rsp.Entries[0].Attributes['configurationNamingContext']) {
@@ -466,6 +477,15 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             catch {
                 #it isn't a numeric, just return what's stored without parsing
                 $data.approximateHighestInternalObjectID=$rsp.Entries[0].Attributes['approximateHighestInternalObjectID'].GetValues([string])
+            }
+        }
+        if($null -ne $rsp.Entries[0].Attributes['highestCommittedUSN']) {
+            try {
+                $data.highestCommittedUSN=[long]::Parse($rsp.Entries[0].Attributes['highestCommittedUSN'].GetValues([string]))
+            }
+            catch {
+                #it isn't a numeric, just return what's stored without parsing
+                $data.highestCommittedUSN=$rsp.Entries[0].Attributes['highestCommittedUSN'].GetValues([string])
             }
         }
         if($null -ne $rsp.Entries[0].Attributes['currentTime']) {
@@ -512,10 +532,89 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         if($null -ne $rsp.Entries[0].Attributes['supportedSASLMechanisms']) {
             $data.supportedSASLMechanisms = ( ($rsp.Entries[0].Attributes['supportedSASLMechanisms'].GetValues([string])) | Sort-Object )
         }
+        if($null -ne $rsp.Entries[0].Attributes['supportedConfigurableSettings']) {
+            $data.supportedConfigurableSettings = ( ($rsp.Entries[0].Attributes['supportedConfigurableSettings'].GetValues([string])) | Sort-Object )
+        }
         if($null -ne $rsp.Entries[0].Attributes['namingContexts']) {
             $data.namingContexts = @()
             foreach($ctxDef in ($rsp.Entries[0].Attributes['namingContexts'].GetValues([string]))) {
                 $data.namingContexts+=[NamingContext]::Parse($ctxDef)
+            }
+        }
+        if($null -ne $rsp.Entries[0].Attributes['dsSchemaAttrCount']) {
+            [long]$outVal=-1
+            [long]::TryParse($rsp.Entries[0].Attributes['dsSchemaAttrCount'].GetValues([string]),[ref]$outVal) | Out-Null
+            $data.dsSchemaAttrCount=$outVal
+        }
+        if($null -ne $rsp.Entries[0].Attributes['dsSchemaClassCount']) {
+            [long]$outVal=-1
+            [long]::TryParse($rsp.Entries[0].Attributes['dsSchemaClassCount'].GetValues([string]),[ref]$outVal) | Out-Null
+            $data.dsSchemaClassCount=$outVal
+        }
+        if($null -ne $rsp.Entries[0].Attributes['dsSchemaPrefixCount']) {
+            [long]$outVal=-1
+            [long]::TryParse($rsp.Entries[0].Attributes['dsSchemaPrefixCount'].GetValues([string]),[ref]$outVal) | Out-Null
+            $data.dsSchemaPrefixCount=$outVal
+        }
+        if($null -ne $rsp.Entries[0].Attributes['isGlobalCatalogReady']) {
+            $data.isGlobalCatalogReady=[bool]$rsp.Entries[0].Attributes['isGlobalCatalogReady'].GetValues([string])
+        }
+        if($null -ne $rsp.Entries[0].Attributes['isSynchronized']) {
+            $data.isSynchronized=[bool]$rsp.Entries[0].Attributes['isSynchronized'].GetValues([string])
+        }
+        if($null -ne $rsp.Entries[0].Attributes['pendingPropagations']) {
+            $data.pendingPropagations=$rsp.Entries[0].Attributes['pendingPropagations'].GetValues([string])
+        }
+        if($null -ne $rsp.Entries[0].Attributes['subSchemaSubEntry']) {
+            $data.subSchemaSubEntry=$rsp.Entries[0].Attributes['subSchemaSubEntry'].GetValues([string])[0]
+        }
+         if($null -ne $rsp.Entries[0].Attributes['domainControllerFunctionality']) {
+            $data.domainControllerFunctionality=[int]$rsp.Entries[0].Attributes['domainControllerFunctionality'].GetValues([string])[0]
+        }
+        if($null -ne $rsp.Entries[0].Attributes['domainFunctionality']) {
+            $data.domainFunctionality=[int]$rsp.Entries[0].Attributes['domainFunctionality'].GetValues([string])[0]
+        }
+        if($null -ne $rsp.Entries[0].Attributes['forestFunctionality']) {
+            $data.forestFunctionality=[int]$rsp.Entries[0].Attributes['forestFunctionality'].GetValues([string])[0]
+        }
+        if($null -ne $rsp.Entries[0].Attributes['msDS-ReplAllInboundNeighbors']) {
+            $data.'msDS-ReplAllInboundNeighbors'=@()
+            foreach($val in $rsp.Entries[0].Attributes['msDS-ReplAllInboundNeighbors'].GetValues([string])) {
+                $data.'msDS-ReplAllInboundNeighbors'+=[xml]$Val.SubString(0,$Val.Length-2)
+            }
+        }
+        if($null -ne $rsp.Entries[0].Attributes['msDS-ReplConnectionFailures']) {
+            $data.'msDS-ReplConnectionFailures'=@()
+            foreach($val in $rsp.Entries[0].Attributes['msDS-ReplConnectionFailures'].GetValues([string])) {
+                $data.'msDS-ReplConnectionFailures'+=[xml]$Val.SubString(0,$Val.Length-2)
+            }
+        }
+        if($null -ne $rsp.Entries[0].Attributes['msDS-ReplLinkFailures']) {
+            $data.'msDS-ReplLinkFailures'=@()
+            foreach($val in $rsp.Entries[0].Attributes['msDS-ReplLinkFailures'].GetValues([string])) {
+                $data.'msDS-ReplLinkFailures'+=[xml]$Val.SubString(0,$Val.Length-2)
+            }
+        }
+        if($null -ne $rsp.Entries[0].Attributes['msDS-ReplPendingOps']) {
+            $data.'msDS-ReplPendingOps'=@()
+            foreach($val in $rsp.Entries[0].Attributes['msDS-ReplPendingOps'].GetValues([string])) {
+                $data.'msDS-ReplPendingOps'+=[xml]$Val.SubString(0,$Val.Length-2)
+            }
+        }
+        if($null -ne $rsp.Entries[0].Attributes['dsaVersionString']) {
+            $data.dsaVersionString=$rsp.Entries[0].Attributes['dsaVersionString'].GetValues([string])[0]
+        }
+        if($null -ne $rsp.Entries[0].Attributes['serviceAccountInfo']) {
+            $data.serviceAccountInfo=$rsp.Entries[0].Attributes['serviceAccountInfo'].GetValues([string])
+        }
+        if($null -ne $rsp.Entries[0].Attributes['LDAPPoliciesEffective']) {
+            $data.LDAPPoliciesEffective=@{}
+            foreach($val in $rsp.Entries[0].Attributes['LDAPPoliciesEffective'].GetValues([string]))
+            {
+                $vals=$val.Split(':')
+                if($vals.Length -gt 1) {
+                    $data.LDAPPoliciesEffective[$vals[0]]=$vals[1]
+                }
             }
         }
         $data
@@ -1298,7 +1397,6 @@ More about attribute transforms and how to create them: https://github.com/jform
         }
     }
 }
-
 
 #Helpers
 Add-Type @'

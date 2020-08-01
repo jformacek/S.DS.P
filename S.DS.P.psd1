@@ -70,6 +70,7 @@
 # 20.7.2020, 2.0.5, Jiri Formacek, Add-LdapObject: Enhanced handling of null values
 #                                  Find-LdapObject: Returned object respects order of props
 #                                  Added more transforms
+#                       
 @{
 
     # Script module or binary module file associated with this manifest
