@@ -70,14 +70,15 @@
 # 20.7.2020, 2.0.5, Jiri Formacek, Add-LdapObject: Enhanced handling of null values
 #                                  Find-LdapObject: Returned object respects order of props
 #                                  Added more transforms
-#                       
+#  1.8.2020, 2.0.6, Jiri Formacek, More attributes to RootDSE (mostly MS DS specific)
+#                                  Windows Hello for Business credential transform
 @{
 
     # Script module or binary module file associated with this manifest
     RootModule = '.\S.DS.P.psm1'
 
     # Version number of this module.
-    ModuleVersion = '2.0.5'
+    ModuleVersion = '2.0.6'
 
     # ID used to uniquely identify this module
     GUID = '766cbbc0-85b9-4773-b4db-2fa86cd771ff'
