@@ -7,6 +7,8 @@ on:
       - '**.psd1'
       - '**.psm1'
       - '**.ps1'
+    tags:
+      - 'v*'
 
 jobs:
   # This workflow contains a single job called "publishToGallery"
@@ -25,10 +27,34 @@ jobs:
       run: |
         write-host "Building in: $env:GITHUB_WORKSPACE\S.DS.P"
         New-Item -Path  "$env:GITHUB_WORKSPACE" -Name S.DS.P -ItemType Directory -Force | Out-Null
+        New-Item -Path  "$env:GITHUB_WORKSPACE" -Name Assets -ItemType Directory -Force | Out-Null
         Copy-Item -Path "$env:GITHUB_WORKSPACE\S.DS.P.psd1" -Destination "$env:GITHUB_WORKSPACE\S.DS.P\" -Force
         Copy-Item -Path "$env:GITHUB_WORKSPACE\S.DS.P.psm1" -Destination "$env:GITHUB_WORKSPACE\S.DS.P\" -Force
         Copy-Item -Path "$env:GITHUB_WORKSPACE\LICENSE.TXT" -Destination "$env:GITHUB_WORKSPACE\S.DS.P\" -Force
-        Copy-Item -Path "$env:GITHUB_WORKSPACE\Transforms\" -Destination "$env:GITHUB_WORKSPACE\S.DS.P\" -Recurse -Force 
+        Copy-Item -Path "$env:GITHUB_WORKSPACE\Transforms\" -Destination "$env:GITHUB_WORKSPACE\S.DS.P\" -Recurse -Force
+
+        Compress-Archive -Path "$env:GITHUB_WORKSPACE\S.DS.P\" -DestinationPath "$env:GITHUB_WORKSPACE\Assets\S.DS.P-Full.zip"
+        Compress-Archive -Path "$env:GITHUB_WORKSPACE\S.DS.P\" -DestinationPath "$env:GITHUB_WORKSPACE\Assets\S.DS.P-Transforms.zip"
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: ${{ github.ref }}
+        draft: true
+        prerelease: false
+    - name: Upload Release Asset
+      id: upload-release-asset 
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+        asset_path: .\Assets\S.DS.P-Full.zip
+        asset_name: S.DS.P-Full.zip
+        asset_content_type: application/zip
     - name: Publish
       shell: pwsh
       env:
