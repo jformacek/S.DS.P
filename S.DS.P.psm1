@@ -688,6 +688,10 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             #Default: 120 seconds
         $Timeout = (New-Object System.TimeSpan(0,0,120)),
 
+        [Switch]
+        #Accept self-signed certificates. Required for some directories, for example eDirectory by default uses self signed certs.
+        $AcceptSelfSignedCert = $false,
+
         [Parameter(Mandatory = $false)]
         [System.DirectoryServices.Protocols.AuthType]
             #The type of authentication to use with the LdapConnection
@@ -713,6 +717,16 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             $LdapConnection=new-object System.DirectoryServices.Protocols.LdapConnection($di)
         }
         $LdapConnection.SessionOptions.ProtocolVersion=$ProtocolVersion
+
+        if ($AcceptSelfSignedCert) {
+            $LdapConnection.SessionOptions.VerifyServerCertificate = { param(
+                    [Parameter(Mandatory)][DirectoryServices.Protocols.LdapConnection]$LdapConnection,
+                    [Parameter(Mandatory)][Security.Cryptography.X509Certificates.X509Certificate2]$Certificate
+                )
+                $script:LdapCertificate = $Certificate
+                return $true
+            }
+        }
 
         if ($null -ne $AuthType) {
             $LdapConnection.AuthType = $AuthType
