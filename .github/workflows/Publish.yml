@@ -1,0 +1,64 @@
+name: CI
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - '**'
+    tags:
+      - 'v*'
+
+jobs:
+  # This workflow contains a single job called "publishToGallery"
+  publishToGallery:
+    # The type of runner that the job will run on
+    runs-on: windows-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+    - name: Checkout
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      uses: actions/checkout@v2
+
+      #copy files
+    - name: Build
+      shell: pwsh
+      run: |
+        $Name = 'S.DS.P'
+        $Target = 'S.DS.P'
+        write-host "Building in: $env:GITHUB_WORKSPACE\S.DS.P"
+        New-Item -Path  "$env:GITHUB_WORKSPACE" -Name $Target -ItemType Directory -Force | Out-Null
+        Copy-Item -Path "$env:GITHUB_WORKSPACE\S.DS.P.psd1" -Destination "$env:GITHUB_WORKSPACE\$Target\" -Force
+        Copy-Item -Path "$env:GITHUB_WORKSPACE\S.DS.P.psm1" -Destination "$env:GITHUB_WORKSPACE\$Target\" -Force
+        Copy-Item -Path "$env:GITHUB_WORKSPACE\LICENSE.TXT" -Destination "$env:GITHUB_WORKSPACE\$Target\" -Force
+        Copy-Item -Path "$env:GITHUB_WORKSPACE\Transforms\" -Destination "$env:GITHUB_WORKSPACE\$Target\" -Recurse -Force
+
+    - name: Publish
+      #Publish to PS Gallery
+      shell: pwsh
+      env:
+        SECRET: ${{ secrets.PSGallery_APIKey }}
+      run: |
+        write-host "Publishing from: $env:GITHUB_WORKSPACE\S.DS.P"
+        try
+        {
+          Publish-Module -Path "$env:GITHUB_WORKSPACE\S.DS.P" -NuGetApiKey "$env:SECRET"
+        }
+        catch
+        {
+          Write-Host "Error: $($_.Exception)"
+          throw
+        }
+        
+    - name: Create Release
+      #Create a release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions automatically
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false
+
