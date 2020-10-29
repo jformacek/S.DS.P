@@ -10,6 +10,7 @@ if($FullLoad)
 }
 
 $prop=[Ordered]@{
+    BinaryInput=$true
     SupportedAttributes=@('objectGuid')
     OnLoad = $null
     OnSave = $null

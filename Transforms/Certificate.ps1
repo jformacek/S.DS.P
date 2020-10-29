@@ -6,6 +6,7 @@ param (
 )
 
 $prop=[Ordered]@{
+    BinaryInput=$true
     SupportedAttributes=@('userCertificate','userCert')
     OnLoad = $null
     OnSave = $null

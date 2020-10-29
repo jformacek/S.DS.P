@@ -20,7 +20,7 @@ This command connects to domain controller of caller's domain on port 389 and pe
 
 .EXAMPLE
 $Ldap = Get-LdapConnection
-Find-LdapObject -LdapConnection $Ldap -SearchFilter:"(&(cn=jsmith)(objectClass=user)(objectCategory=organizationalPerson))" -SearchBase:"ou=Users,dc=myDomain,dc=com" -PropertiesToLoad:@("sAMAccountName","objectSid") -BinaryProperties:@("objectSid")
+Find-LdapObject -LdapConnection $Ldap -SearchFilter:'(&(cn=jsmith)(objectClass=user)(objectCategory=organizationalPerson))' -SearchBase:'ou=Users,dc=myDomain,dc=com' -PropertiesToLoad:@('sAMAccountName','objectSid') -BinaryProperties:@('objectSid')
 
 Description
 -----------
@@ -294,17 +294,23 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                     $rspAttr = $LdapConnection.SendRequest($rqAttr)
                     foreach ($sr in $rspAttr.Entries) {
                         foreach($attrName in $PropertiesToLoad) {
+                            $transform = $script:RegisteredTransforms[$attrName]
+                            $BinaryInput = ($null -ne $transform -and $transform.BinaryInput -eq $true) -or ($attrName -in $BinaryProperties)
                             #protecting against LDAP servers who don't understand '1.1' prop
                             if($sr.Attributes.AttributeNames -contains $attrName) {
-                                if($BinaryProperties -contains $attrName) {
-                                    $data.$attrName += $sr.Attributes[$attrName].GetValues([byte[]])
-                                } else {
-                                    $data.$attrName += $sr.Attributes[$attrName].GetValues(([string]))
-                                }
-                                #perform transform if registered
-                                if($null -ne $script:RegisteredTransforms[$attrName] -and $null -ne $script:RegisteredTransforms[$attrName].OnLoad)
+                                if($null -ne $transform -and $null -ne $transform.OnLoad)
                                 {
-                                    $data.$attrName = (& $script:RegisteredTransforms[$attrName].OnLoad -Values $data.$attrName)
+                                    if($BinaryInput -eq $true) {
+                                        $data.$attrName = (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([byte[]])))
+                                    } else {
+                                        $data.$attrName = (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([string])))
+                                    }
+                                } else {
+                                    if($BinaryInput -eq $true) {
+                                        $data.$attrName += $sr.Attributes[$attrName].GetValues([byte[]])
+                                    } else {
+                                        $data.$attrName += $sr.Attributes[$attrName].GetValues([string])
+                                    }                                    
                                 }
                             }
                         }
@@ -314,6 +320,8 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                 {
                     #load properties of object, if requested, using ranged retrieval
                     foreach ($attrName in $PropertiesToLoad) {
+                        $transform = $script:RegisteredTransforms[$attrName]
+                        $binaryInput = ($null -ne $transform -and $transform.BinaryInput -eq $true) -or ($attrName -in $BinaryProperties)
                         $start=-$rangeSize
                         $lastRange=$false
                         while ($lastRange -eq $false) {
@@ -327,12 +335,11 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                                     #LDAP server changes upper bound to * on last chunk
                                     $returnedAttrName=$($sr.Attributes.AttributeNames)
                                     #load binary properties as byte stream, other properties as strings
-                                    if($BinaryProperties -contains $attrName) {
+                                    if($BinaryInput) {
                                         $data.$attrName+=$sr.Attributes[$returnedAttrName].GetValues([byte[]])
                                     } else {
-                                        $data.$attrName += $sr.Attributes[$returnedAttrName].GetValues(([string])) # -as [string[]];
+                                        $data.$attrName += $sr.Attributes[$returnedAttrName].GetValues([string])
                                     }
-                                    #$data.$attrName+=$vals
                                     if($returnedAttrName.EndsWith("-*") -or $returnedAttrName -eq $attrName) {
                                         #last chunk arrived
                                         $lastRange = $true
@@ -344,9 +351,9 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                             }
                         }
                         #perform transform if registered
-                        if($null -ne $script:RegisteredTransforms[$attrName] -and $null -ne $script:RegisteredTransforms[$attrName].OnLoad)
+                        if($null -ne $transform -and $null -ne $transform.OnLoad)
                         {
-                            $data.$attrName = (& $script:RegisteredTransforms[$attrName].OnLoad -Values $data.$attrName)
+                            $data.$attrName = (& $transform.OnLoad -Values $data.$attrName)
                         }
                     }
                 }
@@ -416,7 +423,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
 		#initialize output objects via hashtable --> faster than add-member
         #create default initializer beforehand
         $propDef=[ordered]@{`
-            'rootDomainNamingContext'=$null; 'configurationNamingContext'=$null; 'schemaNamingContext'=$null; `
+            rootDomainNamingContext=$null; configurationNamingContext=$null; schemaNamingContext=$null; `
             'defaultNamingContext'=$null; 'namingContexts'=$null; `
             'dnsHostName'=$null; 'ldapServiceName'=$null; 'dsServiceName'=$null; 'serverName'=$null;`
             'supportedLdapPolicies'=$null; 'supportedSASLMechanisms'=$null; 'supportedControl'=$null; 'supportedConfigurableSettings'=$null; `
@@ -829,18 +836,20 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             if($prop.Name -eq "distinguishedName") {continue}
             if($IgnoredProps -contains $prop.Name) {continue}
             [System.DirectoryServices.Protocols.DirectoryAttribute]$propAdd=new-object System.DirectoryServices.Protocols.DirectoryAttribute
+            $transform = $script:RegisteredTransforms[$prop.Name]
+            $binaryInput = ($null -ne $transform -and $transform.BinaryInput -eq $true) -or ($prop.Name -in $BinaryProps)
             $propAdd.Name=$prop.Name
             $attrVal = $Object.($prop.Name)
 
             #if transform defined -> transform to form accepted by directory
-            if($null -ne $script:RegisteredTransforms[$prop.Name] -and $null -ne $script:RegisteredTransforms[$prop.Name].OnSave)
+            if($null -ne $transform -and $null -ne $transform.OnSave)
             {
-                $attrVal = ,(& $script:RegisteredTransforms[$prop.Name].OnSave -Values $attrVal)
+                $attrVal = ,(& $transform.OnSave -Values $attrVal)
             }
             
             if($null -ne $attrVal)  #ignore empty props
             {
-                if($prop.Name -in $BinaryProps) {
+                if($binaryInput) {
                     foreach($val in $attrVal) {
                         $propAdd.Add([byte[]]$val) | Out-Null
                     }
@@ -974,20 +983,22 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             if($IgnoredProps -contains $prop.Name) {continue}
             if(($IncludedProps.Count -gt 0) -and ($IncludedProps -notcontains $prop.Name)) {continue}
             [System.DirectoryServices.Protocols.DirectoryAttribute]$propMod=new-object System.DirectoryServices.Protocols.DirectoryAttributeModification
+            $transform = $script:RegisteredTransforms[$prop.Name]
+            $binaryInput = ($null -ne $transform -and $transform.BinaryInput -eq $true) -or ($prop.Name -in $BinaryProps)
             $propMod.Name=$prop.Name
             $attrVal = $Object.($prop.Name)
 
             #if transform defined -> transform to form accepted by directory
-            if($null -ne $script:RegisteredTransforms[$prop.Name] -and $null -ne $script:RegisteredTransforms[$prop.Name].OnSave)
+            if($null -ne $transform -and $null -ne $transform.OnSave)
             {
-                $attrVal = ,(& $script:RegisteredTransforms[$prop.Name].OnSave -Values $attrVal)
+                $attrVal = ,(& $transform.OnSave -Values $attrVal)
             }
 
             if($null -ne $attrVal) {
                 #we're modifying property
                 if($attrVal.Count -gt 0) {
                     $propMod.Operation=$Mode
-                    if($prop.Name -in $BinaryProps)  {
+                    if($binaryInput)  {
                         foreach($val in $attrVal) {
                             $propMod.Add([byte[]]$val) | Out-Null
                         }
@@ -1220,7 +1231,8 @@ Register-LdapAttributeTransform -Name SecurityDescriptor -AttributeName ntSecuri
 Register-LdapAttributeTransform -Name Certificate
 
 #find objects, applying registered transforms as necessary
-Find-LdapObject -LdapConnection $Ldap -SearchBase "cn=User1,cn=Users,dc=mydomain,dc=com" -SearchScope Base -PropertiesToLoad 'cn','ntSecurityDescriptor','userCert,'userCertificate' -BinaryProperties 'ntSecurityDescriptor','userCert,'userCertificate'
+# Notice that for attributes processed by a transform, there is no need to specify them in -BinaryProps parameter: transform 'knows' if it's binary or not
+Find-LdapObject -LdapConnection $Ldap -SearchBase "cn=User1,cn=Users,dc=mydomain,dc=com" -SearchScope Base -PropertiesToLoad 'cn','ntSecurityDescriptor','userCert,'userCertificate'
 
 Decription
 ----------
@@ -1232,7 +1244,8 @@ $Ldap = Get-LdapConnection -LdapServer "mydc.mydomain.com" -EncryptionType Kerbe
 #register all available transforms
 Get-LdapAttributeTransform -ListAvailable | Register-LdapAttributeTransform
 #find objects, applying registered transforms as necessary
-Find-LdapObject -LdapConnection $Ldap -SearchBase "cn=User1,cn=Users,dc=mydomain,dc=com" -SearchScope Base -PropertiesToLoad 'cn','ntSecurityDescriptor','userCert,'userCertificate' -BinaryProperties 'ntSecurityDescriptor','userCert,'userCertificate'
+# Notice that for attributes processed by a transform, there is no need to specify them in -BinaryProps parameter: transform 'knows' if it's binary or not
+Find-LdapObject -LdapConnection $Ldap -SearchBase "cn=User1,cn=Users,dc=mydomain,dc=com" -SearchScope Base -PropertiesToLoad 'cn','ntSecurityDescriptor','userCert,'userCertificate'
 
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
@@ -1245,7 +1258,7 @@ More about attribute transforms and how to create them: https://github.com/jform
         [string]
             #Name of the transform
         $Name,
-        [Parameter(Mandatory=$false)]
+        [Parameter()]
         [string]
             #Name of the attribute that will be processed by transform
             #If not specified, transform will be registered on all supported attributes
@@ -1260,7 +1273,7 @@ More about attribute transforms and how to create them: https://github.com/jform
         switch($PSCmdlet.ParameterSetName)
         {
             'TransformObject' {
-                $Name = $transform.Name
+                $Name = $transform.TransformName
                 break;
             }
         }
@@ -1383,8 +1396,8 @@ More about attribute transforms and how to create them: https://github.com/jform
         foreach($transformFile in $TransformList)
         {
             $transform = (& $transformFile.FullName)
-            $transform = $transform | Add-Member -MemberType NoteProperty -Name 'Name' -Value ([System.IO.Path]::GetFileNameWithoutExtension($transformFile.FullName)) -PassThru
-            $transform | Select-Object Name,SupportedAttributes
+            $transform = $transform | Add-Member -MemberType NoteProperty -Name 'TransformName' -Value ([System.IO.Path]::GetFileNameWithoutExtension($transformFile.FullName)) -PassThru
+            $transform | Select-Object TransformName,SupportedAttributes
         }
     }
     else {
@@ -1392,7 +1405,7 @@ More about attribute transforms and how to create them: https://github.com/jform
         {
             New-Object PSCustomObject -Property ([Ordered]@{
                 AttributeName = $attrName
-                Name = $script:RegisteredTransforms[$attrName].Name
+                TransformName = $script:RegisteredTransforms[$attrName].Name
             })
         }
     }
