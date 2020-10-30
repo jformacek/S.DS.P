@@ -6,6 +6,7 @@ param (
 )
 
 $prop=[Ordered]@{
+    BinaryInput=$true
     SupportedAttributes=@('objectSid','tokenGroups','tokenGroupsGlobalAndUniversal','tokenGroupsNoGCAcceptable')
     OnLoad = $null
     OnSave = $null

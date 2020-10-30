@@ -36,13 +36,13 @@ $prop=[Ordered]@{
 $codeBlock = new-object PSCustomObject -property $prop
 $codeBlock.OnLoad = { 
     param(
-    [object[]]$Values
+    [int[]]$Values
     )
     Process
     {
         foreach($Value in $Values)
         {
-            [SamAccountType].GetEnumValues().ForEach({if(($Value -band $_) -eq $_) {"$_"}})
+            [SamAccountType].GetEnumValues().ForEach({if($Value -eq $_) {"$_"}})
         }
     }
 }

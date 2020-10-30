@@ -140,10 +140,14 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         $PageSize=500,
 
         [parameter(Mandatory = $false)]
-        [UInt32]
-            #Range size for ranged attribute value retrieval. Zero means that ranged attribute value retrieval is disabled and attribute values are returned in single request.
-            #Note: Default in query policy in AD is 1500; we use 1000 as default here.
-            #Default: 1000
+        [Int32]
+            # Specification of attribute value retrieval mode
+            # Negative value means that attribute values are loaded directly with list of objects
+            # Zero means that ranged attribute value retrieval is disabled and attribute values are returned in single request.
+            # Positive value  means that each attribute value is loaded in dedicated requests in batches of given size. Usable for loading of group members
+            # Note: Default in query policy in AD is 1500; we use 1000 as default here.
+            # Note: Default value indicates ranged retrieval, so as we're on safe side and do the best for retrieval of all values in attribute, even if it means performance impact
+            # Default: 1000
         $RangeSize=1000,
 
         [parameter(Mandatory = $false)]
@@ -151,7 +155,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             #List of properties that we want to load as byte stream.
             #Note: Those properties must also be present in PropertiesToLoad parameter. Properties not listed here are loaded as strings
             #Default: empty list, which means that all properties are loaded as strings
-        $BinaryProperties=@(),
+        $BinaryProps=@(),
 
         [parameter(Mandatory = $false)]
         [String[]]
@@ -178,25 +182,11 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
 
     Begin
     {
-        #initialize output objects via hashtable --> faster than add-member
-        #create default initializer beforehand
-        #and just once for processing
-        $propDef=[ordered]@{}
-        #we always return at least distinguishedName
-        #so add it explicitly to object template and remove from propsToLoad if specified
-        #also remove '1.1' if present as this is special prop and is in conflict with standard props
-        $propDef.Add('distinguishedName','')
+        #remove unwanted props
         $PropertiesToLoad=@($propertiesToLoad | where-object {$_ -notin @('distinguishedName','1.1')})
-
-        #prepare template for output object
-        foreach($prop in $PropertiesToLoad) { $propDef.Add($prop,@()) }
-
-        #define additional properties, skipping props that may have been specified in propertiesToLoad
-        foreach($prop in $AdditionalProperties) {
-            if($propDef.ContainsKey($prop)) { continue }
-            #Intentionally setting to $null instead of empty array as we just define prop for caller's use
-            $propDef.Add($prop,$null)
-        }
+        #if asterisk in list of props to load, load all props available on object despite of  required list
+        if($propertiesToLoad.Count -eq 0) {$NoAttributes=$true} else {$NoAttributes=$false}
+        if('*' -in $PropertiesToLoad) {$PropertiesToLoad=@()}
 
         #configure LDAP connection
         #preserve original value of referral chasing
@@ -237,10 +227,6 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         #search scope
         $rq.Scope=$searchScope
 
-        #attributes we want to return - nothing now, and then load attributes directly from each entry returned
-        #this allows returning computed and special attributes that can only be returned directly from object
-        $rq.Attributes.Add("1.1") | Out-Null
-
         #paged search control for paged search
         if($pageSize -gt 0) {
             [System.DirectoryServices.Protocols.PageResultRequestControl]$pagedRqc = new-object System.DirectoryServices.Protocols.PageResultRequestControl($pageSize)
@@ -260,121 +246,33 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             [System.DirectoryServices.Protocols.AsqRequestControl]$asqRqc=new-object System.DirectoryServices.Protocols.AsqRequestControl($ASQ)
             $rq.Controls.Add($asqRqc) | Out-Null
         }
-
-        #process paged search in cycle or go through the processing at least once for non-paged search
-        while ($true)
+        if($NoAttributes)
         {
-            $rsp = $LdapConnection.SendRequest($rq, $Timeout) -as [System.DirectoryServices.Protocols.SearchResponse];
-
-            #now process the returned list of distinguishedNames and fetch required properties directly from returned objects
-            foreach ($sr in $rsp.Entries)
+            #just run as fast as possible when not loading any attribs
+            GetResultsDirectlyInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -BinaryProperties $BinaryProps -Timeout $Timeout -NoAttributes
+        }
+        else {
+            #load attributes according to desired strategy
+            switch($RangeSize)
             {
-                $dn=$sr.DistinguishedName
-                #we return results as powershell custom objects to pipeline
-                #initialize members of result object (server response does not contain empty attributes, so classes would not have the same layout
-                #create empty custom object for result, including only distinguishedName as a default
-                $data=new-object PSObject -Property $propDef
-                $data.distinguishedName=$dn
-
-                $rqAttr=new-object System.DirectoryServices.Protocols.SearchRequest
-                $rqAttr.DistinguishedName=$dn
-                $rqAttr.Scope="Base"
-                foreach($ctrl in $AdditionalControls) {$rqAttr.Controls.Add($ctrl) | Out-Null}
-
-                if($RangeSize -eq 0) {
-                    #load all requested properties of object in single call, without ranged retrieval
-                    if($PropertiesToLoad.Count -eq 0) {
-                        #if no props specified, ask server to return just result without attrs
-                        $rqAttr.Attributes.Add('1.1') | Out-Null
-                    }
-                    else {
-                        $rqAttr.Attributes.AddRange($PropertiesToLoad) | Out-Null
-                    }
-
-                    $rspAttr = $LdapConnection.SendRequest($rqAttr)
-                    foreach ($sr in $rspAttr.Entries) {
-                        foreach($attrName in $PropertiesToLoad) {
-                            $transform = $script:RegisteredTransforms[$attrName]
-                            $BinaryInput = ($null -ne $transform -and $transform.BinaryInput -eq $true) -or ($attrName -in $BinaryProperties)
-                            #protecting against LDAP servers who don't understand '1.1' prop
-                            if($sr.Attributes.AttributeNames -contains $attrName) {
-                                if($null -ne $transform -and $null -ne $transform.OnLoad)
-                                {
-                                    if($BinaryInput -eq $true) {
-                                        $data.$attrName = (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([byte[]])))
-                                    } else {
-                                        $data.$attrName = (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([string])))
-                                    }
-                                } else {
-                                    if($BinaryInput -eq $true) {
-                                        $data.$attrName += $sr.Attributes[$attrName].GetValues([byte[]])
-                                    } else {
-                                        $data.$attrName += $sr.Attributes[$attrName].GetValues([string])
-                                    }                                    
-                                }
-                            }
-                        }
-                    }
+                {$_ -lt 0} {
+                    #directly via single ldap call
+                    #some attribs may not be loaded (e.g. computed)
+                    GetResultsDirectlyInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -BinaryProperties $BinaryProps -Timeout $Timeout
+                    break
                 }
-                else
-                {
-                    #load properties of object, if requested, using ranged retrieval
-                    foreach ($attrName in $PropertiesToLoad) {
-                        $transform = $script:RegisteredTransforms[$attrName]
-                        $binaryInput = ($null -ne $transform -and $transform.BinaryInput -eq $true) -or ($attrName -in $BinaryProperties)
-                        $start=-$rangeSize
-                        $lastRange=$false
-                        while ($lastRange -eq $false) {
-                            $start += $rangeSize
-                            $rng = "$($attrName.ToLower());range=$start`-$($start+$rangeSize-1)"
-                            $rqAttr.Attributes.Clear() | Out-Null
-                            $rqAttr.Attributes.Add($rng) | Out-Null
-                            $rspAttr = $LdapConnection.SendRequest($rqAttr)
-                            foreach ($sr in $rspAttr.Entries) {
-                                if(($null -ne $sr.Attributes.AttributeNames) -and ($sr.Attributes.AttributeNames.Count -gt 0)) {
-                                    #LDAP server changes upper bound to * on last chunk
-                                    $returnedAttrName=$($sr.Attributes.AttributeNames)
-                                    #load binary properties as byte stream, other properties as strings
-                                    if($BinaryInput) {
-                                        $data.$attrName+=$sr.Attributes[$returnedAttrName].GetValues([byte[]])
-                                    } else {
-                                        $data.$attrName += $sr.Attributes[$returnedAttrName].GetValues([string])
-                                    }
-                                    if($returnedAttrName.EndsWith("-*") -or $returnedAttrName -eq $attrName) {
-                                        #last chunk arrived
-                                        $lastRange = $true
-                                    }
-                                } else {
-                                    #nothing was found
-                                    $lastRange = $true
-                                }
-                            }
-                        }
-                        #perform transform if registered
-                        if($null -ne $transform -and $null -ne $transform.OnLoad)
-                        {
-                            $data.$attrName = (& $transform.OnLoad -Values $data.$attrName)
-                        }
-                    }
+                0 {
+                    #query attributes for each object returned using base search
+                    #but not using ranged retrieval, so multivalued attributes with many values may not be returned completely
+                    GetResultsIndirectlyInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -BinaryProperties $BinaryProps -Timeout $Timeout
+                    break
                 }
-                #flatten props
-                foreach($prop in $PropertiesToLoad) {$data.$prop = [Flattener]::FlattenArray($data.$prop)}
-                #and return result to pipeline
-                $data
-            }
-            #the response may contain paged search response. If so, we will need a cookie from it
-            [System.DirectoryServices.Protocols.PageResultResponseControl] $prrc=($rsp.Controls | Where-Object{$_ -is [System.DirectoryServices.Protocols.PageResultResponseControl]})
-            if(($pageSize -gt 0) -and ($null -ne $prrc)) {
-                #we performed paged search
-                if ($prrc.Cookie.Length -eq 0) {
-                    #last page --> we're done
-                    break;
+                {$_ -gt 0} {
+                    #query attributes for each object returned using base search and each attribute value with ranged retrieval
+                    #so even multivalued attributes with many values are returned completely
+                    GetResultsIndirectlyRangedInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -BinaryProperties $BinaryProps -Timeout $Timeout -RangeSize $RangeSize
+                    break
                 }
-                #pass the search cookie back to server in next paged request
-                $pagedRqc.Cookie = $prrc.Cookie;
-            } else {
-                #exit the processing for non-paged search
-                break;
             }
         }
     }
@@ -703,7 +601,13 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         [Parameter(Mandatory = $false)]
         [int]
             #Requested LDAP protocol version
-        $ProtocolVersion = 3
+        $ProtocolVersion = 3,
+
+        [Parameter(Mandatory = $false)]
+        [System.Security.Cryptography.X509Certificates.X509VerificationFlags]
+            #Requested LDAP protocol version
+        $CertificateValidationFlags = 'NoFlag'
+        
     )
 
     Process
@@ -721,6 +625,20 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         }
         $LdapConnection.SessionOptions.ProtocolVersion=$ProtocolVersion
 
+        if($CertificateValidationFlags -ne 'NoFlag')
+        {
+            $LdapConnection.SessionOptions.VerifyServerCertificate = { param(
+                [Parameter(Mandatory)][DirectoryServices.Protocols.LdapConnection]$LdapConnection,
+                [Parameter(Mandatory)][Security.Cryptography.X509Certificates.X509Certificate2]$Certificate
+            )
+                [System.Security.Cryptography.X509Certificates.X509Chain] $chain = new-object System.Security.Cryptography.X509Certificates.X509Chain
+                $chain.ChainPolicy.VerificationFlags = $CertificateValidationFlags
+                $result = $chain.Build($Certificate)
+                $script:LdapCertificate = $Certificate
+                return $result
+            }
+
+        }
         if ($null -ne $AuthType) {
             $LdapConnection.AuthType = $AuthType
         }
@@ -1418,10 +1336,15 @@ public static class Flattener
     public static System.Object FlattenArray(System.Object[] arr)
     {
         if(arr==null) return null;
-        int i=arr.Length;
-        if(i==0) return null;
-        if(i==1) return arr[0];
-        return arr;
+        switch(arr.Length)
+        {
+            case 0:
+                return null;
+            case 1:
+                return arr[0];
+            default:
+                return arr;
+        }
     }
 }
 '@
@@ -1464,3 +1387,292 @@ public class NamingContext
     }
 }
 '@ -ReferencedAssemblies $referencedAssemblies
+
+Function InitializeItemTemplateInternal
+{
+    param
+    (
+        [string[]]$props,
+        [string[]]$additionalProps
+    )
+
+    process
+    {
+        $template=@{}
+        foreach($prop in $additionalProps) {$template[$prop]= $null}
+        foreach($prop in $props) {$template[$prop]=@()}
+        $template
+    }
+}
+function GetResultsDirectlyInternal
+{
+    param
+    (
+        [Parameter(Mandatory)]
+        [System.DirectoryServices.Protocols.SearchRequest]
+        $rq,
+        [parameter(Mandatory)]
+        [System.DirectoryServices.Protocols.LdapConnection]
+        $conn,
+        [parameter()]
+        [String[]]
+        $PropertiesToLoad=@(),
+        [parameter()]
+        [String[]]
+        $AdditionalProperties=@(),
+        [parameter()]
+        [String[]]
+        $BinaryProperties=@(),
+        [parameter()]
+        [Timespan]
+        $Timeout,
+        [switch]$NoAttributes
+    )
+    begin
+    {
+        $template=InitializeItemTemplateInternal -props $PropertiesToLoad -additionalProps $additionalProps
+    }
+    process
+    {
+        $pagedRqc=$rq.Controls | Where-Object{$_ -is [System.DirectoryServices.Protocols.PageResultRequestControl]}
+        if($NoAttributes) {
+            $rq.Attributes.Add('1.1') | Out-Null
+        } else {
+            $rq.Attributes.AddRange($propertiesToLoad) | Out-Null
+        }
+        while($true)
+        {
+            $rsp = $conn.SendRequest($rq, $Timeout) -as [System.DirectoryServices.Protocols.SearchResponse]
+            foreach ($sr in $rsp.Entries)
+            {
+                $data=$template.Clone()
+                
+                $data['distinguishedName']=$sr.DistinguishedName
+                foreach($attrName in $sr.Attributes.AttributeNames) {
+                    $transform = $script:RegisteredTransforms[$attrName]
+                    $BinaryInput = ($null -ne $transform -and $transform.BinaryInput -eq $true) -or ($attrName -in $BinaryProperties)
+                    if($null -ne $transform -and $null -ne $transform.OnLoad)
+                    {
+                        if($BinaryInput -eq $true) {
+                            $data[$attrName] = (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([byte[]])))
+                        } else {
+                            $data[$attrName] = (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([string])))
+                        }
+                    } else {
+                        if($BinaryInput -eq $true) {
+                            $data[$attrName] += $sr.Attributes[$attrName].GetValues([byte[]])
+                        } else {
+                            $data[$attrName] += $sr.Attributes[$attrName].GetValues([string])
+                        }
+                    }
+                }
+                #flatten
+                $coll=@($data.Keys)
+                foreach($prop in $coll) {$data[$prop] = [Flattener]::FlattenArray($data[$prop])}
+                #return result to pipeline
+                New-Object PSCustomObject -Property $data
+            }
+            #the response may contain paged search response. If so, we will need a cookie from it
+            [System.DirectoryServices.Protocols.PageResultResponseControl] $prrc=$rsp.Controls | Where-Object{$_ -is [System.DirectoryServices.Protocols.PageResultResponseControl]}
+            if($null -ne $prrc -and $prrc.Cookie.Length -ne 0 -and $null -ne $pagedRqc) {
+                #pass the search cookie back to server in next paged request
+                $pagedRqc.Cookie = $prrc.Cookie;
+            } else {
+                #either non paged search or we've processed last page
+                break;
+            }
+        }
+    }
+}
+
+function GetResultsIndirectlyInternal
+{
+    param
+    (
+        [Parameter(Mandatory)]
+        [System.DirectoryServices.Protocols.SearchRequest]
+        $rq,
+        [parameter(Mandatory)]
+        [System.DirectoryServices.Protocols.LdapConnection]
+        $conn,
+        [parameter()]
+        [String[]]
+        $PropertiesToLoad=@(),
+        [parameter()]
+        [String[]]
+        $AdditionalProperties=@(),
+        [parameter()]
+        [String[]]
+        $BinaryProperties=@(),
+        [parameter()]
+        [Timespan]
+        $Timeout
+    )
+    begin
+    {
+        $template=InitializeItemTemplateInternal -props $PropertiesToLoad -additionalProps $additionalProps
+    }
+    process
+    {
+        $pagedRqc=$rq.Controls | Where-Object{$_ -is [System.DirectoryServices.Protocols.PageResultRequestControl]}
+        $rq.Attributes.AddRange($propertiesToLoad) | Out-Null
+        #load only attribute names now and attribute values later
+        $rq.TypesOnly=$true
+        while ($true)
+        {
+            $rsp = $LdapConnection.SendRequest($rq, $Timeout) -as [System.DirectoryServices.Protocols.SearchResponse];
+
+            #now process the returned list of distinguishedNames and fetch required properties directly from returned objects
+            foreach ($sr in $rsp.Entries)
+            {
+                $data=$template.Clone()
+
+                $data['distinguishedName']=$sr.DistinguishedName
+
+                $rqAttr=new-object System.DirectoryServices.Protocols.SearchRequest
+                $rqAttr.DistinguishedName=$sr.DistinguishedName
+                $rqAttr.Scope="Base"
+                #loading just attributes indicated as present in first search
+                $rqAttr.Attributes.AddRange($sr.Attributes.AttributeNames) | Out-Null
+                $rspAttr = $LdapConnection.SendRequest($rqAttr)
+                foreach ($srAttr in $rspAttr.Entries) {
+                    foreach($attrName in $srAttr.Attributes.AttributeNames) {
+                        $transform = $script:RegisteredTransforms[$attrName]
+                        $BinaryInput = ($null -ne $transform -and $transform.BinaryInput -eq $true) -or ($attrName -in $BinaryProperties)
+                        #protecting against LDAP servers who don't understand '1.1' prop
+                        if($null -ne $transform -and $null -ne $transform.OnLoad)
+                        {
+                            if($BinaryInput -eq $true) {
+                                $data[$attrName] = (& $transform.OnLoad -Values ($srAttr.Attributes[$attrName].GetValues([byte[]])))
+                            } else {
+                                $data[$attrName] = (& $transform.OnLoad -Values ($srAttr.Attributes[$attrName].GetValues([string])))
+                            }
+                        } else {
+                            if($BinaryInput -eq $true) {
+                                $data[$attrName] += $srAttr.Attributes[$attrName].GetValues([byte[]])
+                            } else {
+                                $data[$attrName] += $srAttr.Attributes[$attrName].GetValues([string])
+                            }                                    
+                        }
+                    }
+                }
+                #flatten
+                $coll=@($data.Keys)
+                foreach($prop in $coll) {$data[$prop] = [Flattener]::FlattenArray($data[$prop])}
+                #return result to pipeline
+                New-Object PSCustomObject -Property $data
+            }
+            #the response may contain paged search response. If so, we will need a cookie from it
+            [System.DirectoryServices.Protocols.PageResultResponseControl] $prrc=$rsp.Controls | Where-Object{$_ -is [System.DirectoryServices.Protocols.PageResultResponseControl]}
+            if($null -ne $prrc -and $prrc.Cookie.Length -ne 0 -and $null -ne $pagedRqc) {
+                #pass the search cookie back to server in next paged request
+                $pagedRqc.Cookie = $prrc.Cookie;
+            } else {
+                #either non paged search or we've processed last page
+                break;
+            }
+        }
+    }
+}
+
+function GetResultsIndirectlyRangedInternal
+{
+    param
+    (
+        [Parameter(Mandatory)]
+        [System.DirectoryServices.Protocols.SearchRequest]
+        $rq,
+        [parameter(Mandatory)]
+        [System.DirectoryServices.Protocols.LdapConnection]
+        $conn,
+        [parameter()]
+        [String[]]
+        $PropertiesToLoad,
+        [parameter()]
+        [String[]]
+        $AdditionalProperties=@(),
+        [parameter()]
+        [String[]]
+        $BinaryProperties=@(),
+        [parameter()]
+        [Timespan]
+        $Timeout,
+        [parameter()]
+        [Int32]
+        $RangeSize
+    )
+    begin
+    {
+        $template=InitializeItemTemplateInternal -props $PropertiesToLoad -additionalProps $additionalProps
+    }
+    process
+    {
+        $pagedRqc=$rq.Controls | Where-Object{$_ -is [System.DirectoryServices.Protocols.PageResultRequestControl]}
+        $rq.Attributes.AddRange($PropertiesToLoad)
+        #load only attribute names now and attribute values later
+        $rq.TypesOnly=$true
+        while ($true)
+        {
+            $rsp = $LdapConnection.SendRequest($rq, $Timeout) -as [System.DirectoryServices.Protocols.SearchResponse];
+
+            #now process the returned list of distinguishedNames and fetch required properties directly from returned objects
+            foreach ($sr in $rsp.Entries)
+            {
+                $data=$template.Clone()
+                $data['distinguishedName']=$sr.DistinguishedName
+
+                $rqAttr=new-object System.DirectoryServices.Protocols.SearchRequest
+                $rqAttr.DistinguishedName=$sr.DistinguishedName
+                $rqAttr.Scope="Base"
+                #loading just attributes indicated as present in first search
+                foreach($attrName in $sr.Attributes.AttributeNames) {
+                    $transform = $script:RegisteredTransforms[$attrName]
+                    $BinaryInput = ($null -ne $transform -and $transform.BinaryInput -eq $true) -or ($attrName -in $BinaryProperties)
+                    $start=-$rangeSize
+                    $lastRange=$false
+                    while ($lastRange -eq $false) {
+                        $start += $rangeSize
+                        $rng = "$($attrName.ToLower());range=$start`-$($start+$rangeSize-1)"
+                        $rqAttr.Attributes.Clear() | Out-Null
+                        $rqAttr.Attributes.Add($rng) | Out-Null
+                        $rspAttr = $LdapConnection.SendRequest($rqAttr)
+                        foreach ($srAttr in $rspAttr.Entries) {
+                            #LDAP server changes upper bound to * on last chunk
+                            $returnedAttrName=$($srAttr.Attributes.AttributeNames)
+                            #load binary properties as byte stream, other properties as strings
+                            if($BinaryInput) {
+                                $data[$attrName]+=$srAttr.Attributes[$returnedAttrName].GetValues([byte[]])
+                            } else {
+                                $data[$attrName] += $srAttr.Attributes[$returnedAttrName].GetValues([string])
+                            }
+                            if($returnedAttrName.EndsWith("-*") -or $returnedAttrName -eq $attrName) {
+                                #last chunk arrived
+                                $lastRange = $true
+                            }
+                        }
+                    }
+
+                    #perform transform if registered
+                    if($null -ne $transform -and $null -ne $transform.OnLoad)
+                    {
+                        $data[$attrName] = (& $transform.OnLoad -Values $data[$attrName])
+                    }
+                }
+                #flatten
+                $coll=@($data.Keys)
+                foreach($prop in $coll) {$data[$prop] = [Flattener]::FlattenArray($data[$prop])}
+                #return result to pipeline
+                New-Object PSCustomObject -Property $data
+            }
+            #the response may contain paged search response. If so, we will need a cookie from it
+            [System.DirectoryServices.Protocols.PageResultResponseControl] $prrc=$rsp.Controls | Where-Object{$_ -is [System.DirectoryServices.Protocols.PageResultResponseControl]}
+            if($null -ne $prrc -and $prrc.Cookie.Length -ne 0 -and $null -ne $pagedRqc) {
+                #pass the search cookie back to server in next paged request
+                $pagedRqc.Cookie = $prrc.Cookie;
+            } else {
+                #either non paged search or we've processed last page
+                break;
+            }
+        }
+    }
+}

@@ -72,13 +72,19 @@
 #                                  Added more transforms
 #  1.8.2020, 2.0.6, Jiri Formacek, More attributes to RootDSE (mostly MS DS specific)
 #                                  Windows Hello for Business credential transform
+#  30.10.2020, 2.1.0, Jiri Formacek, Added support for retrieval of all present attributes via '*'
+#                                    Added support for fast retrieval of results via single LDAP request
+#                                    Fixed bug in samAccountType transform
+#                                    Renamed BinaryProperties param on Find-LdapObject to BinaryProps
+#                                    No need to specify prop as binary if transform loaded for the prop - binary'ness of prop is defined in transform
+#                                    Added CertificateValidationFlags param to Get-LdapConnection to allow control trust to server certificate
 @{
 
     # Script module or binary module file associated with this manifest
     RootModule = '.\S.DS.P.psm1'
 
     # Version number of this module.
-    ModuleVersion = '2.0.6'
+    ModuleVersion = '2.1.0'
 
     # ID used to uniquely identify this module
     GUID = '766cbbc0-85b9-4773-b4db-2fa86cd771ff'

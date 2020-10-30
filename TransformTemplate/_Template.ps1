@@ -17,6 +17,7 @@ $SupportedAttributes = @()
 
 # This is mandatory definition of transform that is expected by transform architecture
 $prop=[Ordered]@{
+    BinaryInput=$false
     SupportedAttributes=$SupportedAttributes
     OnLoad = $null
     OnSave = $null
