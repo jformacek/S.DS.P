@@ -13,7 +13,7 @@ if($FullLoad)
 }
 
 New-Object PSCustomObject -property ([ordered]@{
-    SupportedAttributes=@('createTimestamp','dsCorePropagationData','modifyTimestamp','whenCreated','whenChanged')
+    SupportedAttributes=@('createTimestamp','dsCorePropagationData','modifyTimestamp','whenCreated','whenChanged','msExchWhenMailboxCreated')
     OnLoad = { 
         param(
         [object[]]$Values

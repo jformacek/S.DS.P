@@ -11,7 +11,7 @@ if($FullLoad)
 
 $prop=[Ordered]@{
     BinaryInput=$true
-    SupportedAttributes=@('objectGuid')
+    SupportedAttributes=@('objectGuid','mS-DS-ConsistencyGuid','msExchMailboxGuid','msExchPoliciesExcluded')
     OnLoad = $null
     OnSave = $null
 }

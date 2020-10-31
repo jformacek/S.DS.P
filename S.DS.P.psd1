@@ -141,7 +141,7 @@
     CmdletsToExport = @()
 
     # Cmdlets to export from this module
-    FunctionsToExport = 'Find-LDAPObject','Get-RootDSE',
+    FunctionsToExport = 'Find-LdapObject','Get-RootDSE',
         'Get-LdapConnection', 'Edit-LdapObject',
         'Add-LdapObject','Remove-LdapObject',
         'Rename-LdapObject',
