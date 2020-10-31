@@ -631,8 +631,16 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         $ClientCertificate
     )
 
+    Begin
+    {
+        if($null -eq $script:ConnectionParams)
+        {
+            $script:ConnectionParams=@{}
+        }
+    }
     Process
     {
+
         $FullyQualifiedDomainName=$false;
         [System.DirectoryServices.Protocols.LdapDirectoryIdentifier]$di=new-object System.DirectoryServices.Protocols.LdapDirectoryIdentifier($LdapServer, $Port, $FullyQualifiedDomainName, $ConnectionLess)
 
@@ -646,35 +654,62 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         }
         $LdapConnection.SessionOptions.ProtocolVersion=$ProtocolVersion
 
+        
+        $connectionParams=@{}
+        foreach($server in $LdapServer) {$script:ConnectionParams[$server]=$connectionParams}
         if($CertificateValidationFlags -ne 'NoFlag')
         {
-            $script:ServerCertificateValidationFlags = $CertificateValidationFlags
+            $connectionParams['ServerCertificateValidationFlags'] = $CertificateValidationFlags
             $LdapConnection.SessionOptions.VerifyServerCertificate = { param(
                 [Parameter(Mandatory)][DirectoryServices.Protocols.LdapConnection]$LdapConnection,
                 [Parameter(Mandatory)][Security.Cryptography.X509Certificates.X509Certificate2]$Certificate
             )
                 [System.Security.Cryptography.X509Certificates.X509Chain] $chain = new-object System.Security.Cryptography.X509Certificates.X509Chain
-                $chain.ChainPolicy.VerificationFlags = $script:ServerCertificateValidationFlags
+                foreach($server in $LdapConnection.Directory.Servers)
+                {
+                    if($server -in $script:ConnectionParams.Keys)
+                    {
+                        $connectionParam=$script:ConnectionParams[$server]
+                        if($null -ne $connectionParam['ServerCertificateValidationFlags'])
+                        {
+                            $chain.ChainPolicy.VerificationFlags = $connectionParam['ServerCertificateValidationFlags']
+                            break;
+                        }
+                    }
+                }
                 $result = $chain.Build($Certificate)
-                $script:LdapCertificate = $Certificate
                 return $result
             }
         }
         
-        if ($null -ne $AuthType) {
-            $LdapConnection.AuthType = $AuthType
-        }
-
         if($null -ne $ClientCertificate)
         {
-            $script:ClientCertificate = $ClientCertificate
+            $connectionParams['ClientCertificate'] = $ClientCertificate
             $LdapConnection.SessionOptions.QueryClientCertificate = { param(
                 [Parameter(Mandatory)][DirectoryServices.Protocols.LdapConnection]$LdapConnection,
                 [Parameter(Mandatory)][byte[][]]$TrustedCAs
             )
-                return $script:ClientCertificate
+                $clientCert = $null
+                foreach($server in $LdapConnection.Directory.Servers)
+                {
+                    if($server -in $script:ConnectionParams.Keys)
+                    {
+                        $connectionParam=$script:ConnectionParams[$server]
+                        if($null -ne $connectionParam['ClientCertificate'])
+                        {
+                            $clientCert = $connectionParam['ClientCertificate']
+                            break;
+                        }
+                    }
+                }
+                return $clientCert
             }
         }
+
+        if ($null -ne $AuthType) {
+            $LdapConnection.AuthType = $AuthType
+        }
+
 
         switch($EncryptionType) {
             'None' {break}
