@@ -606,8 +606,12 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         [Parameter(Mandatory = $false)]
         [System.Security.Cryptography.X509Certificates.X509VerificationFlags]
             #Requested LDAP protocol version
-        $CertificateValidationFlags = 'NoFlag'
-        
+        $CertificateValidationFlags = 'NoFlag',
+        [Parameter(Mandatory = $false)]
+        [System.Security.Cryptography.X509Certificates.X509Certificate2]
+            #Client certificate used for authenticcation instead of credentials
+            #See https://docs.microsoft.com/en-us/windows/win32/api/winldap/nc-winldap-queryclientcert
+        $ClientCertificate
     )
 
     Process
@@ -627,20 +631,33 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
 
         if($CertificateValidationFlags -ne 'NoFlag')
         {
+            $script:ServerCertificateValidationFlags = $CertificateValidationFlags
             $LdapConnection.SessionOptions.VerifyServerCertificate = { param(
                 [Parameter(Mandatory)][DirectoryServices.Protocols.LdapConnection]$LdapConnection,
                 [Parameter(Mandatory)][Security.Cryptography.X509Certificates.X509Certificate2]$Certificate
             )
                 [System.Security.Cryptography.X509Certificates.X509Chain] $chain = new-object System.Security.Cryptography.X509Certificates.X509Chain
-                $chain.ChainPolicy.VerificationFlags = $CertificateValidationFlags
+                $chain.ChainPolicy.VerificationFlags = $script:ServerCertificateValidationFlags
                 $result = $chain.Build($Certificate)
                 $script:LdapCertificate = $Certificate
                 return $result
             }
-
         }
+        
         if ($null -ne $AuthType) {
             $LdapConnection.AuthType = $AuthType
+        }
+
+        if($null -ne $ClientCertificate)
+        {
+            $script:ClientCertificate = $ClientCertificate
+            $LdapConnection.SessionOptions.QueryClientCertificate = { param(
+                [Parameter(Mandatory)][DirectoryServices.Protocols.LdapConnection]$LdapConnection,
+                [Parameter(Mandatory)][byte[][]]$TrustedCAs
+            )
+                return $script:ClientCertificate
+
+            }
         }
 
         switch($EncryptionType) {
