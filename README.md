@@ -25,7 +25,7 @@ Find-LdapObject -LdapConnection $Ldap `
   -BinaryProps:@("objectSid")
 ```
 ### Really fast search and asing for all available properties
-Specify RangeSize = -1 to perform fast search returning common attributes. Specify PropertiesToLoad as '*' to return "all present" properties od objects  
+Specify RangeSize = -1 to perform fast search returning common attributes. Specify PropertiesToLoad as '*' to return "all present" properties of objects  
 *Note*: Some properties are not returned unless you explicitly ask for them, so don't be surprised...
 ```powershell
 #gets connection to domain controller of your own domain
