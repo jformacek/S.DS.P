@@ -20,7 +20,7 @@ This command connects to domain controller of caller's domain on port 389 and pe
 
 .EXAMPLE
 $Ldap = Get-LdapConnection
-Find-LdapObject -LdapConnection $Ldap -SearchFilter:'(&(cn=jsmith)(objectClass=user)(objectCategory=organizationalPerson))' -SearchBase:'ou=Users,dc=myDomain,dc=com' -PropertiesToLoad:@('sAMAccountName','objectSid') -BinaryProperties:@('objectSid')
+Find-LdapObject -LdapConnection $Ldap -SearchFilter:'(&(cn=jsmith)(objectClass=user)(objectCategory=organizationalPerson))' -SearchBase:'ou=Users,dc=myDomain,dc=com' -PropertiesToLoad:@('sAMAccountName','objectSid') -BinaryProps:@('objectSid')
 
 Description
 -----------
@@ -94,6 +94,15 @@ Find-LdapObject -LdapConnection $ldap -SearchFilter:"(&(sn=smith)(objectClass=us
 Description
 -----------
 This command connects to given LDAP server and performs the search anonymously.
+
+.EXAMPLE
+$Ldap = Get-LdapConnection -LdapServer:ldap.mycorp.com
+$dse = Get-RootDSE -LdapConnection $conn
+Find-LdapObject -LdapConnection $ldap -SearchFilter:"(&(objectClass=user)(objectCategory=organizationalPerson))" -SearchBase:"ou=People,ou=mycorp,o=world" -RangeSize -1 -PropertiesToLoad *
+
+Description
+-----------
+This command connects to given LDAP server and performs the direct search, retrieving all properties with value from objects found by search
 
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
@@ -545,12 +554,20 @@ Description
 Returns LdapConnection for caller's domain controller, with active Kerberos Encryption for data transfer security
 
 .EXAMPLE
-Get-LdapConnection -LdapServer "mydc.mydomain.com" -EncryptionType Kerberos -Credential (Get-AdmPwdCredential
+Get-LdapConnection -LdapServer "mydc.mydomain.com" -EncryptionType Kerberos -Credential (Get-AdmPwdCredential)
 
 Description
 -----------
-Returns LdapConnection for caller's domain controller, with active Kerberos Encryption for data transfer security
+Returns LdapConnection for caller's domain controller, with active Kerberos Encryption for data transfer security, authenticated by automatically retrieved password from AdmPwd.E client
 
+.EXAMPLE
+$thumb = '059d5318118e61fe54fd361ae07baf4644a67347'
+$cert = (dir Cert:\CurrentUser\my).Where{$_.Thumbprint -eq $Thumb}[0]
+Get-LdapConnection -LdapServer "mydc.mydomain.com" -Port 636 -CertificateValidationFlags ([System.Security.Cryptography.X509Certificates.X509VerificationFlags]::AllowUnknownCertificateAuthority) -ClientCertificate $cert
+
+Description
+-----------
+Returns LdapConnection over SSL for given LDAP server, authenticated by a client certificate and allowing LDAP server to use self-signed certificate
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
 #>
@@ -606,12 +623,24 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         [Parameter(Mandatory = $false)]
         [System.Security.Cryptography.X509Certificates.X509VerificationFlags]
             #Requested LDAP protocol version
-        $CertificateValidationFlags = 'NoFlag'
-        
+        $CertificateValidationFlags = 'NoFlag',
+        [Parameter(Mandatory = $false)]
+        [System.Security.Cryptography.X509Certificates.X509Certificate2]
+            #Client certificate used for authenticcation instead of credentials
+            #See https://docs.microsoft.com/en-us/windows/win32/api/winldap/nc-winldap-queryclientcert
+        $ClientCertificate
     )
 
+    Begin
+    {
+        if($null -eq $script:ConnectionParams)
+        {
+            $script:ConnectionParams=@{}
+        }
+    }
     Process
     {
+
         $FullyQualifiedDomainName=$false;
         [System.DirectoryServices.Protocols.LdapDirectoryIdentifier]$di=new-object System.DirectoryServices.Protocols.LdapDirectoryIdentifier($LdapServer, $Port, $FullyQualifiedDomainName, $ConnectionLess)
 
@@ -625,23 +654,62 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         }
         $LdapConnection.SessionOptions.ProtocolVersion=$ProtocolVersion
 
+        
+        $connectionParams=@{}
+        foreach($server in $LdapServer) {$script:ConnectionParams[$server]=$connectionParams}
         if($CertificateValidationFlags -ne 'NoFlag')
         {
+            $connectionParams['ServerCertificateValidationFlags'] = $CertificateValidationFlags
             $LdapConnection.SessionOptions.VerifyServerCertificate = { param(
                 [Parameter(Mandatory)][DirectoryServices.Protocols.LdapConnection]$LdapConnection,
                 [Parameter(Mandatory)][Security.Cryptography.X509Certificates.X509Certificate2]$Certificate
             )
                 [System.Security.Cryptography.X509Certificates.X509Chain] $chain = new-object System.Security.Cryptography.X509Certificates.X509Chain
-                $chain.ChainPolicy.VerificationFlags = $CertificateValidationFlags
+                foreach($server in $LdapConnection.Directory.Servers)
+                {
+                    if($server -in $script:ConnectionParams.Keys)
+                    {
+                        $connectionParam=$script:ConnectionParams[$server]
+                        if($null -ne $connectionParam['ServerCertificateValidationFlags'])
+                        {
+                            $chain.ChainPolicy.VerificationFlags = $connectionParam['ServerCertificateValidationFlags']
+                            break;
+                        }
+                    }
+                }
                 $result = $chain.Build($Certificate)
-                $script:LdapCertificate = $Certificate
                 return $result
             }
-
         }
+        
+        if($null -ne $ClientCertificate)
+        {
+            $connectionParams['ClientCertificate'] = $ClientCertificate
+            $LdapConnection.SessionOptions.QueryClientCertificate = { param(
+                [Parameter(Mandatory)][DirectoryServices.Protocols.LdapConnection]$LdapConnection,
+                [Parameter(Mandatory)][byte[][]]$TrustedCAs
+            )
+                $clientCert = $null
+                foreach($server in $LdapConnection.Directory.Servers)
+                {
+                    if($server -in $script:ConnectionParams.Keys)
+                    {
+                        $connectionParam=$script:ConnectionParams[$server]
+                        if($null -ne $connectionParam['ClientCertificate'])
+                        {
+                            $clientCert = $connectionParam['ClientCertificate']
+                            break;
+                        }
+                    }
+                }
+                return $clientCert
+            }
+        }
+
         if ($null -ne $AuthType) {
             $LdapConnection.AuthType = $AuthType
         }
+
 
         switch($EncryptionType) {
             'None' {break}

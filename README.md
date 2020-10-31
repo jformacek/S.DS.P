@@ -73,32 +73,34 @@ $Ldap = Get-LdapConnection -LdapServer ldap.mydomain.com `
   -EncryptionType Kerberos
 ```
 ### Credentials and authentication
+Basic authentication:
 ```powershell
 #Connects to LDAP server with explicit credentials and Basic authentication
 #Note: Server may require encryption to allow connection or searching of data
-$Ldap = Get-LdapConnection `
-  -LdapServer ldap.mydomain.com `
+
+$Ldap = Get-LdapConnection -LdapServer ldap.mydomain.com `
   -EncryptionType Kerberos `
   -Credential (Get-Credential) `
   -AuthType Basic
-
-#Connects to LDAP server with explicit credentials and password retrieved on the fly via AdmPwd.E
-$creds = Get-AdmPwdCredential -UserName myAccount@mydomain.com
-$Ldap = Get-LdapConnection `
-  -LdapServer ldap.mydomain.com `
-  -EncryptionType Kerberos `
-  -Credential $Creds
 ```
-### Server certificate validation
-Specify validation flags for validation of server SSL certificate
+Kerberos authentication with explicit credentials:
 ```powershell
-#Allow server to use self-sgned and expired certificate
-[System.Security.Cryptography.X509Certificates.X509VerificationFlags]$flags = 'NoFlag'
-$flags = $flags -bor 'AllowUnknownCertificateAuthority'
-$flags = $flags -bor 'IgnoreNotTimeValid'
-$conn=Get-LdapConnection -LdapServer myLdapServer.mydomain.com `
+#Connects to LDAP server with explicit credentials 
+#and password retrieved on the fly via AdmPwd.E
+$credential = Get-AdmPwdCredential `
+  -UserName myAccount@mydomain.com
+$Ldap = Get-LdapConnection -LdapServer ldap.mydomain.com `
+  -EncryptionType Kerberos `
+  -Credential $Credential
+```
+Client certificate authentication:
+```powershell
+#connect to server and authenticate with client certificate
+$thumb = '059d5318118e61fe54fd361ae07baf4644a67347'
+cert = (dir Cert:\CurrentUser\my).Where{$_.Thumbprint -eq $Thumb}[0]
+Get-LdapConnection -LdapServer "mydc.mydomain.com" `
   -Port 636 `
-  -CertificateValidationFlags $flags
+  -ClientCertificate $cert
 ```
 ---
 
