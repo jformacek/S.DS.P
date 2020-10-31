@@ -78,6 +78,7 @@
 #                                    Renamed BinaryProperties param on Find-LdapObject to BinaryProps
 #                                    No need to specify prop as binary if transform loaded for the prop - binary'ness of prop is defined in transform
 #                                    Added CertificateValidationFlags param to Get-LdapConnection to allow control trust to server certificate
+#                                    Added Client certificate auth for LDAP connection
 @{
 
     # Script module or binary module file associated with this manifest
