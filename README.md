@@ -93,7 +93,8 @@ $Ldap = Get-LdapConnection `
 Specify validation flags for validation of server SSL certificate
 ```powershell
 #Allow server to use self-sgned and expired certificate
-[System.Security.Cryptography.X509Certificates.X509VerificationFlags]$flags = 'AllowUnknownCertificateAuthority'
+[System.Security.Cryptography.X509Certificates.X509VerificationFlags]$flags = 'NoFlag'
+$flags = $flags -bor 'AllowUnknownCertificateAuthority'
 $flags = $flags -bor 'IgnoreNotTimeValid'
 $conn=Get-LdapConnection -LdapServer myLdapServer.mydomain.com `
   -Port 636 `
@@ -136,7 +137,8 @@ $Ldap = Get-LdapConnection
 #gets RootDSE object
 $Dse = $Ldap | Get-RootDSE
 #perform the search
-#objectSid attribute on returned objects will not be byte array, but System.Security.Principal.SecurityIdentifier
+#objectSid attribute on returned objects will not be byte array, 
+#but System.Security.Principal.SecurityIdentifier object
 #no need to specify that objectSid is binary property - transform knows it
 Find-LdapObject -LdapConnection $Ldap `
   -SearchFilter:"(&(cn=jsmith)(objectClass=user)(objectCategory=organizationalPerson))" `
