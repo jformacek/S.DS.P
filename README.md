@@ -1,4 +1,4 @@
-# S.DS.P - PowerShell module for manipulation with LDAP directory data
+# S.DS.P - PowerShell module for working with LDAP servers
 This is repo for source code development for S.DS.P PowerShell module that's available on Technet Gallery here: https://gallery.technet.microsoft.com/Using-SystemDirectoryServic-0adf7ef5
 
 This module is also published on PowerShell gallery: https://www.powershellgallery.com/packages/S.DS.P
