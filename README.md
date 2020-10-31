@@ -16,16 +16,27 @@ $Ldap = Get-LdapConnection
 $Dse = $Ldap | Get-RootDSE
 #perform the search
 #Binary properties must be explicitly flagged, otherwise we try to load them as string
-Find-LdapObject -LdapConnection $Ldap -SearchFilter:"(&(cn=jsmith)(objectClass=user)(objectCategory=organizationalPerson))" -SearchBase:"ou=Users,$($Dse.defaultNamingContext)" -PropertiesToLoad:@("sAMAccountName","objectSid") -BinaryProperties:@("objectSid")
+Find-LdapObject -LdapConnection $Ldap -SearchFilter:"(&(cn=jsmith)(objectClass=user)(objectCategory=organizationalPerson))" -SearchBase:"ou=Users,$($Dse.defaultNamingContext)" -PropertiesToLoad:@("sAMAccountName","objectSid") -BinaryProps:@("objectSid")
 ```
-
+### Really fast search and asing for all available properties
+Specify RangeSize = -1 to perform fast search returning common attributes. Specify PropertiesToLoad as '*' to return "all present" properties od objects  
+*Note*: Some properties are not returned unless you explicitly ask for them, so don't be surprised...
+```powershell
+#gets connection to domain controller of your own domain on port 389 with your current credentials
+$Ldap = Get-LdapConnection
+#gets RootDSE object
+$Dse = $Ldap | Get-RootDSE
+#perform the search
+#Note: Binary properties must be explicitly flagged, otherwise we try to load them as string
+Find-LdapObject -LdapConnection $Ldap -SearchFilter:"(&(cn=a*)(objectClass=user)(objectCategory=organizationalPerson))" -SearchBase:"ou=Users,$($Dse.defaultNamingContext)" -RangeSize -1 -PropertiesToLoad '*'
+```
 ### Lookup in Global catalog
 ```powershell
 #gets connection to domain controller of your own domain on port 3268 (Global Catalog) with your current credentials
 $Ldap = Get-LdapConnection -Port 3268
 #perform the search in GC
 # for GC searches, you don't have to specify search base if you want to search entire forest
-Find-LdapObject -LdapConnection $Ldap -SearchFilter:"(&(cn=jsmith)(objectClass=user)(objectCategory=organizationalPerson))" -PropertiesToLoad:@("sAMAccountName","objectSid") -BinaryProperties:@("objectSid")
+Find-LdapObject -LdapConnection $Ldap -SearchFilter:"(&(cn=jsmith)(objectClass=user)(objectCategory=organizationalPerson))" -PropertiesToLoad:@("sAMAccountName","objectSid") -BinaryProps:@("objectSid")
 ```
 
 ## Ldap Connection params
@@ -51,7 +62,14 @@ $Ldap = Get-LdapConnection -LdapServer ldap.mydomain.com -EncryptionType Kerbero
 $credential = Get-AdmPwdCredential -UserName myAccount@mydomain.com
 $Ldap = Get-LdapConnection -LdapServer ldap.mydomain.com -EncryptionType Kerberos -Credential $Credential
 ```
-
+### Server certificate validation
+Specify validation flags for validation of server SSL certificate
+```powershell
+#Allow server to use self-sgned and expired certificate
+[System.Security.Cryptography.X509Certificates.X509VerificationFlags]$flags = 'AllowUnknownCertificateAuthority'
+$flags = $flags -bor 'IgnoreNotTimeValid'
+$conn=Get-LdapConnection -LdapServer myLdapServer.mydomain.com -port 636 -CertificateValidationFlags $flags
+```
 ## Capabilities of your LDAP server
 ### Supported controls
 ```powershell
@@ -75,7 +93,8 @@ $Ldap = Get-LdapConnection -LdapServer ldap.mydomain.com
 (Get-RootDse -LdapConnection $Ldap).CurrentTime - [DateTime]::Now
 ```
 ## Attribute transforms
-Attributes can be transformed from raw string or byte arrays to more comfortable objects
+### Transforms work on attribute basis
+Attributes can be transformed from raw string or byte arrays to more comfortable objects. In addition, transform knows syntax of property it transforms, so it's not needed to specify binary property as binary - see sample for objectSid below
 ```powershell
 #For list of available transforms and attributes that they can be applied on, run Get-LdapAttributeTransform -ListAvailable
 Register-LdapAttributeTransform -Name SecurityIdentifier -AttributeName objectSid
@@ -84,9 +103,19 @@ $Ldap = Get-LdapConnection
 $Dse = $Ldap | Get-RootDSE
 #perform the search
 #objectSid attribute on returned objects will not be byte array, but System.Security.Principal.SecurityIdentifier
-Find-LdapObject -LdapConnection $Ldap -SearchFilter:"(&(cn=jsmith)(objectClass=user)(objectCategory=organizationalPerson))" -SearchBase:"ou=Users,$($Dse.defaultNamingContext)" -PropertiesToLoad:@("sAMAccountName","objectSid") -BinaryProperties:@("objectSid")
+Find-LdapObject -LdapConnection $Ldap -SearchFilter:"(&(cn=jsmith)(objectClass=user)(objectCategory=organizationalPerson))" -SearchBase:"ou=Users,$($Dse.defaultNamingContext)" -PropertiesToLoad:@("sAMAccountName","objectSid")
 ```
-
+### Many transforms registered at the same time
+There can be many transforms registered at the same time, and single transform definition can work for many attributes. Transform author defines which atributes are supported by transform.  
+Many types of transforms available today, from simple string to integer conversion to parsing WindowsHello keys and AD replication metadata.
+```powershell
+#Use all available transforms
+Get-LdapAttributeTransform -ListAvailable | Register-LdapAttributeTransform
+$Ldap = Get-LdapConnection
+#gets RootDSE object
+$Dse = $Ldap | Get-RootDSE
+Find-LdapObject -LdapConnection $Ldap -SearchFilter:"(&(objectClass=user)(objectCategory=organizationalPerson))" -SearchBase:"ou=Users,$($Dse.defaultNamingContext)" -PropertiesToLoad:@('*') -RangeSize -1
+```
 ## Modifications of objects
 Module supports modification of objects
 ```powershell
