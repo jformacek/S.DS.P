@@ -15,13 +15,10 @@ public class AdmPwdPasswordHistory
 {
     public DateTime ValidSince {get; set;}
     public uint EncryptionKeyId {get; set;}
-    public string PasswordData {get; set;}
-
-    private string _rawValue;
+    public string PasswordData {get; private set;}
 
     public AdmPwdPasswordHistory(string rawValue)
     {
-        _rawValue = rawValue;
         string[] data = rawValue.Split(':');
         switch (data.Length)
         {
@@ -48,7 +45,11 @@ public class AdmPwdPasswordHistory
 
     public override string ToString()
     {
-        return _rawValue;
+        if(ValidSince==DateTime.MinValue)
+            return PasswordData;
+        if(EncryptionKeyId==0)
+            return $"{ValidSince.ToUniversalTime().ToString("yyyyMMddHHmmss")}.0Z: {PasswordData}";
+        return $"{ValidSince.ToUniversalTime().ToString("yyyyMMddHHmmss")}.0Z: {EncryptionKeyId}: {PasswordData}";
     }
 }
 '@
@@ -73,7 +74,12 @@ $codeBlock.OnLoad = {
     {
         foreach($Value in $Values)
         {
-            New-Object AdmPwdPasswordHistory($Value)
+            try {
+                New-Object AdmPwdPasswordHistory($Value)
+            }
+            catch {
+                throw;
+            }
         }
     }
 }
