@@ -830,7 +830,8 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             #if transform defined -> transform to form accepted by directory
             if($null -ne $transform -and $null -ne $transform.OnSave)
             {
-                $attrVal = ,(& $transform.OnSave -Values $attrVal)
+                $attrVal=@()
+                $attrVal += (& $transform.OnSave -Values $attrVal)
             }
             
             if($null -ne $attrVal)  #ignore empty props
@@ -977,7 +978,8 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             #if transform defined -> transform to form accepted by directory
             if($null -ne $transform -and $null -ne $transform.OnSave)
             {
-                $attrVal = ,(& $transform.OnSave -Values $attrVal)
+                $attrVal=@()
+                $attrVal += (& $transform.OnSave -Values $attrVal)
             }
 
             if($null -ne $attrVal) {

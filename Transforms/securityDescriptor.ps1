@@ -39,7 +39,7 @@ $codeBlock.OnSave = {
     {
         foreach($Value in $Values)
         {
-            $Value.GetSecurityDescriptorBinaryForm()
+            ,($Value.GetSecurityDescriptorBinaryForm())
         }
     }
 }

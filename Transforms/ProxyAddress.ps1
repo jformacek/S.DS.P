@@ -9,7 +9,7 @@ if($FullLoad)
 {
 Add-Type @'
 using System;
-public class ProxyAddress
+public class ProxyAddress:IEquatable<ProxyAddress>
 {
     public string AddressType { get; set; }
     public string Address { get; set; }
@@ -53,6 +53,11 @@ public class ProxyAddress
             return Address;
 
         return string.Format("{0}:{1}", AddressType, Address);
+    }
+
+    public bool Equals(ProxyAddress other)
+    {
+        return (string.Compare(this.Address,other.Address,false) == 0) && (string.Compare(this.AddressType,other.AddressType,false)==0) && (this.IsPrimary == other.IsPrimary);
     }
 }
 '@

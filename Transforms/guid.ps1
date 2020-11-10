@@ -37,7 +37,7 @@ $codeBlock.OnSave = {
     {
         foreach($value in $values)
         {
-            $value.ToByteArray()
+            ,($value.ToByteArray())
         }
     }
 }

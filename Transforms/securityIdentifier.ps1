@@ -35,7 +35,7 @@ $codeBlock.OnSave = {
         {
             $retVal=new-object system.byte[]($sid.BinaryLength)
             $sid.GetBinaryForm($retVal,0)
-            $retVal
+            ,($retVal)
         }
     }
 }

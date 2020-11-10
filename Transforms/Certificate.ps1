@@ -26,14 +26,14 @@ $codeBlock.OnLoad = {
 }
 $codeBlock.OnSave = { 
     param(
-    [object[]]$Values
+    [System.Security.Cryptography.X509Certificates.X509Certificate2[]]$Values
     )
     
     Process
     {
         foreach($Value in $Values)
         {
-            $Value.RawData
+            ,($Value.RawData)
         }
     }
 }
