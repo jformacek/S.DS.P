@@ -13,7 +13,7 @@ if($FullLoad)
 }
 
 #add attributes that can be used with this transform
-$SupportedAttributes = @('msDS-Approx-Immed-Subordinates','codePage','countryCode','logonCount')
+$SupportedAttributes = @('uSNChanged', 'uSNCreated')
 
 # This is mandatory definition of transform that is expected by transform architecture
 $prop=[Ordered]@{
@@ -31,13 +31,13 @@ $codeBlock.OnLoad = {
     {
         foreach($Value in $Values)
         {
-            [int]$Value
+            [long]$Value
         }
     }
 }
 $codeBlock.OnSave = { 
     param(
-    [int[]]$Values
+    [long[]]$Values
     )
     
     Process
