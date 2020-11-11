@@ -160,6 +160,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         $RangeSize=1000,
 
         [parameter(Mandatory = $false)]
+        [alias('BinaryProperties')]
         [String[]]
             #List of properties that we want to load as byte stream.
             #Note: Those properties must also be present in PropertiesToLoad parameter. Properties not listed here are loaded as strings
