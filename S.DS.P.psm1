@@ -826,16 +826,16 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             $transform = $script:RegisteredTransforms[$prop.Name]
             $binaryInput = ($null -ne $transform -and $transform.BinaryInput -eq $true) -or ($prop.Name -in $BinaryProps)
             $propAdd.Name=$prop.Name
-            $attrVal = $Object.($prop.Name)
-
-            #if transform defined -> transform to form accepted by directory
-            if($null -ne $transform -and $null -ne $transform.OnSave)
-            {
-                $retVal=@()
-                $retVal += (& $transform.OnSave -Values $attrVal)
-                $attrVal=$retVal
-            }
             
+            if($null -ne $transform -and $null -ne $transform.OnSave) {
+                #transform defined -> transform to form accepted by directory
+                $attrVal = (& $transform.OnSave -Values $Object.($prop.Name))
+            }
+            else {
+                #no transform defined - take value as-is
+                $attrVal = $Object.($prop.Name)
+            }
+
             if($null -ne $attrVal)  #ignore empty props
             {
                 if($binaryInput) {
@@ -975,14 +975,14 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             $transform = $script:RegisteredTransforms[$prop.Name]
             $binaryInput = ($null -ne $transform -and $transform.BinaryInput -eq $true) -or ($prop.Name -in $BinaryProps)
             $propMod.Name=$prop.Name
-            $attrVal = $Object.($prop.Name)
 
-            #if transform defined -> transform to form accepted by directory
-            if($null -ne $transform -and $null -ne $transform.OnSave)
-            {
-                $retVal=@()
-                $retVal += (& $transform.OnSave -Values $attrVal)
-                $attrVal=$retVal
+            if($null -ne $transform -and $null -ne $transform.OnSave) {
+                #transform defined -> transform to form accepted by directory
+                $attrVal = (& $transform.OnSave -Values $Object.($prop.Name))
+            }
+            else {
+                #no transform defined - take value as-is
+                $attrVal = $Object.($prop.Name)
             }
 
             if($null -ne $attrVal) {
