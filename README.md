@@ -219,7 +219,7 @@ Register-LdapAttributeTransform -Name UserAccountControl -AttributeName userAcco
 Find-LdapObject -LdapConnection $Ldap `
   -SearchFilter:"(&(cn=a*)(objectClass=user)(objectCategory=organizationalPerson))" `
   -SearchBase:"ou=Users,$($Dse.defaultNamingContext)" `
-  -PropertiesToLoad:@('userAccountControl' `
+  -PropertiesToLoad:@('userAccountControl') `
 | Perform-Modification `
 | Edit-LdapObject -LdapConnection $Ldap `
     -IncludedProps 'userAccountControl'
