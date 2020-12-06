@@ -24,7 +24,7 @@ Find-LdapObject -LdapConnection $Ldap `
   -PropertiesToLoad:@("sAMAccountName","objectSid") `
   -BinaryProps:@("objectSid")
 ```
-### Really fast search and loading values of all properties
+### Really fast searching and loading of values of all properties
 Specify RangeSize = -1 to perform fast search returning common attributes. Specify PropertiesToLoad as '*' to return "all present" properties of objects  
 *Note*: Some properties are not returned unless you explicitly ask for them, so don't be surprised...
 ```powershell
@@ -221,7 +221,7 @@ Register-LdapAttributeTransform -Name UserAccountControl
 Find-LdapObject -LdapConnection $Ldap `
   -SearchFilter:"(&(cn=a*)(objectClass=user)(objectCategory=organizationalPerson))" `
   -SearchBase:"ou=Users,$($Dse.defaultNamingContext)" `
-  -PropertiesToLoad:@('userAccountControl' `
+  -PropertiesToLoad:@('userAccountControl') `
 | Perform-Modification `
 | Edit-LdapObject -LdapConnection $Ldap
 ```
