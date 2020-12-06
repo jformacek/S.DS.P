@@ -93,15 +93,17 @@ $Ldap = Get-LdapConnection -LdapServer ldap.mydomain.com `
   -EncryptionType Kerberos `
   -Credential $Credential
 ```
-Client certificate authentication:
+Client certificate authentication and allowing server certificate from CA with unavailable CRL:
 ```powershell
 #connect to server and authenticate with client certificate
 $thumb = '059d5318118e61fe54fd361ae07baf4644a67347'
 cert = (dir Cert:\CurrentUser\my).Where{$_.Thumbprint -eq $Thumb}[0]
 Get-LdapConnection -LdapServer "mydc.mydomain.com" `
   -Port 636 `
-  -ClientCertificate $cert
+  -ClientCertificate $cert `
+  -CertificateValidationFlags [System.Security.Cryptography.X509Certificates.X509VerificationFlags]::IgnoreRootRevocationUnknown
 ```
+
 ---
 
 ## Capabilities of your LDAP server
@@ -164,7 +166,7 @@ Find-LdapObject -LdapConnection $Ldap `
 ---
 
 ## Modifications of objects
-Module supports modification of objects
+Module supports modification of objects and makes effective use of pipeline so you can modify objects as a part of pipeline processing.
 ```powershell
 Function Perform-Modification
 {
@@ -214,21 +216,20 @@ $Ldap = Get-LdapConnection
 #gets RootDSE object
 $Dse = $Ldap | Get-RootDSE
 #Register the transform
-Register-LdapAttributeTransform -Name UserAccountControl -AttributeName userAccountControl
+Register-LdapAttributeTransform -Name UserAccountControl
 #disable many user accounts
 Find-LdapObject -LdapConnection $Ldap `
   -SearchFilter:"(&(cn=a*)(objectClass=user)(objectCategory=organizationalPerson))" `
   -SearchBase:"ou=Users,$($Dse.defaultNamingContext)" `
   -PropertiesToLoad:@('userAccountControl' `
 | Perform-Modification `
-| Edit-LdapObject -LdapConnection $Ldap `
-    -IncludedProps 'userAccountControl'
+| Edit-LdapObject -LdapConnection $Ldap
 ```
 ---
 
 ## Creation of LDAP objects
 ```powershell
-#We use transforms to convert some values to LDAP native format
+#We use transforms to convert values to LDAP native format when saving object to LDAP store
 Register-LdapAttributeTransform -Name UnicodePwd
 Register-LdapAttributeTransform -Name UserAccountControl
 
@@ -248,14 +249,14 @@ $obj = new-object PSObject -Property $Props
 #to require encrypted connection
 $Ldap = Get-LdapConnection -EncryptionType Kerberos
 #Create the object in directory
-Add-LdapObject -LdapConnection $Ldap -Object $obj
+$obj | Add-LdapObject -LdapConnection $Ldap
 ```
 ---
 
 ## Deletion of objects
 Deletion of individual objects:
 ```powershell
-$Ldap = Get-LdapConnection -LdapServer "mydc.mydomain.com" -EncryptionType Kerberos
+$Ldap = Get-LdapConnection -LdapServer "mydc.mydomain.com"
 Remove-LdapObject -LdapConnection $Ldap `
   -Object "cn=User1,cn=Users,dc=mydomain,dc=com"
 ```

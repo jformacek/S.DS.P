@@ -274,13 +274,13 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                 0 {
                     #query attributes for each object returned using base search
                     #but not using ranged retrieval, so multivalued attributes with many values may not be returned completely
-                    GetResultsIndirectlyInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -BinaryProperties $BinaryProps -Timeout $Timeout
+                    GetResultsIndirectlyInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -AdditionalControls $AdditionalControls -BinaryProperties $BinaryProps -Timeout $Timeout
                     break
                 }
                 {$_ -gt 0} {
                     #query attributes for each object returned using base search and each attribute value with ranged retrieval
                     #so even multivalued attributes with many values are returned completely
-                    GetResultsIndirectlyRangedInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -BinaryProperties $BinaryProps -Timeout $Timeout -RangeSize $RangeSize
+                    GetResultsIndirectlyRangedInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -AdditionalControls $AdditionalControls -BinaryProperties $BinaryProps -Timeout $Timeout -RangeSize $RangeSize
                     break
                 }
             }
@@ -625,6 +625,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         [System.Security.Cryptography.X509Certificates.X509VerificationFlags]
             #Requested LDAP protocol version
         $CertificateValidationFlags = 'NoFlag',
+
         [Parameter(Mandatory = $false)]
         [System.Security.Cryptography.X509Certificates.X509Certificate2]
             #Client certificate used for authenticcation instead of credentials
@@ -1565,18 +1566,28 @@ function GetResultsIndirectlyInternal
         [Parameter(Mandatory)]
         [System.DirectoryServices.Protocols.SearchRequest]
         $rq,
+
         [parameter(Mandatory)]
         [System.DirectoryServices.Protocols.LdapConnection]
         $conn,
+
         [parameter()]
         [String[]]
         $PropertiesToLoad=@(),
+
         [parameter()]
         [String[]]
         $AdditionalProperties=@(),
+
+        [parameter(Mandatory = $false)]
+        [System.DirectoryServices.Protocols.DirectoryControl[]]
+            #additional controls that caller may need to add to request
+        $AdditionalControls=@(),
+
         [parameter()]
         [String[]]
         $BinaryProperties=@(),
+
         [parameter()]
         [Timespan]
         $Timeout
@@ -1605,6 +1616,8 @@ function GetResultsIndirectlyInternal
                 $rqAttr=new-object System.DirectoryServices.Protocols.SearchRequest
                 $rqAttr.DistinguishedName=$sr.DistinguishedName
                 $rqAttr.Scope="Base"
+                $rqAttr.Controls.AddRange($AdditionalControls)
+
                 #loading just attributes indicated as present in first search
                 $rqAttr.Attributes.AddRange($sr.Attributes.AttributeNames) | Out-Null
                 $rspAttr = $LdapConnection.SendRequest($rqAttr)
@@ -1655,21 +1668,32 @@ function GetResultsIndirectlyRangedInternal
         [Parameter(Mandatory)]
         [System.DirectoryServices.Protocols.SearchRequest]
         $rq,
+
         [parameter(Mandatory)]
         [System.DirectoryServices.Protocols.LdapConnection]
         $conn,
+
         [parameter()]
         [String[]]
         $PropertiesToLoad,
+
         [parameter()]
         [String[]]
         $AdditionalProperties=@(),
+
+        [parameter()]
+        [System.DirectoryServices.Protocols.DirectoryControl[]]
+            #additional controls that caller may need to add to request
+        $AdditionalControls=@(),
+
         [parameter()]
         [String[]]
         $BinaryProperties=@(),
+
         [parameter()]
         [Timespan]
         $Timeout,
+
         [parameter()]
         [Int32]
         $RangeSize
@@ -1697,6 +1721,8 @@ function GetResultsIndirectlyRangedInternal
                 $rqAttr=new-object System.DirectoryServices.Protocols.SearchRequest
                 $rqAttr.DistinguishedName=$sr.DistinguishedName
                 $rqAttr.Scope="Base"
+                $rqAttr.Controls.AddRange($AdditionalControls)
+
                 #loading just attributes indicated as present in first search
                 foreach($attrName in $sr.Attributes.AttributeNames) {
                     $transform = $script:RegisteredTransforms[$attrName]
