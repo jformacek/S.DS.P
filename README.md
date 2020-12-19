@@ -83,6 +83,18 @@ $Ldap = Get-LdapConnection -LdapServer ldap.mydomain.com `
   -Credential (Get-Credential) `
   -AuthType Basic
 ```
+
+Basic authentication with distinguishedName - Get-Credential command may not work properly with dn, so we're collecting credential a diferent way
+```powershell
+#get password as secure string 
+$pwd = Read-Host -AsSecureString
+#create credential object
+$cred = new-object PSCredential("cn=userAccount,o=mycompany",$pwd)
+$Ldap = Get-LdapConnection -LdapServer ldap.mydomain.com `
+  -Credential $cred `
+  -AuthType Basic
+```
+
 Kerberos authentication with explicit credentials:
 ```powershell
 #Connects to LDAP server with explicit credentials 
@@ -93,6 +105,7 @@ $Ldap = Get-LdapConnection -LdapServer ldap.mydomain.com `
   -EncryptionType Kerberos `
   -Credential $Credential
 ```
+
 Client certificate authentication and allowing server certificate from CA with unavailable CRL:
 ```powershell
 #connect to server and authenticate with client certificate
