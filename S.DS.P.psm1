@@ -371,7 +371,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             return;
         }
 
-        $data=new-object PSObject -Property $propDef
+        $data=[PSCustomObject]$propDef
 
         if ($rsp.Entries[0].Attributes['configurationNamingContext']) {
             $data.configurationNamingContext = [NamingContext]::Parse($rsp.Entries[0].Attributes['configurationNamingContext'].GetValues([string])[0])
@@ -753,8 +753,7 @@ Function Add-LdapObject
     Nothing
 
 .EXAMPLE
-$Props = @{"distinguishedName"=$null;"objectClass"=$null;"sAMAccountName"=$null;"unicodePwd"=$null;"userAccountControl"=0}
-$obj = new-object PSObject -Property $Props
+$obj = [PSCustomObject]@{distinguishedName=$null; objectClass=$null; sAMAccountName=$null; unicodePwd=$null; userAccountControl=0}
 $obj.DistinguishedName = "cn=user1,cn=users,dc=mydomain,dc=com"
 $obj.sAMAccountName = "User1"
 $obj.ObjectClass = "User"
@@ -872,8 +871,7 @@ Function Edit-LdapObject
     Nothing
 
 .EXAMPLE
-$Props = @{"distinguishedName"=$null;employeeNumber=$null}
-$obj = new-object PSObject -Property $Props
+$obj =  [PSCustomObject]@{distinguishedName=$null; employeeNumber=$null}
 $obj.DistinguishedName = "cn=user1,cn=users,dc=mydomain,dc=com"
 $obj.employeeNumber = "12345"
 
@@ -1395,7 +1393,7 @@ More about attribute transforms and how to create them: https://github.com/jform
     else {
         foreach($attrName in ($script:RegisteredTransforms.Keys | Sort-object))
         {
-            New-Object PSCustomObject -Property ([Ordered]@{
+            [PSCustomObject]([Ordered]@{
                 AttributeName = $attrName
                 TransformName = $script:RegisteredTransforms[$attrName].Name
             })
@@ -1544,7 +1542,7 @@ function GetResultsDirectlyInternal
                 $coll=@($data.Keys)
                 foreach($prop in $coll) {$data[$prop] = [Flattener]::FlattenArray($data[$prop])}
                 #return result to pipeline
-                New-Object PSCustomObject -Property $data
+                [PSCustomObject]$data
             }
             #the response may contain paged search response. If so, we will need a cookie from it
             [System.DirectoryServices.Protocols.PageResultResponseControl] $prrc=$rsp.Controls | Where-Object{$_ -is [System.DirectoryServices.Protocols.PageResultResponseControl]}
@@ -1646,7 +1644,7 @@ function GetResultsIndirectlyInternal
                 $coll=@($data.Keys)
                 foreach($prop in $coll) {$data[$prop] = [Flattener]::FlattenArray($data[$prop])}
                 #return result to pipeline
-                New-Object PSCustomObject -Property $data
+                [PSCustomObject]$data
             }
             #the response may contain paged search response. If so, we will need a cookie from it
             [System.DirectoryServices.Protocols.PageResultResponseControl] $prrc=$rsp.Controls | Where-Object{$_ -is [System.DirectoryServices.Protocols.PageResultResponseControl]}
@@ -1761,7 +1759,7 @@ function GetResultsIndirectlyRangedInternal
                 $coll=@($data.Keys)
                 foreach($prop in $coll) {$data[$prop] = [Flattener]::FlattenArray($data[$prop])}
                 #return result to pipeline
-                New-Object PSCustomObject -Property $data
+                [PSCustomObject]$data
             }
             #the response may contain paged search response. If so, we will need a cookie from it
             [System.DirectoryServices.Protocols.PageResultResponseControl] $prrc=$rsp.Controls | Where-Object{$_ -is [System.DirectoryServices.Protocols.PageResultResponseControl]}
