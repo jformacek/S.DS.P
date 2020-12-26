@@ -11,7 +11,7 @@ if($FullLoad)
 
 $prop=[Ordered]@{
     BinaryInput=$true
-    SupportedAttributes=@('ntSecurityDescriptor','msDS-AllowedToActOnBehalfOfOtherIdentity')
+    SupportedAttributes=@('msDS-AllowedToActOnBehalfOfOtherIdentity','ms-DS-GroupMSAMembership','ntSecurityDescriptor')
     OnLoad = $null
     OnSave = $null
 }

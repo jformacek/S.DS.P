@@ -13,7 +13,7 @@ if($FullLoad)
 }
 
 #add attributes that can be used with this transform
-$SupportedAttributes = @('msDS-Approx-Immed-Subordinates','codePage','countryCode','logonCount')
+$SupportedAttributes = @('codePage','countryCode','logonCount','msDS-Approx-Immed-Subordinates','ms-DS-KeyVersionNumber','ms-DS-ManagedPasswordInterval')
 
 # This is mandatory definition of transform that is expected by transform architecture
 $prop=[Ordered]@{

@@ -1244,7 +1244,7 @@ More about attribute transforms and how to create them: https://github.com/jform
 
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory,ParameterSetName='Name')]
+        [Parameter(Mandatory,ParameterSetName='Name', Position=0)]
         [string]
             #Name of the transform
         $Name,
@@ -1253,7 +1253,7 @@ More about attribute transforms and how to create them: https://github.com/jform
             #Name of the attribute that will be processed by transform
             #If not specified, transform will be registered on all supported attributes
         $AttributeName,
-        [Parameter(Mandatory,ValueFromPipeline,ParameterSetName='TransformObject')]
+        [Parameter(Mandatory,ValueFromPipeline,ParameterSetName='TransformObject', Position=0)]
         [PSCustomObject]
         $Transform
     )
