@@ -6,17 +6,11 @@ param (
     $FullLoad
 )
 
-$prop=[Ordered]@{
-    SupportedAttributes=@('msDS-ReplAttributeMetaData','msDS-ReplValueMetaData','msDS-NCReplCursors','msDS-NCReplInboundNeighbors')
-    OnLoad = $null
-    OnSave = $null
-}
-
-$codeBlock = new-object PSCustomObject -property $prop
+$codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes @('msDS-ReplAttributeMetaData','msDS-ReplValueMetaData','msDS-NCReplCursors','msDS-NCReplInboundNeighbors')
 
 $codeBlock.OnLoad = { 
     param(
-    [object[]]$Values
+    [string[]]$Values
     )
     Process
     {
@@ -28,7 +22,7 @@ $codeBlock.OnLoad = {
 }
 $codeBlock.OnSave = { 
     param(
-    [object[]]$Values
+    [System.Xml.XmlDocument[]]$Values
     )
     
     Process

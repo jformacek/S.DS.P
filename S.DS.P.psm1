@@ -9,7 +9,7 @@ Function Find-LdapObject {
     Optionally, attribute values can be transformed to complex types using transform registered for an attribute with 'Load' action.
 
 .OUTPUTS
-    Search results as custom objects with requested properties as strings or byte stream
+    Search results as PSCustomObjects with requested properties as strings, byte streams or complex types produced by transforms
 
 .EXAMPLE
 Find-LdapObject -LdapConnection [string]::Empty -SearchFilter:"(&(sn=smith)(objectClass=user)(objectCategory=organizationalPerson))" -SearchBase:"cn=Users,dc=myDomain,dc=com"
@@ -98,11 +98,21 @@ This command connects to given LDAP server and performs the search anonymously.
 .EXAMPLE
 $Ldap = Get-LdapConnection -LdapServer:ldap.mycorp.com
 $dse = Get-RootDSE -LdapConnection $conn
-Find-LdapObject -LdapConnection $ldap -SearchFilter:"(&(objectClass=user)(objectCategory=organizationalPerson))" -SearchBase:"ou=People,ou=mycorp,o=world" -RangeSize -1 -PropertiesToLoad *
+Find-LdapObject -LdapConnection $ldap -SearchFilter:"(&(objectClass=user)(objectCategory=organizationalPerson))" -SearchBase:"ou=People,ou=mycorp,o=world" -PropertiesToLoad *
 
 Description
 -----------
 This command connects to given LDAP server and performs the direct search, retrieving all properties with value from objects found by search
+
+.EXAMPLE
+$Ldap = Get-LdapConnection -LdapServer:ldap.mycorp.com
+$dse = Get-RootDSE -LdapConnection $conn
+Find-LdapObject -LdapConnection $ldap -SearchFilter:"(&(objectClass=group)(objectCategory=group)(cn=MyVeryLargeGroup))" -SearchBase:"ou=People,ou=mycorp,o=world" -PropertiesToLoad member -RageSize 1000
+
+Description
+-----------
+This command connects to given LDAP server and lists all members of the group, using ranged retrieval ("paging support on LDAP attributes")
+
 
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
@@ -154,16 +164,17 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             # Negative value means that attribute values are loaded directly with list of objects
             # Zero means that ranged attribute value retrieval is disabled and attribute values are returned in single request.
             # Positive value  means that each attribute value is loaded in dedicated requests in batches of given size. Usable for loading of group members
-            # Note: Default in query policy in AD is 1500; we use 1000 as default here.
-            # Note: Default value indicates ranged retrieval, so as we're on safe side and do the best for retrieval of all values in attribute, even if it means performance impact
-            # Default: 1000
-        $RangeSize=1000,
+            # Note: Default in query policy in AD is 1500; make sure that you do not use here higher value than allowed by LDAP server
+            # Default: -1 (means that ranged attribute retrieval is not used by default)
+            # IMPORTANT: default changed in v2.1.1 - previously it was 1000. Changed because it typically caused large perforrmance impact when using -PropsToLoad '*'
+        $RangeSize=-1,
 
         [parameter(Mandatory = $false)]
         [alias('BinaryProperties')]
         [String[]]
             #List of properties that we want to load as byte stream.
             #Note: Those properties must also be present in PropertiesToLoad parameter. Properties not listed here are loaded as strings
+            #Note: When using transform for a property, then transform "knows" if it's binary or not, so no need to specify it in BinaryProps
             #Default: empty list, which means that all properties are loaded as strings
         $BinaryProps=@(),
 
@@ -187,11 +198,43 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         [Timespan]
             #Number of seconds before request times out.
             #Default: 120 seconds
-        $Timeout = (New-Object System.TimeSpan(0,0,120))
+        $Timeout = (New-Object System.TimeSpan(0,0,120)),
+
+        [Switch]
+            #Whether to alphabetically sort attributes on returned objects
+        $SortAttributes
     )
 
     Begin
     {
+        Function PostProcess {
+            param
+            (
+                [Parameter(ValueFromPipeline)]
+                [System.Collections.Hashtable]$data,
+                [bool]$Sort
+            )
+    
+            process
+            {
+                #Flatten
+                $coll=@($data.Keys)
+                foreach($prop in $coll) {$data[$prop] = [Flattener]::FlattenArray($data[$prop])}
+                if($Sort)
+                {
+                    #flatten and sort attributes
+                    $coll=@($coll | Sort-Object)
+                    $sortedData=[ordered]@{}
+                    foreach($prop in $coll) {$sortedData[$prop] = $data[$prop]}
+                    #return result to pipeline
+                    [PSCustomObject]$sortedData
+                }
+                else {
+                    [PSCustomObject]$data
+                }
+            }
+        }
+    
         #remove unwanted props
         $PropertiesToLoad=@($propertiesToLoad | where-object {$_ -notin @('distinguishedName','1.1')})
         #if asterisk in list of props to load, load all props available on object despite of  required list
@@ -268,19 +311,19 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                 {$_ -lt 0} {
                     #directly via single ldap call
                     #some attribs may not be loaded (e.g. computed)
-                    GetResultsDirectlyInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -BinaryProperties $BinaryProps -Timeout $Timeout
+                    GetResultsDirectlyInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -BinaryProperties $BinaryProps -Timeout $Timeout | PostProcess -Sort $SortAttributes
                     break
                 }
                 0 {
                     #query attributes for each object returned using base search
                     #but not using ranged retrieval, so multivalued attributes with many values may not be returned completely
-                    GetResultsIndirectlyInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -AdditionalControls $AdditionalControls -BinaryProperties $BinaryProps -Timeout $Timeout
+                    GetResultsIndirectlyInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -AdditionalControls $AdditionalControls -BinaryProperties $BinaryProps -Timeout $Timeout | PostProcess -Sort $SortAttributes
                     break
                 }
                 {$_ -gt 0} {
                     #query attributes for each object returned using base search and each attribute value with ranged retrieval
                     #so even multivalued attributes with many values are returned completely
-                    GetResultsIndirectlyRangedInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -AdditionalControls $AdditionalControls -BinaryProperties $BinaryProps -Timeout $Timeout -RangeSize $RangeSize
+                    GetResultsIndirectlyRangedInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -AdditionalControls $AdditionalControls -BinaryProperties $BinaryProps -Timeout $Timeout -RangeSize $RangeSize | PostProcess -Sort $SortAttributes
                     break
                 }
             }
@@ -304,6 +347,7 @@ Function Get-RootDSE {
 .DESCRIPTION
     Retrieves LDAP server metadata from Root DSE object
     Current implementation is specialized to metadata foung on Windows LDAP server, so on other platforms, some metadata may be empty.
+    Or other platforms may publish interesting metadata not available on Windwos LDAP - feel free to add here
 
 .OUTPUTS
     Custom object containing information about LDAP server
@@ -323,7 +367,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         [parameter(Mandatory = $true, ValueFromPipeline = $true)]
         [System.DirectoryServices.Protocols.LdapConnection]
             #existing LDAPConnection object retrieved via Get-LdapConnection
-            #When we perform many searches, it is more effective to use the same conbnection rather than create new connection for each search request.
+            #When we perform many searches, it is more effective to use the same connection rather than create new connection for each search request.
         $LdapConnection
     )
     Begin
@@ -366,7 +410,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         }
         #if there was error, let the exception go to caller and do not continue
 
-        #sometimes server does not return nothing if we ask for property that is not supported by protocol
+        #sometimes server does not return anything if we ask for property that is not supported by protocol
         if($rsp.Entries.Count -eq 0) {
             return;
         }
@@ -657,11 +701,13 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         $LdapConnection.SessionOptions.ProtocolVersion=$ProtocolVersion
 
         
+        #store connection params for each server in grobal variable, so as it is reachable from callback scriptblocks
         $connectionParams=@{}
         foreach($server in $LdapServer) {$script:ConnectionParams[$server]=$connectionParams}
         if($CertificateValidationFlags -ne 'NoFlag')
         {
             $connectionParams['ServerCertificateValidationFlags'] = $CertificateValidationFlags
+            #server certificate validation callback
             $LdapConnection.SessionOptions.VerifyServerCertificate = { param(
                 [Parameter(Mandatory)][DirectoryServices.Protocols.LdapConnection]$LdapConnection,
                 [Parameter(Mandatory)][Security.Cryptography.X509Certificates.X509Certificate2]$Certificate
@@ -687,6 +733,8 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         if($null -ne $ClientCertificate)
         {
             $connectionParams['ClientCertificate'] = $ClientCertificate
+            #client certificate retrieval callback
+            #we just support explicit certificate now
             $LdapConnection.SessionOptions.QueryClientCertificate = { param(
                 [Parameter(Mandatory)][DirectoryServices.Protocols.LdapConnection]$LdapConnection,
                 [Parameter(Mandatory)][byte[][]]$TrustedCAs
@@ -1255,6 +1303,7 @@ More about attribute transforms and how to create them: https://github.com/jform
         $AttributeName,
         [Parameter(Mandatory,ValueFromPipeline,ParameterSetName='TransformObject', Position=0)]
         [PSCustomObject]
+            #Transform object produced by Get-LdapAttributeTRansform
         $Transform
     )
 
@@ -1304,7 +1353,6 @@ More about attribute transforms and how to create them: https://github.com/jform
     }
 }
 
-
 Function Unregister-LdapAttributeTransform
 {
 <#
@@ -1324,6 +1372,8 @@ $Ldap = Get-LdapConnection -LdapServer "mydc.mydomain.com" -EncryptionType Kerbe
 Get-LdapAttributeTransform -ListAvailable
 #register necessary transforms
 Register-LdapAttributeTransform -Name Guid -AttributeName objectGuid
+#Now objectGuid property on returned object is Guid rather than raw byte array
+Find-LdapObject -LdapConnection $Ldap -SearchBase "cn=User1,cn=Users,dc=mydomain,dc=com" -SearchScope Base -PropertiesToLoad 'cn',objectGuid
 
 #we no longer need the transform, let's unregister
 Unregister-LdapAttributeTransform -AttributeName objectGuid
@@ -1332,9 +1382,9 @@ Find-LdapObject -LdapConnection $Ldap -SearchBase "cn=User1,cn=Users,dc=mydomain
 
 Description
 ----------
-This example registers transform that converts raw byte array in ntSecurityDescriptor property into instance of System.DirectoryServices.ActiveDirectorySecurity
-After command completes, returned object(s) will have instance of System.DirectoryServices.ActiveDirectorySecurity in ntSecurityDescriptor property
-Then transform is unregistered, so subsequent calls do not use it
+This example registers transform that converts raw byte array in objectGuid property into instance of System.Guid
+After command completes, returned object(s) will have instance of System.Guid in objectGuid property
+Then the transform is unregistered, so subsequent calls do not use it
 
 .LINK
 
@@ -1343,8 +1393,9 @@ More about attribute transforms and how to create them: https://github.com/jform
 
 #>
 
+    [CmdletBinding()]
     param (
-        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+        [Parameter(Mandatory, ValueFromPipelineByPropertyName, Position=0)]
         [string]
             #Name of the attribute to unregister transform from
         $AttributeName
@@ -1401,7 +1452,42 @@ More about attribute transforms and how to create them: https://github.com/jform
     }
 }
 
-#Helpers
+function New-LdapAttributeTransformDefinition
+{
+<#
+.SYNOPSIS
+    Creates definition of transform. Used by transform implementations
+
+.OUTPUTS
+    Transform definition
+
+.LINK
+More about attribute transforms and how to create them: https://github.com/jformacek/S.DS.P
+
+#>
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory, Position=0)]
+        [string[]]$SupportedAttributes,
+        [switch]
+            #Whether supported attributes need to be loaded from/saved to LDAP as binary stream
+        $BinaryInput
+    )
+
+    process
+    {
+        [PSCustomObject][Ordered]@{
+            BinaryInput=$BinaryInput
+            SupportedAttributes=$SupportedAttributes
+            OnLoad = $null
+            OnSave = $null
+        }
+    }
+}
+
+
+#region Helpers
 Add-Type @'
 public static class Flattener
 {
@@ -1521,6 +1607,7 @@ function GetResultsDirectlyInternal
                 
                 $data['distinguishedName']=$sr.DistinguishedName
                 foreach($attrName in $sr.Attributes.AttributeNames) {
+                    
                     $transform = $script:RegisteredTransforms[$attrName]
                     $BinaryInput = ($null -ne $transform -and $transform.BinaryInput -eq $true) -or ($attrName -in $BinaryProperties)
                     if($null -ne $transform -and $null -ne $transform.OnLoad)
@@ -1538,11 +1625,7 @@ function GetResultsDirectlyInternal
                         }
                     }
                 }
-                #flatten
-                $coll=@($data.Keys)
-                foreach($prop in $coll) {$data[$prop] = [Flattener]::FlattenArray($data[$prop])}
-                #return result to pipeline
-                [PSCustomObject]$data
+                $data
             }
             #the response may contain paged search response. If so, we will need a cookie from it
             [System.DirectoryServices.Protocols.PageResultResponseControl] $prrc=$rsp.Controls | Where-Object{$_ -is [System.DirectoryServices.Protocols.PageResultResponseControl]}
@@ -1640,11 +1723,7 @@ function GetResultsIndirectlyInternal
                         }
                     }
                 }
-                #flatten
-                $coll=@($data.Keys)
-                foreach($prop in $coll) {$data[$prop] = [Flattener]::FlattenArray($data[$prop])}
-                #return result to pipeline
-                [PSCustomObject]$data
+                $data
             }
             #the response may contain paged search response. If so, we will need a cookie from it
             [System.DirectoryServices.Protocols.PageResultResponseControl] $prrc=$rsp.Controls | Where-Object{$_ -is [System.DirectoryServices.Protocols.PageResultResponseControl]}
@@ -1755,11 +1834,7 @@ function GetResultsIndirectlyRangedInternal
                         $data[$attrName] = (& $transform.OnLoad -Values $data[$attrName])
                     }
                 }
-                #flatten
-                $coll=@($data.Keys)
-                foreach($prop in $coll) {$data[$prop] = [Flattener]::FlattenArray($data[$prop])}
-                #return result to pipeline
-                [PSCustomObject]$data
+                $data
             }
             #the response may contain paged search response. If so, we will need a cookie from it
             [System.DirectoryServices.Protocols.PageResultResponseControl] $prrc=$rsp.Controls | Where-Object{$_ -is [System.DirectoryServices.Protocols.PageResultResponseControl]}
@@ -1773,3 +1848,4 @@ function GetResultsIndirectlyRangedInternal
         }
     }
 }
+#endregion

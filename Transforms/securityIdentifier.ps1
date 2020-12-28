@@ -4,14 +4,8 @@ param (
     [Switch]
     $FullLoad
 )
+$codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes @('objectSid','tokenGroups','tokenGroupsGlobalAndUniversal','tokenGroupsNoGCAcceptable') -BinaryInput
 
-$prop=[Ordered]@{
-    BinaryInput=$true
-    SupportedAttributes=@('objectSid','tokenGroups','tokenGroupsGlobalAndUniversal','tokenGroupsNoGCAcceptable')
-    OnLoad = $null
-    OnSave = $null
-}
-$codeBlock = new-object PSCustomObject -property $prop
 $codeBlock.OnLoad = { 
     param(
     [byte[][]]$Values

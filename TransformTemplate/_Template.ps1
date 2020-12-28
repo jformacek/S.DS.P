@@ -11,17 +11,11 @@ if($FullLoad)
 # CSharp types added via Add-Type are supported
 }
 
-#add attributes that can be used with this transform
+#add attributes that can be processed by this transform
 $SupportedAttributes = @()
 
 # This is mandatory definition of transform that is expected by transform architecture
-$prop=[Ordered]@{
-    BinaryInput=$false
-    SupportedAttributes=$SupportedAttributes
-    OnLoad = $null
-    OnSave = $null
-}
-$codeBlock = new-object PSCustomObject -property $prop
+$codeBlock = New-LdapAttributeTransformDefinition -SupportedAttributes $SupportedAttributes
 $codeBlock.OnLoad = { 
     param(
     [object[]]$Values
@@ -50,4 +44,3 @@ $codeBlock.OnSave = {
     }
 }
 $codeBlock
-

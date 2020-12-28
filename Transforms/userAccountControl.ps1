@@ -12,7 +12,7 @@ if($FullLoad)
 Add-Type @'
 using System;
 [Flags]
-public enum UserAccountControl
+public enum UserAccountControl : uint
 {
     UF_SCRIPT = 0x1,
     UF_ACCOUNTDISABLE = 0x2,
@@ -41,22 +41,17 @@ public enum UserAccountControl
 }
 '@
 }
+$codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes @('userAccountControl')
 
-$prop=[Ordered]@{
-    SupportedAttributes=@('userAccountControl')
-    OnLoad = $null
-    OnSave = $null
-}
-$codeBlock = new-object PSCustomObject -property $prop
 $codeBlock.OnLoad = { 
     param(
-    [object[]]$Values
+    [string[]]$Values
     )
     Process
     {
         foreach($Value in $Values)
         {
-            [UserAccountControl].GetEnumValues().ForEach({if(($Value -band $_) -eq $_) {"$_"}})
+            [UserAccountControl].GetEnumValues().ForEach({if(([UInt32]$Value -band $_) -eq $_) {"$_"}})
         }
     }
 }

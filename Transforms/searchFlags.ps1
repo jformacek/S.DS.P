@@ -30,15 +30,11 @@ public enum SearchFlags
 }
 '@
 }
+$codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes @('searchFlags')
 
-$codeBlock=[PSCustomObject][Ordered]@{
-    SupportedAttributes=@('searchFlags')
-    OnLoad = $null
-    OnSave = $null
-}
 $codeBlock.OnLoad = { 
     param(
-    [object[]]$Values
+    [string[]]$Values
     )
     Process
     {
@@ -50,13 +46,13 @@ $codeBlock.OnLoad = {
 }
 $codeBlock.OnSave = { 
     param(
-    [object[]]$Values
+    [SearchFlags[]]$Values
     )
     
     Process
     {
         $retVal = 0
-        $Values.ForEach({ [SearchFlags]$val=$_; $retVal+=$val})
+        $Values.ForEach({ $retVal+=$_})
         $retVal
  
     }

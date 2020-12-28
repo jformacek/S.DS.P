@@ -20,22 +20,17 @@ public enum EncryptionTypes
 }
 '@
 }
+$codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes @('msDS-SupportedEncryptionTypes')
 
-$prop=[Ordered]@{
-    SupportedAttributes=@('msDS-SupportedEncryptionTypes')
-    OnLoad = $null
-    OnSave = $null
-}
-$codeBlock = new-object PSCustomObject -property $prop
 $codeBlock.OnLoad = { 
     param(
-    [object[]]$Values
+    [string[]]$Values
     )
     Process
     {
         foreach($Value in $Values)
         {
-            [EncryptionTypes].GetEnumValues().ForEach({if(($Value -band $_) -eq $_) {"$_"}})
+            [EncryptionTypes].GetEnumValues().ForEach({if(([int]$Value -band $_) -eq $_) {"$_"}})
         }
     }
 }

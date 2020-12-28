@@ -5,22 +5,18 @@ param (
     $FullLoad
 )
 
-$prop=[Ordered]@{
-    SupportedAttributes=@('accountExpires','badPasswordTime','lastLogon','lastLogonTimestamp','ms-Mcs-AdmPwdExpirationTime','msDS-UserPasswordExpiryTimeComputed','pwdLastSet')
-    OnLoad = $null
-    OnSave = $null
-}
-$codeBlock = new-object PSCustomObject -property $prop
+$codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes @('accountExpires','badPasswordTime','lastLogon','lastLogonTimestamp','ms-Mcs-AdmPwdExpirationTime','msDS-UserPasswordExpiryTimeComputed','pwdLastSet')
+
 $codeBlock.OnLoad = { 
     param(
-    [long[]]$Values
+    [string[]]$Values
     )
     Process
     {
         foreach($Value in $Values)
         {
             try {
-                [DateTime]::FromFileTimeUtc($Value)
+                [DateTime]::FromFileTimeUtc([long]$Value)
             }
             catch {
                 #value outside of range for filetime
@@ -32,14 +28,22 @@ $codeBlock.OnLoad = {
 }
 $codeBlock.OnSave = { 
     param(
-    [DateTime[]]$Values
+    [Object[]]$Values
     )
     
     Process
     {
         foreach($Value in $Values)
         {
-            $Value.ToFileTimeUtc()
+            #standard expiration
+            if($value -is [datetime]) {
+                $Value.ToFileTimeUtc()
+                continue;
+            }
+            #values that did not transform to DateTime in OnLoad
+            if($value -is [string]) {
+                $value
+            }
         }
     }
 }

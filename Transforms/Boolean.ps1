@@ -16,16 +16,11 @@ if($FullLoad)
 $SupportedAttributes = @('IsCriticalSystemObject')
 
 # This is mandatory definition of transform that is expected by transform architecture
-$prop=[Ordered]@{
-    BinaryInput=$false
-    SupportedAttributes=$SupportedAttributes
-    OnLoad = $null
-    OnSave = $null
-}
-$codeBlock = new-object PSCustomObject -property $prop
+$codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes $SupportedAttributes
+
 $codeBlock.OnLoad = { 
     param(
-    [object[]]$Values
+    [string[]]$Values
     )
     Process
     {

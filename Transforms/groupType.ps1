@@ -11,40 +11,36 @@ if($FullLoad)
 Add-Type @'
 using System;
 [Flags]
-public enum GroupType
+public enum GroupType: uint
 {
     Global = 0x00000002,
     Local = 0x00000004,
     Universal = 0x00000008,
-    Security = unchecked((int)0x80000000)
+    Security = 0x80000000
 }
 '@
 }
 
-$prop=[Ordered]@{
-    SupportedAttributes=@('groupType')
-    OnLoad = $null
-    OnSave = $null
-}
-$codeBlock = new-object PSCustomObject -property $prop
+$codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes @('groupType')
+
 $codeBlock.OnLoad = { 
     param(
-    [int[]]$Values
+    [string[]]$Values
     )
     Process
     {
-        [GroupType].GetEnumValues().ForEach({if(($Value -band $_) -eq $_) {"$_"}})
+        [GroupType].GetEnumValues().ForEach({if(([uint]$Value -band $_) -eq $_) {"$_"}})
     }
 }
 $codeBlock.OnSave = { 
     param(
-    [System.String[]]$Values
+    [GroupType[]]$Values
     )
     
     Process
     {
         $retVal = 0
-        $Values.ForEach({ [GroupType]$val=$_; $retVal+=$val})
+        $Values.ForEach({ $retVal+=$_})
         $retVal
     }
 }

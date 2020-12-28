@@ -4,13 +4,8 @@ param (
     [Switch]
     $FullLoad
 )
+$codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes @('unicodePwd') -BinaryInput
 
-$prop=[Ordered]@{
-    SupportedAttributes=@('unicodePwd')
-    OnLoad = $null
-    OnSave = $null
-}
-$codeBlock = new-object PSCustomObject -property $prop
 $codeBlock.OnSave = { 
     param(
     [string[]]$Values

@@ -6,11 +6,7 @@ param (
     $FullLoad
 )
 
-$codeBlock=[PSCustomObject][Ordered]@{
-    SupportedAttributes=@('msDS-TopQuotaUsage')
-    OnLoad = $null
-    OnSave = $null
-}
+$codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes @('msDS-TopQuotaUsage')
 
 $codeBlock.OnLoad = { 
     param(
@@ -26,7 +22,7 @@ $codeBlock.OnLoad = {
 }
 $codeBlock.OnSave = { 
     param(
-    [object[]]$Values
+    [System.Xml.XmlDocument[]]$Values
     )
     
     Process

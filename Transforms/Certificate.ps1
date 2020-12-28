@@ -5,16 +5,10 @@ param (
     $FullLoad
 )
 
-$prop=[Ordered]@{
-    BinaryInput=$true
-    SupportedAttributes=@('userCertificate','userCert')
-    OnLoad = $null
-    OnSave = $null
-}
-$codeBlock = new-object PSCustomObject -property $prop
+$codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes @('userCertificate','userCert') -BinaryInput
 $codeBlock.OnLoad = { 
     param(
-    [object[]]$Values
+    [byte[][]]$Values
     )
     Process
     {

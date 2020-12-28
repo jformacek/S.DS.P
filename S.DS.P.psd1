@@ -79,13 +79,16 @@
 #                                    No need to specify prop as binary if transform loaded for the prop - binary'ness of prop is defined in transform
 #                                    Added CertificateValidationFlags param to Get-LdapConnection to allow control trust to server certificate
 #                                    Added Client certificate auth for LDAP connection
+# 28.12.2020, 2.1.1, Jiri Formacek, Changed default of RangeSize to -1, which causes that ranged attribute retrieval is not used by default and all objects are loaded within single request
+#                                   Simplified implementation of transforms and added some
+#                                   Added support for alphabetically sorting of attributes on returned objects
 @{
 
     # Script module or binary module file associated with this manifest
     RootModule = '.\S.DS.P.psm1'
 
     # Version number of this module.
-    ModuleVersion = '2.1.0'
+    ModuleVersion = '2.1.1'
 
     # ID used to uniquely identify this module
     GUID = '766cbbc0-85b9-4773-b4db-2fa86cd771ff'
@@ -147,7 +150,8 @@
         'Add-LdapObject','Remove-LdapObject',
         'Rename-LdapObject',
         'Register-LdapAttributeTransform','Unregister-LdapAttributeTransform',
-        'Get-LdapAttributeTransform'
+        'Get-LdapAttributeTransform',
+        'New-LdapAttributeTransformDefinition'
 
     # Variables to export from this module
     VariablesToExport = @()
@@ -181,7 +185,7 @@
             # ReleaseNotes = ''
 
             # Prerelease string of this module
-            #Prerelease = 'beta5'
+            Prerelease = 'beta1'
 
             # Flag to indicate whether the module requires explicit user acceptance for install/update/save
             RequireLicenseAcceptance = $false

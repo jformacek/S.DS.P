@@ -27,22 +27,17 @@ public enum SamAccountType
 }
 '@
 }
+$codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes @('sAMAccountType')
 
-$prop=[Ordered]@{
-    SupportedAttributes=@('sAMAccountType')
-    OnLoad = $null
-    OnSave = $null
-}
-$codeBlock = new-object PSCustomObject -property $prop
 $codeBlock.OnLoad = { 
     param(
-    [int[]]$Values
+    [string[]]$Values
     )
     Process
     {
         foreach($Value in $Values)
         {
-            [SamAccountType].GetEnumValues().ForEach({if($Value -eq $_) {"$_"}})
+            [SamAccountType].GetEnumValues().ForEach({if([int]$Value -eq $_) {"$_"}})
         }
     }
 }

@@ -63,15 +63,11 @@ public class ProxyAddress:IEquatable<ProxyAddress>
 '@
 }
 
-$prop=[Ordered]@{
-    SupportedAttributes=@('proxyAddresses','targetAddress')
-    OnLoad = $null
-    OnSave = $null
-}
-$codeBlock = new-object PSCustomObject -property $prop
+$codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes @('proxyAddresses','targetAddress')
+
 $codeBlock.OnLoad = { 
     param(
-    [object[]]$Values
+    [string[]]$Values
     )
     Process
     {

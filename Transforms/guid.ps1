@@ -9,13 +9,8 @@ if($FullLoad)
 {
 }
 
-$prop=[Ordered]@{
-    BinaryInput=$true
-    SupportedAttributes=@('objectGuid','mS-DS-ConsistencyGuid','msExchMailboxGuid','msExchPoliciesExcluded')
-    OnLoad = $null
-    OnSave = $null
-}
-$codeBlock = new-object PSCustomObject -property $prop
+$codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes @('objectGuid','mS-DS-ConsistencyGuid','msExchMailboxGuid','msExchPoliciesExcluded') -BinaryInput
+
 $codeBlock.OnLoad = { 
     param(
     [byte[][]]$Values

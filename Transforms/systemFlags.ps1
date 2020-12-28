@@ -30,21 +30,16 @@ public enum SystemFlags : uint
 }
 '@
 }
-
-$codeBlock=[PSCustomObject][Ordered]@{
-    SupportedAttributes=@('systemFlags')
-    OnLoad = $null
-    OnSave = $null
-}
+$codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes @('systemFlags')
 $codeBlock.OnLoad = { 
     param(
-    [object[]]$Values
+    [string[]]$Values
     )
     Process
     {
         foreach($Value in $Values)
         {
-            [SystemFlags].GetEnumValues().ForEach({if(($Value -band $_) -eq $_) {"$_"}})
+            [SystemFlags].GetEnumValues().ForEach({if(([uint]$Value -band $_) -eq $_) {"$_"}})
         }
     }
 }
