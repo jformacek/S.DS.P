@@ -5,7 +5,7 @@ param (
     $FullLoad
 )
 
-$codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes @('userCertificate','userCert') -BinaryInput
+$codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes @('cACertificate','userCertificate','userCert') -BinaryInput
 $codeBlock.OnLoad = { 
     param(
     [byte[][]]$Values

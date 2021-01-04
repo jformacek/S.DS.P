@@ -9,7 +9,7 @@ if($FullLoad)
 {
 }
 
-$codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes @('objectGuid','mS-DS-ConsistencyGuid','msExchMailboxGuid','msExchPoliciesExcluded') -BinaryInput
+$codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes @('appliesTo','attributeSecurityGUID','objectGuid','mS-DS-ConsistencyGuid','msExchMailboxGuid','msExchPoliciesExcluded','rightsGuid','schemaIDGUID') -BinaryInput
 
 $codeBlock.OnLoad = { 
     param(

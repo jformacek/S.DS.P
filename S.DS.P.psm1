@@ -1336,6 +1336,9 @@ More about attribute transforms and how to create them: https://github.com/jform
                     {
                         $attribs = @($AttributeName)
                     }
+                    else {
+                        throw new-object System.ArgumentException "Transform $Name does not support attribute $AttributeName"
+                    }
                 }
                 break;
             }
@@ -1456,7 +1459,7 @@ function New-LdapAttributeTransformDefinition
 {
 <#
 .SYNOPSIS
-    Creates definition of transform. Used by transform implementations
+    Creates definition of transform. Used by transform implementations.
 
 .OUTPUTS
     Transform definition
@@ -1546,6 +1549,9 @@ public class NamingContext
 }
 '@ -ReferencedAssemblies $referencedAssemblies
 
+<#
+    Helper that creates output object template used by Find-LdapObject command, based on required properties to be returned
+#>
 Function InitializeItemTemplateInternal
 {
     param
@@ -1562,6 +1568,11 @@ Function InitializeItemTemplateInternal
         $template
     }
 }
+
+<#
+    Retrieves search results as single search request
+    Total # of search requests produced is 1
+#>
 function GetResultsDirectlyInternal
 {
     param
@@ -1639,6 +1650,11 @@ function GetResultsDirectlyInternal
         }
     }
 }
+
+<#
+    Retrieves search results as series of requests: first request just returns list of returned objects, and then each object's props are loaded by separate request.
+    Total # of search requests produced is N+1, where N is # of objects found
+#>
 
 function GetResultsIndirectlyInternal
 {
@@ -1738,6 +1754,11 @@ function GetResultsIndirectlyInternal
     }
 }
 
+<#
+    Retrieves search results as series of requests: first request just returns list of returned objects, and then each property of each object is loaded by separate request.
+    When there is a lot of values in multivalued property (such as 'member' attribute of group), property may be loaded by multiple requests
+    Total # of search requests produced is at least (N x P) + 1, where N is # of objects found and P is # of properties loaded for each object
+#>
 function GetResultsIndirectlyRangedInternal
 {
     param
