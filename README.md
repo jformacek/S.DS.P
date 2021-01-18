@@ -1,9 +1,12 @@
 # S.DS.P - PowerShell module for working with LDAP servers
 This is repo for source code development for S.DS.P PowerShell module that's available on PowerShell gallery: https://www.powershellgallery.com/packages/S.DS.P 
 
-You can directly install it from PowerShell session via `Install-Module -Name S.DS.P`
+Module demonstrates how powerful and easy to use is pure LDAP protocol when wrapped into thin and elegant wrapper provided by classes in System.DirectoryServices.Protocols namespace.
 
-Until MS closes Technet gallery (currently read-only mode, so I cannot uload new versions), the module will also be available there: https://gallery.technet.microsoft.com/Using-SystemDirectoryServic-0adf7ef5
+Module also provides many attribute transforms that converts plain numbers, strings or byte arrays stored in LDAP into meaningful objects easy to work with, and converts them back to original raw format when storing back to LDAP storage.
+
+You can directly install the module from PowerShell session via `Install-Module -Name S.DS.P`  
+I also publish pre-release versions for testing of new features; installable via `Install-Module -Name S.DS.P -AllowPrerelease`
 
 Feel free to contribute!
 
@@ -24,9 +27,19 @@ Find-LdapObject -LdapConnection $Ldap `
   -PropertiesToLoad:@("sAMAccountName","objectSid") `
   -BinaryProps:@("objectSid")
 ```
-### Really fast searching and loading of values of all properties
-Specify RangeSize = -1 to perform fast search returning common attributes. Specify PropertiesToLoad as '*' to return "all present" properties of objects  
+### Ranged attribute retrieval
+By default, since 2.1.1, objects are loaded from LDAP sotore via single search request (RangeSize default value is -1; see below for details). This may be impractical for certain scenarios (e.g. some properties are returned only when searchBase is object itself, or nultivalued properties have more values than allowed to retrieve in single search request by query policy. For such cases, there is RangeSize parameter that allows to specify search behavior.
+
+*Note*: Prior version 2.1.1, default for RangeSize was 1000.
+
+**RangeSize = -1** performs fast search returning requested attributes via single search  
+**RangeSize = 0**  performs search for objects and then loads properties of returned objects via dedicated search with searchBase set to object's distinguishedName  
+**RangeSize > 0** performs search for objects and then loads each property of each object via dedicated search with searchBase set to object's distinguishedName and for multivalued properties loads [RangeSize] values, allowing to overcome query policy and load complete list of values.
+
+Obviously, RangeSizes > -1 increase # of requests sent to LDAP server and decrease the performance
+
 *Note*: Some properties are not returned unless you explicitly ask for them, so don't be surprised...
+
 ```powershell
 #gets connection to domain controller of your own domain
 #on port 389 with your current credentials
