@@ -877,7 +877,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             
             if($null -ne $transform -and $null -ne $transform.OnSave) {
                 #transform defined -> transform to form accepted by directory
-                $attrVal = (& $transform.OnSave -Values $Object.($prop.Name))
+                $attrVal = ,(& $transform.OnSave -Values $Object.($prop.Name))
             }
             else {
                 #no transform defined - take value as-is
@@ -1025,7 +1025,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
 
             if($null -ne $transform -and $null -ne $transform.OnSave) {
                 #transform defined -> transform to form accepted by directory
-                $attrVal = (& $transform.OnSave -Values $Object.($prop.Name))
+                $attrVal = ,(& $transform.OnSave -Values $Object.($prop.Name))
             }
             else {
                 #no transform defined - take value as-is
