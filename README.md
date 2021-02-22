@@ -156,7 +156,7 @@ $Ldap = Get-LdapConnection -LdapServer ldap.mydomain.com
 
 ## Attribute transforms
 ### Transforms work on attribute basis
-Attributes can be transformed from raw string or byte arrays to more comfortable objects. In addition, transform knows syntax of property it transforms, so it's not needed to specify binary property as binary - see sample for objectSid below
+Attributes can be transformed from raw string or byte arrays to more comfortable objects. In addition, transform knows syntax of property it transforms, so it's not needed to specify binary property as binary, because transform "knows" - see sample for objectSid below
 ```powershell
 #For list of available transforms and attributes 
 #that they can be applied on, run Get-LdapAttributeTransform -ListAvailable
