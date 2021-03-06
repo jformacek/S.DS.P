@@ -169,6 +169,11 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             # IMPORTANT: default changed in v2.1.1 - previously it was 1000. Changed because it typically caused large perforrmance impact when using -PropsToLoad '*'
         $RangeSize=-1,
 
+        [parameter(Mandatory=$false)]
+        [Int32]
+            #Max number of results to return from the search
+            #Negative number means that all available results are returned
+        $SizeLimit = -1,
         [parameter(Mandatory = $false)]
         [alias('BinaryProperties')]
         [String[]]
@@ -280,6 +285,11 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         #search scope
         $rq.Scope=$searchScope
 
+        if($SizeLimit -gt 0)
+        {
+            $rq.SizeLimit = $SizeLimit
+        }
+        
         #paged search control for paged search
         if($pageSize -gt 0) {
             [System.DirectoryServices.Protocols.PageResultRequestControl]$pagedRqc = new-object System.DirectoryServices.Protocols.PageResultRequestControl($pageSize)
@@ -1611,7 +1621,23 @@ function GetResultsDirectlyInternal
         }
         while($true)
         {
-            $rsp = $conn.SendRequest($rq, $Timeout) -as [System.DirectoryServices.Protocols.SearchResponse]
+            try
+            {
+                $rsp = $conn.SendRequest($rq, $Timeout) -as [System.DirectoryServices.Protocols.SearchResponse]
+            }
+            catch [System.DirectoryServices.Protocols.DirectoryOperationException]
+            {
+                if($_.Exception.HResult -eq 0x80131500 -and $null -ne $_.Exception.Response)
+                {
+                    #size limit exceeded
+                    $rsp = $_.Exception.Response
+                }
+                else
+                {
+                    throw $_.Exception
+                }
+            }
+
             foreach ($sr in $rsp.Entries)
             {
                 $data=$template.Clone()
@@ -1701,7 +1727,22 @@ function GetResultsIndirectlyInternal
         $rq.TypesOnly=$true
         while ($true)
         {
-            $rsp = $LdapConnection.SendRequest($rq, $Timeout) -as [System.DirectoryServices.Protocols.SearchResponse];
+            try
+            {
+                $rsp = $conn.SendRequest($rq, $Timeout) -as [System.DirectoryServices.Protocols.SearchResponse]
+            }
+            catch [System.DirectoryServices.Protocols.DirectoryOperationException]
+            {
+                if($_.Exception.HResult -eq 0x80131500 -and $null -ne $_.Exception.Response)
+                {
+                    #size limit exceeded
+                    $rsp = $_.Exception.Response
+                }
+                else
+                {
+                    throw $_.Exception
+                }
+            }
 
             #now process the returned list of distinguishedNames and fetch required properties directly from returned objects
             foreach ($sr in $rsp.Entries)
@@ -1808,7 +1849,22 @@ function GetResultsIndirectlyRangedInternal
         $rq.TypesOnly=$true
         while ($true)
         {
-            $rsp = $LdapConnection.SendRequest($rq, $Timeout) -as [System.DirectoryServices.Protocols.SearchResponse];
+            try
+            {
+                $rsp = $conn.SendRequest($rq, $Timeout) -as [System.DirectoryServices.Protocols.SearchResponse]
+            }
+            catch [System.DirectoryServices.Protocols.DirectoryOperationException]
+            {
+                if($_.Exception.HResult -eq 0x80131500 -and $null -ne $_.Exception.Response)
+                {
+                    #size limit exceeded
+                    $rsp = $_.Exception.Response
+                }
+                else
+                {
+                    throw $_.Exception
+                }
+            }
 
             #now process the returned list of distinguishedNames and fetch required properties directly from returned objects
             foreach ($sr in $rsp.Entries)

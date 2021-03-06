@@ -82,6 +82,7 @@
 # 28.12.2020, 2.1.1, Jiri Formacek, Changed default of RangeSize to -1, which causes that ranged attribute retrieval is not used by default and all objects are loaded within single request
 #                                   Simplified implementation of transforms and added some
 #                                   Added support for alphabetically sorting of attributes on returned objects
+#                                   Added support for SizeLimit parameter
 @{
 
     # Script module or binary module file associated with this manifest
