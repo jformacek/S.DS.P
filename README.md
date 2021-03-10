@@ -30,13 +30,13 @@ Find-LdapObject -LdapConnection $Ldap `
 ### Ranged attribute retrieval
 By default, since 2.1.1, objects are loaded from LDAP sotore via single search request (RangeSize default value is -1; see below for details). This may be impractical for certain scenarios (e.g. some properties are returned only when searchBase is object itself, or nultivalued properties have more values than allowed to retrieve in single search request by query policy. For such cases, there is RangeSize parameter that allows to specify search behavior.
 
-*Note*: Prior version 2.1.1, default for RangeSize was 1000.
+>Prior version 2.1.1, default for RangeSize was 1000.
 
 **RangeSize = -1** performs fast search returning requested attributes via single search  
 **RangeSize = 0**  performs search for objects and then loads properties of returned objects via dedicated search with searchBase set to object's distinguishedName  
 **RangeSize > 0** performs search for objects and then loads each property of each object via dedicated search with searchBase set to object's distinguishedName and for multivalued properties loads [RangeSize] values, allowing to overcome query policy and load complete list of values.
 
-Obviously, RangeSizes > -1 increase # of requests sent to LDAP server and decrease the performance
+>RangeSizes > -1 increase # of requests sent to LDAP server and decrease the performance, but can help when you have specific needs
 
 *Note*: Some properties are not returned unless you explicitly ask for them, so don't be surprised...
 
