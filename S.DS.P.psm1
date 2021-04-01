@@ -312,7 +312,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         if($NoAttributes)
         {
             #just run as fast as possible when not loading any attribs
-            GetResultsDirectlyInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -BinaryProperties $BinaryProps -Timeout $Timeout -NoAttributes
+            GetResultsDirectlyInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -BinaryProperties $BinaryProps -Timeout $Timeout -NoAttributes | PostProcess
         }
         else {
             #load attributes according to desired strategy
@@ -1194,6 +1194,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             #Either string containing distinguishedName
             #Or object with DistinguishedName property
         $Object,
+        
         [parameter(Mandatory = $true)]
         [System.DirectoryServices.Protocols.LdapConnection]
             #Existing LDAPConnection object.
@@ -1211,7 +1212,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
 
             #whether to delete original RDN
         [Switch]
-        $DeleteOldRdn,
+        $KeepOldRdn,
 
         [parameter(Mandatory = $false)]
         [System.DirectoryServices.Protocols.DirectoryControl[]]
@@ -1242,7 +1243,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         }
         $rqModDn.NewName = $NewName
         if(-not [string]::IsNullOrEmpty($NewParent)) {$rqModDN.NewParentDistinguishedName = $NewParent}
-        $rqModDN.DeleteOldRdn = ($DeleteOldRdn)
+        $rqModDN.DeleteOldRdn = (-not $KeepOldRdn)
         $LdapConnection.SendRequest($rqModDN) -as [System.DirectoryServices.Protocols.ModifyDNResponse] | Out-Null
     }
 }
@@ -1642,7 +1643,6 @@ function GetResultsDirectlyInternal
             {
                 $data=$template.Clone()
                 
-                $data['distinguishedName']=$sr.DistinguishedName
                 foreach($attrName in $sr.Attributes.AttributeNames) {
                     
                     $transform = $script:RegisteredTransforms[$attrName]
@@ -1656,11 +1656,17 @@ function GetResultsDirectlyInternal
                         }
                     } else {
                         if($BinaryInput -eq $true) {
-                            $data[$attrName] += $sr.Attributes[$attrName].GetValues([byte[]])
+                            $data[$attrName] = $sr.Attributes[$attrName].GetValues([byte[]])
                         } else {
-                            $data[$attrName] += $sr.Attributes[$attrName].GetValues([string])
+                            $data[$attrName] = $sr.Attributes[$attrName].GetValues([string])
                         }
                     }
+                }
+                
+                if($data['distinguishedName'].Count -eq 0) {
+                    #dn has to be present on all objects
+                    #having DN processed at the end gives chance to possible transforms on this attribute
+                    $data['distinguishedName']=$sr.DistinguishedName
                 }
                 $data
             }
@@ -1749,8 +1755,6 @@ function GetResultsIndirectlyInternal
             {
                 $data=$template.Clone()
 
-                $data['distinguishedName']=$sr.DistinguishedName
-
                 $rqAttr=new-object System.DirectoryServices.Protocols.SearchRequest
                 $rqAttr.DistinguishedName=$sr.DistinguishedName
                 $rqAttr.Scope="Base"
@@ -1773,12 +1777,16 @@ function GetResultsIndirectlyInternal
                             }
                         } else {
                             if($BinaryInput -eq $true) {
-                                $data[$attrName] += $srAttr.Attributes[$attrName].GetValues([byte[]])
+                                $data[$attrName] = $srAttr.Attributes[$attrName].GetValues([byte[]])
                             } else {
-                                $data[$attrName] += $srAttr.Attributes[$attrName].GetValues([string])
+                                $data[$attrName] = $srAttr.Attributes[$attrName].GetValues([string])
                             }                                    
                         }
                     }
+                }
+                if($data['distinguishedName'].Count -eq 0) {
+                    #dn has to be present on all objects
+                    $data['distinguishedName']=$sr.DistinguishedName
                 }
                 $data
             }
@@ -1870,7 +1878,6 @@ function GetResultsIndirectlyRangedInternal
             foreach ($sr in $rsp.Entries)
             {
                 $data=$template.Clone()
-                $data['distinguishedName']=$sr.DistinguishedName
 
                 $rqAttr=new-object System.DirectoryServices.Protocols.SearchRequest
                 $rqAttr.DistinguishedName=$sr.DistinguishedName
@@ -1910,6 +1917,10 @@ function GetResultsIndirectlyRangedInternal
                     {
                         $data[$attrName] = (& $transform.OnLoad -Values $data[$attrName])
                     }
+                }
+                if($data['distinguishedName'].Count -eq 0) {
+                    #dn has to be present on all objects
+                    $data['distinguishedName']=$sr.DistinguishedName
                 }
                 $data
             }
