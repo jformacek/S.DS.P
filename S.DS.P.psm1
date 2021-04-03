@@ -1194,7 +1194,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             #Either string containing distinguishedName
             #Or object with DistinguishedName property
         $Object,
-        
+
         [parameter(Mandatory = $true)]
         [System.DirectoryServices.Protocols.LdapConnection]
             #Existing LDAPConnection object.
@@ -1765,6 +1765,7 @@ function GetResultsIndirectlyInternal
                 $rspAttr = $LdapConnection.SendRequest($rqAttr)
                 foreach ($srAttr in $rspAttr.Entries) {
                     foreach($attrName in $srAttr.Attributes.AttributeNames) {
+                        if($attrName -like '*range=*') { continue } #skip ranged hints. Attribute value will not be returned if more values than query policy allows
                         $transform = $script:RegisteredTransforms[$attrName]
                         $BinaryInput = ($null -ne $transform -and $transform.BinaryInput -eq $true) -or ($attrName -in $BinaryProperties)
                         #protecting against LDAP servers who don't understand '1.1' prop
@@ -1886,6 +1887,7 @@ function GetResultsIndirectlyRangedInternal
 
                 #loading just attributes indicated as present in first search
                 foreach($attrName in $sr.Attributes.AttributeNames) {
+                    if($attrName -like '*range=*') { continue } #this is to skip range hints provided by DC
                     $transform = $script:RegisteredTransforms[$attrName]
                     $BinaryInput = ($null -ne $transform -and $transform.BinaryInput -eq $true) -or ($attrName -in $BinaryProperties)
                     $start=-$rangeSize
