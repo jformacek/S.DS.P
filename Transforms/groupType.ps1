@@ -29,7 +29,10 @@ $codeBlock.OnLoad = {
     )
     Process
     {
-        [GroupType].GetEnumValues().ForEach({if(([UInt32]$Value -band $_) -eq $_) {"$_"}})
+        foreach($Value in $Values)
+        {
+            [GroupType].GetEnumValues().ForEach({if(([UInt32]$Value -band $_) -eq $_) {"$_"}})
+        }
     }
 }
 $codeBlock.OnSave = { 
