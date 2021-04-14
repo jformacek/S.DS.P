@@ -31,7 +31,7 @@ $codeBlock.OnLoad = {
     {
         foreach($Value in $Values)
         {
-            [GroupType].GetEnumValues().ForEach({if(([UInt32]$Value -band $_) -eq $_) {"$_"}})
+            [GroupType].GetEnumValues().ForEach({if(($Value -band $_) -eq $_) {"$_"}})
         }
     }
 }
