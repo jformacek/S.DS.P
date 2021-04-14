@@ -30,20 +30,20 @@ $codeBlock.OnLoad = {
     {
         foreach($Value in $Values)
         {
-            [EncryptionTypes].GetEnumValues().ForEach({if(([int]$Value -band $_) -eq $_) {"$_"}})
+            [EncryptionTypes].GetEnumValues().ForEach({if(($Value -band $_) -eq $_) {$_}})
         }
     }
 }
 $codeBlock.OnSave = { 
     param(
-    [object[]]$Values
+    [EncryptionTypes[]]$Values
     )
     
     Process
     {
         $retVal = 0
-        $Values.ForEach({ [EncryptionTypes]$val=$_; $retVal+=$val})
-        $retVal
+        $Values.ForEach({ $retVal = $retVal -bor $_})
+        [BitConverter]::ToInt32([BitConverter]::GetBytes($retVal),0)
     }
 }
 $codeBlock

@@ -39,21 +39,20 @@ $codeBlock.OnLoad = {
     {
         foreach($Value in $Values)
         {
-            [SystemFlags].GetEnumValues().ForEach({if(([uint]$Value -band $_) -eq $_) {"$_"}})
+            [SystemFlags].GetEnumValues().ForEach({if(($Value -band $_) -eq $_) {$_}})
         }
     }
 }
 $codeBlock.OnSave = { 
     param(
-    [object[]]$Values
+    [SystemFlags[]]$Values
     )
     
     Process
     {
         $retVal = 0
-        $Values.ForEach({ [SystemFlags]$val=$_; $retVal+=$val})
-        $retVal
- 
+        $Values.ForEach({ $retVal = $retVal -bor $_})
+        [BitConverter]::ToInt32([BitConverter]::GetBytes($retVal),0)
     }
 }
 $codeBlock

@@ -40,7 +40,7 @@ $codeBlock.OnLoad = {
     {
         foreach($Value in $Values)
         {
-            [SearchFlags].GetEnumValues().ForEach({if((([int32]$Value) -band $_) -eq $_) {"$_"}})
+            [SearchFlags].GetEnumValues().ForEach({if((($Value) -band $_) -eq $_) {$_}})
         }
     }
 }
@@ -52,9 +52,8 @@ $codeBlock.OnSave = {
     Process
     {
         $retVal = 0
-        $Values.ForEach({ $retVal+=$_})
-        $retVal
- 
+        $Values.ForEach({ $retVal = $retVal -bor $_})
+        [BitConverter]::ToInt32([BitConverter]::GetBytes($retVal),0)
     }
 }
 $codeBlock

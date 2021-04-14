@@ -11,7 +11,6 @@ if($FullLoad)
 # https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/e742be45-665d-4576-b872-0bc99d1e1fbe
 Add-Type @'
 using System;
-[Flags]
 public enum SamAccountType
 {
     SAM_DOMAIN_OBJECT = 0x00000000,
@@ -37,21 +36,18 @@ $codeBlock.OnLoad = {
     {
         foreach($Value in $Values)
         {
-            [SamAccountType].GetEnumValues().ForEach({if([int]$Value -eq $_) {"$_"}})
+            [SamAccountType].GetEnumValues().Where({$_ -eq $Value})
         }
     }
 }
 $codeBlock.OnSave = { 
     param(
-    [object[]]$Values
+    [SamAccountType[]]$Values
     )
     
     Process
     {
-        $retVal = 0
-        $Values.ForEach({ [SamAccountType]$val=$_; $retVal+=$val})
-        $retVal
- 
+        foreach($value in $values) {[BitConverter]::ToInt32([BitConverter]::GetBytes(0+$value),0)}
     }
 }
 $codeBlock
