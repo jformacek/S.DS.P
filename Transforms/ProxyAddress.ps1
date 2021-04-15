@@ -47,6 +47,20 @@ public class ProxyAddress:IEquatable<ProxyAddress>
             Address = Value;
         }
     }
+    public ProxyAddress(string addressType, string address, bool isPrimary)
+    {
+        if (null == addressType || null == address)
+            throw new ArgumentException("Address and AddressType cannot be null");
+
+        Address = address;
+        if(isPrimary)
+        {
+            AddressType = addressType.ToUpper();
+        }
+        else
+            AddressType = addressType.ToLower();
+    }
+    
     public override string ToString()
     {
         if (AddressType == string.Empty)
