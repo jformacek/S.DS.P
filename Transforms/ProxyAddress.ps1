@@ -54,9 +54,7 @@ public class ProxyAddress:IEquatable<ProxyAddress>
 
         Address = address;
         if(isPrimary)
-        {
             AddressType = addressType.ToUpper();
-        }
         else
             AddressType = addressType.ToLower();
     }
