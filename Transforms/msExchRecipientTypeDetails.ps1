@@ -27,7 +27,7 @@ public enum RecipientTypeDetails: long
 }
 
 #add attributes that can be processed by this transform
-$SupportedAttributes = @('msExchRemoteRecipientType')
+$SupportedAttributes = @('msExchRecipientTypeDetails')
 
 # This is mandatory definition of transform that is expected by transform architecture
 $codeBlock = New-LdapAttributeTransformDefinition -SupportedAttributes $SupportedAttributes
