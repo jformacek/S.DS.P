@@ -1581,6 +1581,29 @@ Function InitializeItemTemplateInternal
 }
 
 <#
+    Process ragnged retrieval hints
+#>
+function GetTargetAttr
+{
+    param
+    (
+        [Parameter(Mandatory)]
+        [string]$attr
+    )
+
+    process
+    {
+        $targetAttr = $attr
+        $m = [System.Text.RegularExpressions.Regex]::Match($attr,';range=.+');  #this is to skip range hints provided by DC
+        if($m.Success)
+        {
+            $targetAttr = $($attr.Substring(0,$m.Index))
+        }
+        $targetAttr
+    }
+}
+
+<#
     Retrieves search results as single search request
     Total # of search requests produced is 1
 #>
@@ -1610,7 +1633,7 @@ function GetResultsDirectlyInternal
     )
     begin
     {
-        $template=InitializeItemTemplateInternal -props $PropertiesToLoad -additionalProps $additionalProps
+        $template=InitializeItemTemplateInternal -props $PropertiesToLoad -additionalProps $AdditionalProperties
     }
     process
     {
@@ -1644,21 +1667,34 @@ function GetResultsDirectlyInternal
                 $data=$template.Clone()
                 
                 foreach($attrName in $sr.Attributes.AttributeNames) {
+                    $targetAttrName = GetTargetAttr -attr $attrName
+                    if($targetAttrName -ne $attrName)
+                    {
+                        Write-Warning "Value of attribute $targetAttrName not completely retrieved as it exceeds query policy. Use ranged retrieval. Range hint: $attrName"
+                    }
+                    else
+                    {
+                        if($data[$attrName].Count -gt 0)
+                        {
+                            #we may have already loaded partial results from ranged hint
+                            continue
+                        }
+                    }
                     
-                    $transform = $script:RegisteredTransforms[$attrName]
-                    $BinaryInput = ($null -ne $transform -and $transform.BinaryInput -eq $true) -or ($attrName -in $BinaryProperties)
+                    $transform = $script:RegisteredTransforms[$targetAttrName]
+                    $BinaryInput = ($null -ne $transform -and $transform.BinaryInput -eq $true) -or ($targetAttrName -in $BinaryProperties)
                     if($null -ne $transform -and $null -ne $transform.OnLoad)
                     {
                         if($BinaryInput -eq $true) {
-                            $data[$attrName] = (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([byte[]])))
+                            $data[$targetAttrName] = (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([byte[]])))
                         } else {
-                            $data[$attrName] = (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([string])))
+                            $data[$targetAttrName] = (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([string])))
                         }
                     } else {
                         if($BinaryInput -eq $true) {
-                            $data[$attrName] = $sr.Attributes[$attrName].GetValues([byte[]])
+                            $data[$targetAttrName] = $sr.Attributes[$attrName].GetValues([byte[]])
                         } else {
-                            $data[$attrName] = $sr.Attributes[$attrName].GetValues([string])
+                            $data[$targetAttrName] = $sr.Attributes[$attrName].GetValues([string])
                         }
                     }
                 }
@@ -1723,7 +1759,7 @@ function GetResultsIndirectlyInternal
     )
     begin
     {
-        $template=InitializeItemTemplateInternal -props $PropertiesToLoad -additionalProps $additionalProps
+        $template=InitializeItemTemplateInternal -props $PropertiesToLoad -additionalProps $AdditionalProperties
     }
     process
     {
@@ -1765,22 +1801,35 @@ function GetResultsIndirectlyInternal
                 $rspAttr = $LdapConnection.SendRequest($rqAttr)
                 foreach ($srAttr in $rspAttr.Entries) {
                     foreach($attrName in $srAttr.Attributes.AttributeNames) {
-                        if($attrName -like '*range=*') { continue } #skip ranged hints. Attribute value will not be returned if more values than query policy allows
-                        $transform = $script:RegisteredTransforms[$attrName]
+                        $targetAttrName = GetTargetAttr -attr $attrName
+                        if($targetAttrName -ne $attrName)
+                        {
+                            Write-Warning "Value of attribute $targetAttrName not completely retrieved as it exceeds query policy. Use ranged retrieval. Range hint: $attrName"
+                        }
+                        else
+                        {
+                            if($data[$attrName].Count -gt 0)
+                            {
+                                #we may have already loaded partial results from ranged hint
+                                continue
+                            }
+                        }
+
+                        $transform = $script:RegisteredTransforms[$targetAttrName]
                         $BinaryInput = ($null -ne $transform -and $transform.BinaryInput -eq $true) -or ($attrName -in $BinaryProperties)
                         #protecting against LDAP servers who don't understand '1.1' prop
                         if($null -ne $transform -and $null -ne $transform.OnLoad)
                         {
                             if($BinaryInput -eq $true) {
-                                $data[$attrName] = (& $transform.OnLoad -Values ($srAttr.Attributes[$attrName].GetValues([byte[]])))
+                                $data[$targetAttrName] = (& $transform.OnLoad -Values ($srAttr.Attributes[$attrName].GetValues([byte[]])))
                             } else {
-                                $data[$attrName] = (& $transform.OnLoad -Values ($srAttr.Attributes[$attrName].GetValues([string])))
+                                $data[$targetAttrName] = (& $transform.OnLoad -Values ($srAttr.Attributes[$attrName].GetValues([string])))
                             }
                         } else {
                             if($BinaryInput -eq $true) {
-                                $data[$attrName] = $srAttr.Attributes[$attrName].GetValues([byte[]])
+                                $data[$targetAttrName] = $srAttr.Attributes[$attrName].GetValues([byte[]])
                             } else {
-                                $data[$attrName] = $srAttr.Attributes[$attrName].GetValues([string])
+                                $data[$targetAttrName] = $srAttr.Attributes[$attrName].GetValues([string])
                             }                                    
                         }
                     }
@@ -1848,7 +1897,7 @@ function GetResultsIndirectlyRangedInternal
     )
     begin
     {
-        $template=InitializeItemTemplateInternal -props $PropertiesToLoad -additionalProps $additionalProps
+        $template=InitializeItemTemplateInternal -props $PropertiesToLoad -additionalProps $AdditionalProperties
     }
     process
     {
@@ -1887,7 +1936,6 @@ function GetResultsIndirectlyRangedInternal
 
                 #loading just attributes indicated as present in first search
                 foreach($attrName in $sr.Attributes.AttributeNames) {
-                    if($attrName -like '*range=*') { continue } #this is to skip range hints provided by DC
                     $transform = $script:RegisteredTransforms[$attrName]
                     $BinaryInput = ($null -ne $transform -and $transform.BinaryInput -eq $true) -or ($attrName -in $BinaryProperties)
                     $start=-$rangeSize
