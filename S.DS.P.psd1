@@ -86,6 +86,8 @@
 # 1.4.2021, 2.1.2, Jiri Formacek    Fixed bug when distinguishedName malformed when propertiesToLoad = *
 #                                   Fixed bug when object returned as hashTable instead of PSCustomObject when propsToLoad not specified
 #                                   Logic optimizations
+# 28.8.2021, 2.1.3, Jiri Formacek   Fixed bugs in Find-LdapObject
+#                                   Added transform
 @{
 
     # Script module or binary module file associated with this manifest
@@ -177,7 +179,7 @@
             Tags = @('Ldap','System.DirectoryServices.Protocols','S.DS.P','PSEdition_Desktop','PSEdition_Core','Windows')
 
             # A URL to the license for this module.
-            # LicenseUri = ''
+            # LicenseUri = ''            
 
             # A URL to the main website for this project.
             ProjectUri = 'https://github.com/jformacek/S.DS.P'
@@ -189,7 +191,7 @@
             # ReleaseNotes = ''
 
             # Prerelease string of this module
-            Prerelease = 'beta1'
+            # Prerelease = 'beta1'
 
             # Flag to indicate whether the module requires explicit user acceptance for install/update/save
             RequireLicenseAcceptance = $false

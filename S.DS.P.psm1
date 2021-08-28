@@ -367,7 +367,20 @@ Get-LdapConnection | Get-RootDSE
 
 Description
 -----------
-This command connects to domain controller of caller's domain on port 389 and returns metadata about the server
+This command connects to closest domain controller of caller's domain on port 389 and returns metadata about the server
+
+.EXAMPLE
+#connect to server and authenticate with client certificate
+$thumb = '059d5318118e61fe54fd361ae07baf4644a67347'
+cert = (dir Cert:\CurrentUser\my).Where{$_.Thumbprint -eq $Thumb}[0]
+Get-LdapConnection -LdapServer "mydc.mydomain.com" `
+  -Port 636 `
+  -ClientCertificate $cert `
+  -CertificateValidationFlags [System.Security.Cryptography.X509Certificates.X509VerificationFlags]::IgnoreRootRevocationUnknown
+
+Description
+-----------
+Gets Ldap connection authenticated by client certificate authentication and allowing server certificate from CA with unavailable CRL.
 
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
@@ -711,17 +724,18 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         $LdapConnection.SessionOptions.ProtocolVersion=$ProtocolVersion
 
         
-        #store connection params for each server in grobal variable, so as it is reachable from callback scriptblocks
+        #store connection params for each server in global variable, so as it is reachable from callback scriptblocks
         $connectionParams=@{}
         foreach($server in $LdapServer) {$script:ConnectionParams[$server]=$connectionParams}
         if($CertificateValidationFlags -ne 'NoFlag')
         {
             $connectionParams['ServerCertificateValidationFlags'] = $CertificateValidationFlags
             #server certificate validation callback
-            $LdapConnection.SessionOptions.VerifyServerCertificate = { param(
-                [Parameter(Mandatory)][DirectoryServices.Protocols.LdapConnection]$LdapConnection,
-                [Parameter(Mandatory)][Security.Cryptography.X509Certificates.X509Certificate2]$Certificate
-            )
+            $LdapConnection.SessionOptions.VerifyServerCertificate = { 
+                param(
+                    [Parameter(Mandatory)][DirectoryServices.Protocols.LdapConnection]$LdapConnection,
+                    [Parameter(Mandatory)][Security.Cryptography.X509Certificates.X509Certificate2]$Certificate
+                )
                 [System.Security.Cryptography.X509Certificates.X509Chain] $chain = new-object System.Security.Cryptography.X509Certificates.X509Chain
                 foreach($server in $LdapConnection.Directory.Servers)
                 {
