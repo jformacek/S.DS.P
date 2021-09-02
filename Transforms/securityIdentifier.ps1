@@ -4,7 +4,7 @@ param (
     [Switch]
     $FullLoad
 )
-$codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes @('objectSid','tokenGroups','tokenGroupsGlobalAndUniversal','tokenGroupsNoGCAcceptable') -BinaryInput
+$codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes @('objectSid','tokenGroups','tokenGroupsGlobalAndUniversal','tokenGroupsNoGCAcceptable','sidHistory') -BinaryInput
 
 $codeBlock.OnLoad = { 
     param(
