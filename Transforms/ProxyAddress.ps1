@@ -69,7 +69,7 @@ public class ProxyAddress:IEquatable<ProxyAddress>
 
     public bool Equals(ProxyAddress other)
     {
-        return (string.Compare(this.Address,other.Address,false) == 0) && (string.Compare(this.AddressType,other.AddressType,false)==0) && (this.IsPrimary == other.IsPrimary);
+        return (string.Compare(this.Address,other.Address,true) == 0 && string.Compare(this.AddressType,other.AddressType,true)==0);
     }
 }
 '@
