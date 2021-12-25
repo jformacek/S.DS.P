@@ -27,6 +27,20 @@ Find-LdapObject -LdapConnection $Ldap `
   -PropertiesToLoad:@("sAMAccountName","objectSid") `
   -BinaryProps:@("objectSid")
 ```
+
+### Searching for deleted objects in AD
+Sample below shows how to search for deleted objects in AD domain.
+```powershell
+$Ldap = Get-LdapConnection
+$Dse = $Ldap | Get-RootDSE
+#create necessary directory control
+$ctrl = new-object System.DirectoryServices.Protocols.ShowDeletedControl
+#use the control when searching
+#Note: TRUE in isDeleted condition is case sensitive!
+Find-LdapObject -LdapConnection $conn -searchFilter '(&(objectClass=computer)(isDeleted=TRUE))' -searchBase $dse.defaultNamingContext -AdditionalControls $ctrl
+```
+>**Important**: Make sure you have appropriate permissions on <code>cn=Deleted Objects</code> container. By default, permissions on this container are restricted. Typically, you need <code>Read property</code> and <code>List</code> permissions to be able to search for deleted objects.
+
 ### Ranged attribute retrieval
 By default, since 2.1.1, objects are loaded from LDAP sotore via single search request (RangeSize default value is -1; see below for details). This may be impractical for certain scenarios (e.g. some properties are returned only when searchBase is object itself, or nultivalued properties have more values than allowed to retrieve in single search request by query policy. For such cases, there is RangeSize parameter that allows to specify search behavior.
 
