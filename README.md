@@ -29,7 +29,7 @@ Find-LdapObject -LdapConnection $Ldap `
 ```
 
 ### Searching for deleted objects in AD
-Sample below shows how to search for deleted objects in AD domain.
+Sample below shows how to search for deleted objects in AD domain and lists deleted computer objects in the domain.
 ```powershell
 $Ldap = Get-LdapConnection
 $Dse = $Ldap | Get-RootDSE
