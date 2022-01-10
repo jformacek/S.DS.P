@@ -44,6 +44,10 @@ $codeBlock.OnSave = {
             if($value -is [string]) {
                 $value
             }
+            if($value -is [Int64])
+            {
+                "$value"
+            }
         }
     }
 }
