@@ -8,7 +8,7 @@ param (
 if($FullLoad)
 {
 }
-$codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes @('msDS-AllowedToActOnBehalfOfOtherIdentity','ms-DS-GroupMSAMembership','ntSecurityDescriptor') -BinaryInput
+$codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes @('msDS-AllowedToActOnBehalfOfOtherIdentity','msDS-GroupMSAMembership','ntSecurityDescriptor', 'msExchMailboxSecurityDescriptor') -BinaryInput
 
 $codeBlock.OnLoad = { 
     param(
