@@ -7,6 +7,9 @@ on:
       - '**'
     tags:
       - 'v*'
+  workflow_dispatch:
+    branches: 
+      - master
 
 jobs:
   # This workflow contains a single job called "publishToGallery"
