@@ -13,7 +13,8 @@ if($FullLoad)
 }
 
 #add attributes that can be used with this transform
-$SupportedAttributes = @('IsCriticalSystemObject')
+$SupportedAttributes = @('IsCriticalSystemObject', `
+    'msRTCSIP-FederationEnabled', 'msRTCSIP-InternetAccessEnabled', 'msRTCSIP-Routable','msRTCSIP-Default')
 
 # This is mandatory definition of transform that is expected by transform architecture
 $codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes $SupportedAttributes
