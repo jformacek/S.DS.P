@@ -29,28 +29,24 @@ public class ProxyAddress:IEquatable<ProxyAddress>
     }
     public ProxyAddress(string Value)
     {
-        if (null == Value)
-            throw new ArgumentException("Value cannot be null");
+        if (string.IsNullOrWhiteSpace(Value))
+            throw new ArgumentException("Value must not be empty");
 
-        AddressType = string.Empty;
         int idx = Value.IndexOf(':');
-        if (idx > -1)
+        if (idx > 0)
         {
-            if (idx > 0)
-            {
-                AddressType = Value.Substring(0, idx);
-            }
+            AddressType = Value.Substring(0, idx);
             Address = Value.Substring(idx + 1, Value.Length - idx-1);
         }
         else
         {
-            Address = Value;
+            throw new ArgumentException(string.Format("Provided value is not in correct format: {0}", Value));
         }
     }
     public ProxyAddress(string addressType, string address, bool isPrimary)
     {
-        if (null == addressType || null == address)
-            throw new ArgumentException("Address and AddressType cannot be null");
+        if (string.IsNullOrWhiteSpace(addressType) || string.IsNullOrWhiteSpace(address))
+            throw new ArgumentException("Address and AddressType must not be empty or whitespace");
 
         Address = address;
         if(isPrimary)
@@ -70,6 +66,22 @@ public class ProxyAddress:IEquatable<ProxyAddress>
     public bool Equals(ProxyAddress other)
     {
         return (string.Compare(this.Address,other.Address,true) == 0 && string.Compare(this.AddressType,other.AddressType,true)==0);
+    }
+
+    public override bool Equals(Object obj)
+    {
+        if (obj == null)
+            return false;
+
+        ProxyAddress addr = obj as ProxyAddress;
+        if (addr == null)
+            return false;
+        else
+            return Equals(addr);
+    }
+    public override int GetHashCode()
+    {
+        return this.ToString().ToLower().GetHashCode();
     }
 }
 '@
