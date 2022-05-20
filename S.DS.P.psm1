@@ -118,11 +118,11 @@ This command connects to given LDAP server and lists all members of the group, u
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
 #>
     Param (
-        [parameter(Mandatory = $true)]
+        [parameter()]
         [System.DirectoryServices.Protocols.LdapConnection]
             #existing LDAPConnection object retrieved with cmdlet Get-LdapConnection
             #When we perform many searches, it is more effective to use the same conbnection rather than create new connection for each search request.
-        $LdapConnection,
+        $LdapConnection = $script:LdapConnection,
 
         [parameter(Mandatory = $true)]
         [String]
@@ -387,11 +387,11 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
 #>
 
     Param (
-        [parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [parameter(ValueFromPipeline = $true)]
         [System.DirectoryServices.Protocols.LdapConnection]
             #existing LDAPConnection object retrieved via Get-LdapConnection
             #When we perform many searches, it is more effective to use the same connection rather than create new connection for each search request.
-        $LdapConnection
+        $LdapConnection = $script:LdapConnection
     )
     Begin
     {
@@ -806,6 +806,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         if($FastConcurrentBind) {
             $LdapConnection.SessionOptions.FastConcurrentBind()
         }
+        $script:LdapConnection = $LdapConnection
         $LdapConnection
      }
 }
@@ -863,10 +864,10 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             #Default: empty list, which means that all properties are handled as strings
         $BinaryProps=@(),
 
-        [parameter(Mandatory = $true)]
+        [parameter()]
         [System.DirectoryServices.Protocols.LdapConnection]
             #Existing LDAPConnection object.
-        $LdapConnection,
+        $LdapConnection = $script:LdapConnection,
 
         [parameter(Mandatory = $false)]
         [System.DirectoryServices.Protocols.DirectoryControl[]]
@@ -994,10 +995,10 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             #Default: empty list, which means that all properties are handled as strings
         $BinaryProps=@(),
 
-        [parameter(Mandatory = $true)]
+        [parameter()]
         [System.DirectoryServices.Protocols.LdapConnection]
             #Existing LDAPConnection object.
-        $LdapConnection,
+        $LdapConnection = $script:LdapConnection,
 
         [parameter(Mandatory=$false)]
         [System.DirectoryServices.Protocols.DirectoryAttributeOperation]
@@ -1120,10 +1121,10 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         [Object]
             #Either string containing distinguishedName or object with DistinguishedName property
         $Object,
-        [parameter(Mandatory = $true)]
+        [parameter()]
         [System.DirectoryServices.Protocols.LdapConnection]
             #Existing LDAPConnection object.
-        $LdapConnection,
+        $LdapConnection = $script:LdapConnection,
 
         [parameter(Mandatory = $false)]
         [System.DirectoryServices.Protocols.DirectoryControl[]]
@@ -1209,10 +1210,10 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             #Or object with DistinguishedName property
         $Object,
 
-        [parameter(Mandatory = $true)]
+        [parameter()]
         [System.DirectoryServices.Protocols.LdapConnection]
             #Existing LDAPConnection object.
-        $LdapConnection,
+        $LdapConnection = $script:LdapConnection,
 
         [parameter(Mandatory = $true)]
             #New name of object
