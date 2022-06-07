@@ -83,6 +83,24 @@ Find-LdapObject -LdapConnection $Ldap `
 ```
 ---
 
+## Implicit LDAP connection
+Starting with version 2.1.5, `Get-LdapConnection` command saves connection object to session variable, so you do not have to pass it as parameter to other commands. Result of most recent call of `Get-LdapConnection` is stored.  
+However, you can still store it in variable and use it as parameter - this is useful when you need to work with multiple connections at the same time.
+### Simple object lookup
+```powershell
+#gets connection to domain controller of your own domain on port 389 with your current credentials and stores it to session variable
+Get-LdapConnection | Out-Null
+#gets RootDSE object using connection stored in session variable
+$Dse = Get-RootDSE
+#perform the search
+#Ldap connection is taken from session variable when not specified in parameter
+Find-LdapObject `
+  -SearchFilter:"(&(cn=jsmith)(objectClass=user)(objectCategory=organizationalPerson))" `
+  -SearchBase:"ou=Users,$($Dse.defaultNamingContext)" `
+  -PropertiesToLoad:@("sAMAccountName","objectSid") `
+  -BinaryProps:@("objectSid")
+```
+
 ## Ldap Connection params
 ### Encryption types
 ```powershell

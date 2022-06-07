@@ -46,6 +46,19 @@ Description
 This command creates the LDAP connection object and passes it as parameter. Connection remains open and ready for reuse in subsequent searches
 
 .EXAMPLE
+Get-LdapConnection -LdapServer "mydc.mydomain.com" | Out-Null
+
+$Dse = Get-RootDse
+
+Find-LdapObject -SearchFilter:"(&(sn=smith)(objectClass=user)(objectCategory=organizationalPerson))" -SearchBase:"cn=Users,dc=myDomain,dc=com"
+
+Find-LdapObject -SearchFilter:"(&(cn=myComputer)(objectClass=computer)(objectCategory=organizationalPerson))" -SearchBase:"ou=Computers,dc=myDomain,dc=com" -PropertiesToLoad:@("cn","managedBy")
+
+Description
+-----------
+This command creates the LDAP connection object and stores it in session variable. Following commands take the connection information from session variable, so the connection object does not need to be passed from command line.
+
+.EXAMPLE
 $Ldap = Get-LdapConnection -LdapServer "mydc.mydomain.com"
 Find-LdapObject -LdapConnection:$Ldap -SearchFilter:"(&(cn=SEC_*)(objectClass=group)(objectCategory=group))" -SearchBase:"cn=Groups,dc=myDomain,dc=com" | `
 Find-LdapObject -LdapConnection:$Ldap -ASQ:"member" -SearchScope:"Base" -SearchFilter:"(&(objectClass=user)(objectCategory=organizationalPerson))" -propertiesToLoad:@("sAMAccountName","givenName","sn") | `
