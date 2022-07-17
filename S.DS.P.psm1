@@ -2015,3 +2015,13 @@ function GetResultsIndirectlyRangedInternal
     }
 }
 #endregion
+
+#region Init
+if($PSEdition -eq 'Core' -and $host.Version -ge (new-object Version(7,2,5)))
+{
+    #we're running on .NET7 runtime
+    Add-type -Path "$PSScriptRoot\lib\net7.0\System.DirectoryServices.Protocols.dll"
+}
+
+
+#endregion
