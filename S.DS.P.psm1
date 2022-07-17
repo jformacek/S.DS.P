@@ -2020,7 +2020,9 @@ function GetResultsIndirectlyRangedInternal
 if($PSEdition -eq 'Core' -and $host.Version -ge (new-object Version(7,2,5)))
 {
     #we're running on .NET7 runtime
-    Add-type -Path "$PSScriptRoot\lib\net7.0\System.DirectoryServices.Protocols.dll"
+    if($IsWindows) { Add-type -Path "$PSScriptRoot\lib\net7.0\win\System.DirectoryServices.Protocols.dll" }
+    if($IsMacOS) { Add-type -Path "$PSScriptRoot/lib/net7.0/osx/System.DirectoryServices.Protocols.dll" }
+    if($IsLinux) { Add-type -Path "$PSScriptRoot/lib/net7.0/linux/System.DirectoryServices.Protocols.dll" }
 }
 
 
