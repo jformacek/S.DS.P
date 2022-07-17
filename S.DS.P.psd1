@@ -13,6 +13,8 @@
     # Version number of this module.
     ModuleVersion = '2.1.5'
 
+    CompatiblePSEditions = @('Desktop','Core')
+    
     # ID used to uniquely identify this module
     GUID = '766cbbc0-85b9-4773-b4db-2fa86cd771ff'
 
@@ -50,7 +52,7 @@
     RequiredModules = @()
 
     # Assemblies that must be loaded prior to importing this module
-    RequiredAssemblies = @('System.DirectoryServices.Protocols')
+    #RequiredAssemblies = @('System.DirectoryServices.Protocols')
 
     # Script files (.ps1) that are run in the caller's environment prior to importing this module
     ScriptsToProcess = @()
