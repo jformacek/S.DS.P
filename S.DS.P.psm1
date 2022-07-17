@@ -1,3 +1,13 @@
+#region Init
+if($PSEdition -eq 'Core' -and $host.Version -ge (new-object Version(7,2,5)))
+{
+    #we're running on .NET7 runtime
+    if($IsWindows) { Add-type -Path "$PSScriptRoot\lib\net7.0\win\System.DirectoryServices.Protocols.dll"}
+    if($IsMacOS) { [System.Reflection.Assembly]::LoadFile("$PSScriptRoot/lib/net7.0/osx/System.DirectoryServices.Protocols.dll") }
+    if($IsLinux) { Add-type -Path "$PSScriptRoot/lib/net7.0/linux/System.DirectoryServices.Protocols.dll" }
+}
+
+#endregion
 Function Find-LdapObject {
     <#
 .SYNOPSIS
@@ -2016,14 +2026,3 @@ function GetResultsIndirectlyRangedInternal
 }
 #endregion
 
-#region Init
-if($PSEdition -eq 'Core' -and $host.Version -ge (new-object Version(7,2,5)))
-{
-    #we're running on .NET7 runtime
-    if($IsWindows) { Add-type -Path "$PSScriptRoot\lib\net7.0\win\System.DirectoryServices.Protocols.dll" }
-    if($IsMacOS) { Add-type -Path "$PSScriptRoot/lib/net7.0/osx/System.DirectoryServices.Protocols.dll" }
-    if($IsLinux) { Add-type -Path "$PSScriptRoot/lib/net7.0/linux/System.DirectoryServices.Protocols.dll" }
-}
-
-
-#endregion
