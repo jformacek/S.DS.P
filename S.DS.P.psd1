@@ -28,6 +28,8 @@
     # Description of the functionality provided by this module
     Description = 'Provides cmdlets that demonstrate usage of System.DirectoryServices.Protocols .NET API in Powershell'
 
+    CompatiblePSEditions = @('Desktop','Core')
+
     # Minimum version of the Windows PowerShell engine required by this module
     PowerShellVersion = '5.1'
 
