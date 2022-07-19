@@ -61,7 +61,7 @@
     TypesToProcess = @()
 
     # Format files (.ps1xml) to be loaded when importing this module
-    FormatsToProcess = @()
+    FormatsToProcess = @('.\S.DS.P.format.ps1xml')
 
     # Modules to import as nested modules of the module specified in ModuleToProcess
     NestedModules = @()
@@ -95,7 +95,8 @@
         '.\Transforms\ProxyAddress.ps1', '.\Transforms\quotaUsage.ps1', '.\Transforms\replicationMetadata.ps1', '.\Transforms\SamAccountType.ps1', `
         '.\Transforms\searchFlags.ps1', '.\Transforms\securityDescriptor.ps1', '.\Transforms\securityIdentifier.ps1', '.\Transforms\supportedEncryptionTypes.ps1', `
         '.\Transforms\systemFlags.ps1', '.\Transforms\unicodePwd.ps1', '.\Transforms\userAccountControl.ps1', '.\Transforms\wellKnownObject.ps1', '.\Transforms\WindowsHelloKeyInfo.ps1', `
-        '.\S.DS.P.psd1', '.\S.DS.P.psm1' `
+        '.\S.DS.P.psd1', '.\S.DS.P.psm1', `
+        '.\S.DS.P.format.ps1xml' `
         )
 
     # Private data to pass to the module specified in ModuleToProcess

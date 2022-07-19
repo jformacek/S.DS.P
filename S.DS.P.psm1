@@ -120,12 +120,23 @@ This command connects to given LDAP server and performs the direct search, retri
 .EXAMPLE
 $Ldap = Get-LdapConnection -LdapServer:ldap.mycorp.com
 $dse = Get-RootDSE -LdapConnection $conn
-Find-LdapObject -LdapConnection $ldap -SearchFilter:"(&(objectClass=group)(objectCategory=group)(cn=MyVeryLargeGroup))" -SearchBase:"ou=People,ou=mycorp,o=world" -PropertiesToLoad member -RageSize 1000
+Find-LdapObject -LdapConnection $ldap -SearchFilter:"(&(objectClass=group)(objectCategory=group)(cn=MyVeryLargeGroup))" -SearchBase:"ou=People,ou=mycorp,o=world" -PropertiesToLoad member -RangeSize 1000
 
 Description
 -----------
-This command connects to given LDAP server and lists all members of the group, using ranged retrieval ("paging support on LDAP attributes")
+This command connects to given LDAP server on default port with Negotiate authentication
+Next commands use the connection to get Root DSE object and list of all members of a group, using ranged retrieval ("paging support on LDAP attributes")
 
+.EXAMPLE
+$creds=Get-Credential -UserName 'CN=MyUser,CN=Users,DC=mydomain,DC=com' -Message 'Enter password to user with this DN' -Title 'Password needed'
+Get-LdapConnection -LdapServer dc.mydomain.com -Port 636 -AuthType Basic -Credential $creds | Out-Null
+$dse = Get-RootDSE
+
+Description
+-----------
+This command connects to given LDAP server with simple bind over TLS (TLS needed for basic authentication), storing the connection in session variable.
+Next command uses connection from session variable to get Root DSE object.
+Usage of Basic authentication is typically way to go on client platforms that do not support other authentication schemes, such as Negotiate
 
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
@@ -225,6 +236,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
 
     Begin
     {
+        EnsureLdapConnection -LdapConnection $LdapConnection
         Function PostProcess {
             param
             (
@@ -408,6 +420,8 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
     )
     Begin
     {
+        EnsureLdapConnection -LdapConnection $LdapConnection
+
 		#initialize output objects via hashtable --> faster than add-member
         #create default initializer beforehand
         $propDef=[ordered]@{`
@@ -894,6 +908,11 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         $Timeout = (New-Object System.TimeSpan(0,0,120))
     )
 
+    begin
+    {
+        EnsureLdapConnection -LdapConnection $LdapConnection
+    }
+
     Process
     {
         if([string]::IsNullOrEmpty($Object.DistinguishedName)) {
@@ -938,7 +957,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             }
         }
         if($rqAdd.Attributes.Count -gt 0) {
-            $LdapConnection.SendRequest($rqAdd, $Timeout) -as [System.DirectoryServices.Protocols.AddResponse] | Out-Null
+            $LdapConnection.SendRequest($rqAdd, $Timeout) -as [System.DirectoryServices.Protocols.AddResponse]
         }
     }
 }
@@ -1034,8 +1053,14 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
 
         [Switch]
             #when turned on, we are returning modified object to pipeline
+            #this is useful when different types of modifications need to be done on single object
         $Passthrough
     )
+
+    begin
+    {
+        EnsureLdapConnection -LdapConnection $LdapConnection
+    }
 
     Process
     {
@@ -1090,9 +1115,11 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             }
         }
         if($rqMod.Modifications.Count -gt 0) {
-            $LdapConnection.SendRequest($rqMod, $Timeout) -as [System.DirectoryServices.Protocols.ModifyResponse] | Out-Null
+            $response = $LdapConnection.SendRequest($rqMod, $Timeout) -as [System.DirectoryServices.Protocols.ModifyResponse]
         }
-        if($Passthrough) {$Object}
+        #if requested, pass the objeect to pipeline for further processing
+        #otherwise return response, to be aligned with other commands
+        if($Passthrough) {$Object} else {$response}
     }
 }
 
@@ -1150,6 +1177,11 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         $UseTreeDelete
     )
 
+    begin
+    {
+        EnsureLdapConnection -LdapConnection $LdapConnection
+    }
+
     Process
     {
         [System.DirectoryServices.Protocols.DeleteRequest]$rqDel=new-object System.DirectoryServices.Protocols.DeleteRequest
@@ -1177,7 +1209,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         if($UseTreeDelete) {
             $rqDel.Controls.Add((new-object System.DirectoryServices.Protocols.TreeDeleteControl)) | Out-Null
         }
-        $LdapConnection.SendRequest($rqDel) -as [System.DirectoryServices.Protocols.DeleteResponse] | Out-Null
+        $LdapConnection.SendRequest($rqDel) -as [System.DirectoryServices.Protocols.DeleteResponse]
     }
 }
 
@@ -1248,6 +1280,10 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         $AdditionalControls=@()
     )
 
+    begin
+    {
+        EnsureLdapConnection -LdapConnection $LdapConnection
+    }
     Process
     {
         [System.DirectoryServices.Protocols.ModifyDNRequest]$rqModDN=new-object System.DirectoryServices.Protocols.ModifyDNRequest
@@ -1272,7 +1308,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         $rqModDn.NewName = $NewName
         if(-not [string]::IsNullOrEmpty($NewParent)) {$rqModDN.NewParentDistinguishedName = $NewParent}
         $rqModDN.DeleteOldRdn = (-not $KeepOldRdn)
-        $LdapConnection.SendRequest($rqModDN) -as [System.DirectoryServices.Protocols.ModifyDNResponse] | Out-Null
+        $LdapConnection.SendRequest($rqModDN) -as [System.DirectoryServices.Protocols.ModifyDNResponse]
     }
 }
 
@@ -1588,6 +1624,26 @@ public class NamingContext
 }
 '@ -ReferencedAssemblies $referencedAssemblies
 
+<#
+    Helper that makes sure that LdapConnection is initialized in commands that need it
+#>
+Function EnsureLdapConnection
+{
+    param
+    (
+        [parameter()]
+        [System.DirectoryServices.Protocols.LdapConnection]
+        $LdapConnection
+    )
+
+    process
+    {
+        if($null -eq $LdapConnection)
+        {
+            throw (new-object System.ArgumentException("LdapConnection parameter not provided and not found in session variable. Call Get-LdapConnection first"))
+        }
+    }
+}
 <#
     Helper that creates output object template used by Find-LdapObject command, based on required properties to be returned
 #>

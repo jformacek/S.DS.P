@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Configuration>
+    <ViewDefinitions>
+        <View>
+        <Name>DirectoryResponse</Name>
+        <ViewSelectedBy>
+            <TypeName>System.DirectoryServices.Protocols.DirectoryResponse</TypeName>
+        </ViewSelectedBy>
+        <TableControl>
+            <TableHeaders>
+            <TableColumnHeader>
+                <Label>DistinguishedName</Label>
+            </TableColumnHeader>
+            </TableHeaders>
+            <TableRowEntries>
+            <TableRowEntry>
+                <TableColumnItems>
+                    <TableColumnItem>
+                        <PropertyName>MatchedDN</PropertyName>
+                    </TableColumnItem>
+                </TableColumnItems>
+            </TableRowEntry>
+            </TableRowEntries>
+        </TableControl>
+        </View>
+    </ViewDefinitions>
+</Configuration>
