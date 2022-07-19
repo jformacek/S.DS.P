@@ -31,6 +31,7 @@ jobs:
         New-Item -Path  "$env:GITHUB_WORKSPACE" -Name $Target -ItemType Directory -Force | Out-Null
         Copy-Item -Path "$env:GITHUB_WORKSPACE\S.DS.P.psd1" -Destination "$env:GITHUB_WORKSPACE\$Target\" -Force
         Copy-Item -Path "$env:GITHUB_WORKSPACE\S.DS.P.psm1" -Destination "$env:GITHUB_WORKSPACE\$Target\" -Force
+        Copy-Item -Path "$env:GITHUB_WORKSPACE\S.DS.P.format.ps1xml" -Destination "$env:GITHUB_WORKSPACE\$Target\" -Force
         Copy-Item -Path "$env:GITHUB_WORKSPACE\LICENSE.TXT" -Destination "$env:GITHUB_WORKSPACE\$Target\" -Force
         Copy-Item -Path "$env:GITHUB_WORKSPACE\Transforms\" -Destination "$env:GITHUB_WORKSPACE\$Target\" -Recurse -Force
 
