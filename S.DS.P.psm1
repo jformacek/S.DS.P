@@ -908,8 +908,8 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         $Timeout = (New-Object System.TimeSpan(0,0,120)),
 
         [Switch]
-            #when turned on, we are returning created object to pipeline
-            #this is useful when further processing needed on object
+            #When turned on, command returns created object to pipeline
+            #This is useful when further processing needed on object
         $Passthrough
     )
 
@@ -1004,6 +1004,23 @@ Description
 -----------
 Finds user account in LDAP server and adds it to group
 
+.EXAMPLE
+#get connection and sotre in session variable
+Get-LdapConnection -LdapServer "mydc.mydomain.com"
+#get root DSE object
+$dse = Get-RootDse
+#do work
+Find-LdapObject `
+    -searchFilter '(&(objeectClass=user)(objectCategory=organizationalPerson)(l=Prague))' `
+    -searchBase $dse.defaultNamingContext `
+    -PropertiesToLoad 'adminDescription' `
+| foreach-object{$_.adminDescription = 'Praguer'; $_} `
+| Edit-LdapObject -IncludedProps 'adminDescription' -Passthrough `
+| Find-LdapObject -searchFilter '(objectClass=*)' -searchScope Base -PropertiesToLoad 'adminDescription'
+
+Description
+-----------
+This sample demontrates pipeline capabilities of various commands by updating an attribute value on many objects and reading updated objects from server
 
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
@@ -1057,8 +1074,8 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         $Timeout = (New-Object System.TimeSpan(0,0,120)),
 
         [Switch]
-            #when turned on, we are returning modified object to pipeline
-            #this is useful when different types of modifications need to be done on single object
+            #When turned on, command returns modified object to pipeline
+            #This is useful when different types of modifications need to be done on single object
         $Passthrough
     )
 
