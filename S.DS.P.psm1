@@ -905,7 +905,12 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         [Timespan]
             #Time before connection times out.
             #Default: 120 seconds
-        $Timeout = (New-Object System.TimeSpan(0,0,120))
+        $Timeout = (New-Object System.TimeSpan(0,0,120)),
+
+        [Switch]
+            #when turned on, we are returning created object to pipeline
+            #this is useful when further processing needed on object
+        $Passthrough
     )
 
     begin
@@ -1115,11 +1120,10 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             }
         }
         if($rqMod.Modifications.Count -gt 0) {
-            $response = $LdapConnection.SendRequest($rqMod, $Timeout) -as [System.DirectoryServices.Protocols.ModifyResponse]
+            $LdapConnection.SendRequest($rqMod, $Timeout) -as [System.DirectoryServices.Protocols.ModifyResponse] | Out-Null
         }
         #if requested, pass the objeect to pipeline for further processing
-        #otherwise return response, to be aligned with other commands
-        if($Passthrough) {$Object} else {$response}
+        if($Passthrough) {$Object}
     }
 }
 
@@ -1209,7 +1213,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         if($UseTreeDelete) {
             $rqDel.Controls.Add((new-object System.DirectoryServices.Protocols.TreeDeleteControl)) | Out-Null
         }
-        $LdapConnection.SendRequest($rqDel) -as [System.DirectoryServices.Protocols.DeleteResponse]
+        $LdapConnection.SendRequest($rqDel) -as [System.DirectoryServices.Protocols.DeleteResponse] | Out-Null
     }
 }
 
@@ -1308,7 +1312,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         $rqModDn.NewName = $NewName
         if(-not [string]::IsNullOrEmpty($NewParent)) {$rqModDN.NewParentDistinguishedName = $NewParent}
         $rqModDN.DeleteOldRdn = (-not $KeepOldRdn)
-        $LdapConnection.SendRequest($rqModDN) -as [System.DirectoryServices.Protocols.ModifyDNResponse]
+        $LdapConnection.SendRequest($rqModDN) -as [System.DirectoryServices.Protocols.ModifyDNResponse] | Out-Null
     }
 }
 
@@ -1316,7 +1320,6 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
 
 # Internal holder of registered transforms
 $script:RegisteredTransforms = @{}
-
 
 Function Register-LdapAttributeTransform
 {
