@@ -76,7 +76,8 @@
         'Rename-LdapObject',
         'Register-LdapAttributeTransform','Unregister-LdapAttributeTransform',
         'Get-LdapAttributeTransform',
-        'New-LdapAttributeTransformDefinition'
+        'New-LdapAttributeTransformDefinition',
+        'Get-LdapDirSyncCookie', 'Set-LdapDirSyncCookie'
 
     # Variables to export from this module
     VariablesToExport = @()
@@ -119,7 +120,7 @@
             # ReleaseNotes = ''
 
             # Prerelease string of this module
-            Prerelease = 'beta2'
+            Prerelease = 'beta3'
 
             # Flag to indicate whether the module requires explicit user acceptance for install/update/save
             RequireLicenseAcceptance = $false

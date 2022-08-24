@@ -172,13 +172,16 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
 
         [parameter(Mandatory = $false)]
         [String]
-            #Name of attribute for ASQ search. Note that searchScope must be set to Base for this type of seach
+            #Name of attribute for ASQ search.
+            #Ignored for DirSync searches
+            #Note: searchScope must be set to Base for this type of seach
             #Default: empty string
         $ASQ,
 
         [parameter(Mandatory = $false)]
         [UInt32]
             #Page size for paged search. Zero means that paging is disabled
+            #Ignored for DirSync searches
             #Default: 500
         $PageSize=500,
 
@@ -188,6 +191,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             # Negative value means that attribute values are loaded directly with list of objects
             # Zero means that ranged attribute value retrieval is disabled and attribute values are returned in single request.
             # Positive value  means that each attribute value is loaded in dedicated requests in batches of given size. Usable for loading of group members
+            #Ignored for DirSync searches
             # Note: Default in query policy in AD is 1500; make sure that you do not use here higher value than allowed by LDAP server
             # Default: -1 (means that ranged attribute retrieval is not used by default)
             # IMPORTANT: default changed in v2.1.1 - previously it was 1000. Changed because it typically caused large perforrmance impact when using -PropsToLoad '*'
@@ -226,8 +230,19 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         [parameter(Mandatory = $false)]
         [Timespan]
             #Number of seconds before request times out.
-            #Default: 120 seconds
-        $Timeout = (New-Object System.TimeSpan(0,0,120)),
+            #Default: [TimeSpan]::Zero, which means that no specific timeout provided
+        $Timeout = [TimeSpan]::Zero,
+
+        [Parameter(Mandatory=$false)]
+        [ValidateSet('None','Standard','ObjectSecurity')]
+        [string]
+            #whether to issue search with DirSync. Allowed options:
+            #None: Standard searxh without dir sync
+            #Standard: Dirsync search using standard permisions of caller. Replicte Directory Chnages permissions not required
+            #ObjectSecurity: DirSync search using Replicate Direcory Changes permission that reveals object that caller normally does not have permission to see
+            #Note: When Standard or ObjectRecurity specified, searchBase must be set to root of directory partition
+            #Default: None
+        $DirSync = 'None',
 
         [Switch]
             #Whether to alphabetically sort attributes on returned objects
@@ -315,52 +330,76 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             $rq.SizeLimit = $SizeLimit
         }
         
-        #paged search control for paged search
-        if($pageSize -gt 0) {
-            [System.DirectoryServices.Protocols.PageResultRequestControl]$pagedRqc = new-object System.DirectoryServices.Protocols.PageResultRequestControl($pageSize)
-            #asking server for best effort with paging
-            $pagedRqc.IsCritical=$false
-            $rq.Controls.Add($pagedRqc) | Out-Null
+        if($DirSync -eq 'None')
+        {
+            #paged search control for paged search
+            #for DirSync searches, paging is not used
+            if($pageSize -gt 0) {
+                [System.DirectoryServices.Protocols.PageResultRequestControl]$pagedRqc = new-object System.DirectoryServices.Protocols.PageResultRequestControl($pageSize)
+                #asking server for best effort with paging
+                $pagedRqc.IsCritical=$false
+                $rq.Controls.Add($pagedRqc) | Out-Null
+            }
+
+            #Attribute scoped query
+            #Not supported for DirSync
+            if(-not [String]::IsNullOrEmpty($asq)) {
+                [System.DirectoryServices.Protocols.AsqRequestControl]$asqRqc=new-object System.DirectoryServices.Protocols.AsqRequestControl($ASQ)
+                $rq.Controls.Add($asqRqc) | Out-Null
+            }
         }
 
         #add additional controls that caller may have passed
         foreach($ctrl in $AdditionalControls) {$rq.Controls.Add($ctrl) | Out-Null}
 
-        #server side timeout
-        $rq.TimeLimit=$Timeout
-
-        #Attribute scoped query
-        if(-not [String]::IsNullOrEmpty($asq)) {
-            [System.DirectoryServices.Protocols.AsqRequestControl]$asqRqc=new-object System.DirectoryServices.Protocols.AsqRequestControl($ASQ)
-            $rq.Controls.Add($asqRqc) | Out-Null
-        }
-        if($NoAttributes)
+        if($Timeout -ne [timespan]::Zero)
         {
-            #just run as fast as possible when not loading any attribs
-            GetResultsDirectlyInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -BinaryProperties $BinaryProps -Timeout $Timeout -NoAttributes | PostProcess
+            #server side timeout
+            $rq.TimeLimit=$Timeout
         }
-        else {
-            #load attributes according to desired strategy
-            switch($RangeSize)
-            {
-                {$_ -lt 0} {
-                    #directly via single ldap call
-                    #some attribs may not be loaded (e.g. computed)
-                    GetResultsDirectlyInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -BinaryProperties $BinaryProps -Timeout $Timeout | PostProcess -Sort $SortAttributes
-                    break
+
+        switch($DirSync)
+        {
+            'None' {
+                #standard search
+                if($NoAttributes)
+                {
+                    #just run as fast as possible when not loading any attribs
+                    GetResultsDirectlyInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -BinaryProperties $BinaryProps -Timeout $Timeout -NoAttributes | PostProcess
                 }
-                0 {
-                    #query attributes for each object returned using base search
-                    #but not using ranged retrieval, so multivalued attributes with many values may not be returned completely
-                    GetResultsIndirectlyInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -AdditionalControls $AdditionalControls -BinaryProperties $BinaryProps -Timeout $Timeout | PostProcess -Sort $SortAttributes
-                    break
+                else {
+                    #load attributes according to desired strategy
+                    switch($RangeSize)
+                    {
+                        {$_ -lt 0} {
+                            #directly via single ldap call
+                            #some attribs may not be loaded (e.g. computed)
+                            GetResultsDirectlyInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -BinaryProperties $BinaryProps -Timeout $Timeout | PostProcess -Sort $SortAttributes
+                            break
+                        }
+                        0 {
+                            #query attributes for each object returned using base search
+                            #but not using ranged retrieval, so multivalued attributes with many values may not be returned completely
+                            GetResultsIndirectlyInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -AdditionalControls $AdditionalControls -BinaryProperties $BinaryProps -Timeout $Timeout | PostProcess -Sort $SortAttributes
+                            break
+                        }
+                        {$_ -gt 0} {
+                            #query attributes for each object returned using base search and each attribute value with ranged retrieval
+                            #so even multivalued attributes with many values are returned completely
+                            GetResultsIndirectlyRangedInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -AdditionalControls $AdditionalControls -BinaryProperties $BinaryProps -Timeout $Timeout -RangeSize $RangeSize | PostProcess -Sort $SortAttributes
+                            break
+                        }
+                    }
                 }
-                {$_ -gt 0} {
-                    #query attributes for each object returned using base search and each attribute value with ranged retrieval
-                    #so even multivalued attributes with many values are returned completely
-                    GetResultsIndirectlyRangedInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -AdditionalControls $AdditionalControls -BinaryProperties $BinaryProps -Timeout $Timeout -RangeSize $RangeSize | PostProcess -Sort $SortAttributes
-                    break
-                }
+                break;
+            }
+            'Standard' {
+                GetResultsDirSyncInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -BinaryProperties $BinaryProps -Timeout $Timeout | PostProcess -Sort $SortAttributes
+                break;
+            }
+            'ObjectSecurity' {
+                GetResultsDirSyncInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -BinaryProperties $BinaryProps -Timeout $Timeout -ObjectSecurity | PostProcess -Sort $SortAttributes
+                break;
             }
         }
     }
@@ -904,8 +943,8 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         [parameter(Mandatory = $false)]
         [Timespan]
             #Time before connection times out.
-            #Default: 120 seconds
-        $Timeout = (New-Object System.TimeSpan(0,0,120)),
+            #Default: [TimeSpan]::Zero, which means that no specific timeout provided
+        $Timeout = [TimeSpan]::Zero,
 
         [Switch]
             #When turned on, command returns created object to pipeline
@@ -962,7 +1001,17 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             }
         }
         if($rqAdd.Attributes.Count -gt 0) {
-            $LdapConnection.SendRequest($rqAdd, $Timeout) -as [System.DirectoryServices.Protocols.AddResponse]
+            if($Timeout -ne [TimeSpan]::Zero)
+            {
+                $LdapConnection.SendRequest($rqAdd, $Timeout) -as [System.DirectoryServices.Protocols.AddResponse] | Out-Null
+            }
+            else {
+                $LdapConnection.SendRequest($rqAdd) -as [System.DirectoryServices.Protocols.AddResponse] | Out-Null
+            }
+        }
+        if($Passthrough)
+        {
+            $Object
         }
     }
 }
@@ -1070,8 +1119,8 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         [parameter(Mandatory = $false)]
         [timespan]
             #Time before request times out.
-            #Default: 120 seconds
-        $Timeout = (New-Object System.TimeSpan(0,0,120)),
+            #Default: [TimeSpan]::Zero, which means that no specific timeout provided
+        $Timeout = [TimeSpan]::Zero,
 
         [Switch]
             #When turned on, command returns modified object to pipeline
@@ -1137,7 +1186,14 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             }
         }
         if($rqMod.Modifications.Count -gt 0) {
-            $LdapConnection.SendRequest($rqMod, $Timeout) -as [System.DirectoryServices.Protocols.ModifyResponse] | Out-Null
+            if($Timeout -ne [TimeSpan]::Zero)
+            {
+                $LdapConnection.SendRequest($rqMod, $Timeout) -as [System.DirectoryServices.Protocols.ModifyResponse] | Out-Null
+            }
+            else
+            {
+                $LdapConnection.SendRequest($rqMod) -as [System.DirectoryServices.Protocols.ModifyResponse] | Out-Null
+            }
         }
         #if requested, pass the objeect to pipeline for further processing
         if($Passthrough) {$Object}
@@ -1584,6 +1640,59 @@ More about attribute transforms and how to create them: https://github.com/jform
     }
 }
 
+#region DirSync support
+Function Get-LdapDirSyncCookie
+{
+<#
+.SYNOPSIS
+    Returns DirSync cookie serialized as Base64 string.
+    Caller is responsible to save and call Set-LdapDirSyncCookie when continuing data retrieval via directory synchronization
+
+.OUTPUTS
+    DirSync cookie as Base64 string
+
+.LINK
+More about DirSync: https://docs.microsoft.com/en-us/dotnet/api/system.directoryservices.protocols.dirsyncrequestcontrol?view=dotnet-plat-ext-6.0
+
+#>
+param()
+
+    process
+    {
+        if($null -ne $script:DirSyncCookie)
+        {
+            [Convert]::ToBase64String($script:DirSyncCookie)
+        }
+    }
+}
+
+Function Set-LdapDirSyncCookie
+{
+        <#
+        .SYNOPSIS
+            Sets DirSync cookie to be used by subsequent directory sync based searches
+            Caller is responsible to save and call Set-LdapDirSyncCookie when continuing data retrieval via directory synchronization
+        
+        .OUTPUTS
+            No output provided
+        
+        .LINK
+        More about DirSync: https://docs.microsoft.com/en-us/dotnet/api/system.directoryservices.protocols.dirsyncrequestcontrol?view=dotnet-plat-ext-6.0
+        
+        #>
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory,ValueFromPipeline)]
+        [string]$Cookie
+    )
+
+    process
+    {
+        [byte[]]$script:DirSyncCookie = [System.Convert]::FromBase64String($Cookie)
+    }
+}
+#endregion
 
 #region Helpers
 Add-Type @'
@@ -1751,7 +1860,14 @@ function GetResultsDirectlyInternal
         {
             try
             {
-                $rsp = $conn.SendRequest($rq, $Timeout) -as [System.DirectoryServices.Protocols.SearchResponse]
+                if($Timeout -ne [timespan]::Zero)
+                {
+                    $rsp = $conn.SendRequest($rq, $Timeout) -as [System.DirectoryServices.Protocols.SearchResponse]
+                }
+                else
+                {
+                    $rsp = $conn.SendRequest($rq) -as [System.DirectoryServices.Protocols.SearchResponse]
+                }
             }
             catch [System.DirectoryServices.Protocols.DirectoryOperationException]
             {
@@ -1824,6 +1940,132 @@ function GetResultsDirectlyInternal
 }
 
 <#
+    Retrieves search results as dirsync request
+#>
+function GetResultsDirSyncInternal
+{
+    param
+    (
+        [Parameter(Mandatory)]
+        [System.DirectoryServices.Protocols.SearchRequest]
+        $rq,
+        [parameter(Mandatory)]
+        [System.DirectoryServices.Protocols.LdapConnection]
+        $conn,
+        [parameter()]
+        [String[]]
+        $PropertiesToLoad=@(),
+        [parameter()]
+        [String[]]
+        $AdditionalProperties=@(),
+        [parameter()]
+        [String[]]
+        $BinaryProperties=@(),
+        [parameter()]
+        [Timespan]
+        $Timeout,
+        [Switch]$ObjectSecurity
+    )
+    begin
+    {
+        $template=InitializeItemTemplateInternal -props $PropertiesToLoad -additionalProps $AdditionalProperties
+    }
+    process
+    {
+        $DirSyncRqc= new-object System.DirectoryServices.Protocols.DirSyncRequestControl($script:DirSyncCookie)
+        $DirSyncRqc.Option = ([System.DirectoryServices.Protocols.DirectorySynchronizationOptions]::IncrementalValues -bor [System.DirectoryServices.Protocols.DirectorySynchronizationOptions]::ParentsFirst)
+        if($ObjectSecurity)
+        {
+            $DirSyncRqc.Option = $DirSyncRqc.OPtion -bor [System.DirectoryServices.Protocols.DirectorySynchronizationOptions]::ObjectSecurity
+        }
+
+        $rq.Attributes.AddRange($propertiesToLoad) | Out-Null
+        
+        while($true)
+        {
+            try
+            {
+                if($Timeout -ne [timespan]::Zero)
+                {
+                    $rsp = $conn.SendRequest($rq, $Timeout) -as [System.DirectoryServices.Protocols.SearchResponse]
+                }
+                else
+                {
+                    $rsp = $conn.SendRequest($rq) -as [System.DirectoryServices.Protocols.SearchResponse]
+                }
+            }
+            catch [System.DirectoryServices.Protocols.DirectoryOperationException]
+            {
+                if($_.Exception.HResult -eq 0x80131500 -and $null -ne $_.Exception.Response)
+                {
+                    #size limit exceeded
+                    $rsp = $_.Exception.Response
+                }
+                else
+                {
+                    throw $_.Exception
+                }
+            }
+
+            foreach ($sr in $rsp.Entries)
+            {
+                $data=$template.Clone()
+                
+                foreach($attrName in $sr.Attributes.AttributeNames) {
+                    $targetAttrName = GetTargetAttr -attr $attrName
+                    if($targetAttrName -ne $attrName)
+                    {
+                        Write-Warning "Value of attribute $targetAttrName not completely retrieved as it exceeds query policy. Use ranged retrieval. Range hint: $attrName"
+                    }
+                    else
+                    {
+                        if($data[$attrName].Count -gt 0)
+                        {
+                            #we may have already loaded partial results from ranged hint
+                            continue
+                        }
+                    }
+                    
+                    $transform = $script:RegisteredTransforms[$targetAttrName]
+                    $BinaryInput = ($null -ne $transform -and $transform.BinaryInput -eq $true) -or ($targetAttrName -in $BinaryProperties)
+                    if($null -ne $transform -and $null -ne $transform.OnLoad)
+                    {
+                        if($BinaryInput -eq $true) {
+                            $data[$targetAttrName] = (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([byte[]])))
+                        } else {
+                            $data[$targetAttrName] = (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([string])))
+                        }
+                    } else {
+                        if($BinaryInput -eq $true) {
+                            $data[$targetAttrName] = $sr.Attributes[$attrName].GetValues([byte[]])
+                        } else {
+                            $data[$targetAttrName] = $sr.Attributes[$attrName].GetValues([string])
+                        }
+                    }
+                }
+                
+                if($data['distinguishedName'].Count -eq 0) {
+                    #dn has to be present on all objects
+                    #having DN processed at the end gives chance to possible transforms on this attribute
+                    $data['distinguishedName']=$sr.DistinguishedName
+                }
+                $data
+            }
+            #the response may contain dirsync response. If so, we will need a cookie from it
+            [System.DirectoryServices.Protocols.DirSyncResponseControl] $dsrc=$rsp.Controls | Where-Object{$_ -is [System.DirectoryServices.Protocols.DirSyncResponseControl]}
+            if($null -ne $dsrc -and $dsrc.Cookie.Length -ne 0 -and $null -ne $DirSyncRqc) {
+                #pass the search cookie back to server in next paged request
+                $DirSyncRqc.Cookie = $dsrc.Cookie;
+                $script:DirSyncCookie = $dsrc.Cookie
+            } else {
+                #either non paged search or we've processed last page
+                break;
+            }
+        }
+    }
+}
+
+<#
     Retrieves search results as series of requests: first request just returns list of returned objects, and then each object's props are loaded by separate request.
     Total # of search requests produced is N+1, where N is # of objects found
 #>
@@ -1875,7 +2117,14 @@ function GetResultsIndirectlyInternal
         {
             try
             {
-                $rsp = $conn.SendRequest($rq, $Timeout) -as [System.DirectoryServices.Protocols.SearchResponse]
+                if($Timeout -ne [timespan]::Zero)
+                {
+                    $rsp = $conn.SendRequest($rq, $Timeout) -as [System.DirectoryServices.Protocols.SearchResponse]
+                }
+                else
+                {
+                    $rsp = $conn.SendRequest($rq) -as [System.DirectoryServices.Protocols.SearchResponse]
+                }
             }
             catch [System.DirectoryServices.Protocols.DirectoryOperationException]
             {
@@ -2013,7 +2262,14 @@ function GetResultsIndirectlyRangedInternal
         {
             try
             {
-                $rsp = $conn.SendRequest($rq, $Timeout) -as [System.DirectoryServices.Protocols.SearchResponse]
+                if($Timeout -ne [timespan]::Zero)
+                {
+                    $rsp = $conn.SendRequest($rq, $Timeout) -as [System.DirectoryServices.Protocols.SearchResponse]
+                }
+                else
+                {
+                    $rsp = $conn.SendRequest($rq) -as [System.DirectoryServices.Protocols.SearchResponse]
+                }
             }
             catch [System.DirectoryServices.Protocols.DirectoryOperationException]
             {
