@@ -161,6 +161,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         [parameter(Mandatory = $false)]
         [System.DirectoryServices.Protocols.SearchScope]
             #Search scope
+            #Ignored for DirSync searches
             #Default: Subtree
         $searchScope='Subtree',
 
@@ -191,7 +192,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             # Negative value means that attribute values are loaded directly with list of objects
             # Zero means that ranged attribute value retrieval is disabled and attribute values are returned in single request.
             # Positive value  means that each attribute value is loaded in dedicated requests in batches of given size. Usable for loading of group members
-            #Ignored for DirSync searches
+            # Ignored for DirSync searches
             # Note: Default in query policy in AD is 1500; make sure that you do not use here higher value than allowed by LDAP server
             # Default: -1 (means that ranged attribute retrieval is not used by default)
             # IMPORTANT: default changed in v2.1.1 - previously it was 1000. Changed because it typically caused large perforrmance impact when using -PropsToLoad '*'
@@ -201,6 +202,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         [Int32]
             #Max number of results to return from the search
             #Negative number means that all available results are returned
+            #Ignored for DirSync searches
         $SizeLimit = -1,
         [parameter(Mandatory = $false)]
         [alias('BinaryProperties')]
@@ -237,10 +239,11 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         [ValidateSet('None','Standard','ObjectSecurity')]
         [string]
             #whether to issue search with DirSync. Allowed options:
-            #None: Standard searxh without dir sync
-            #Standard: Dirsync search using standard permisions of caller. Replicte Directory Chnages permissions not required
-            #ObjectSecurity: DirSync search using Replicate Direcory Changes permission that reveals object that caller normally does not have permission to see
-            #Note: When Standard or ObjectRecurity specified, searchBase must be set to root of directory partition
+            #None: Standard searxh without DirSync
+            #Standard: Dirsync search using standard permisions of caller. Requires Replicate Directory Changes permission
+            #ObjectSecurity: DirSync search using Replicate Direcory Changes permission that reveals object that caller normally does not have permission to see. Requires Requires Replicate Directory Changes All permission
+            #Note: When Standard or ObjectSecurity specified, searchBase must be set to root of directory partition
+            #For specs, see https://docs.microsoft.com/en-us/openspecs/windows_protocols/MS-ADTS/2213a7f2-0a36-483c-b2a4-8574d53aa1e3
             #Default: None
         $DirSync = 'None',
 
@@ -264,7 +267,16 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             {
                 #Flatten
                 $coll=@($data.Keys)
-                foreach($prop in $coll) {$data[$prop] = [Flattener]::FlattenArray($data[$prop])}
+                foreach($prop in $coll) {
+                    $data[$prop] = [Flattener]::FlattenArray($data[$prop])
+                    <#
+                    #support for DirSync struct for Add/Remove values of multival props
+                    if($data[$prop] -is [System.Collections.Hashtable])
+                    {
+                        $data[$prop] = [pscustomobject]$data[$prop]
+                    }
+                    #>
+                }
                 if($Sort)
                 {
                     #flatten and sort attributes
@@ -300,7 +312,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         $rq=new-object System.DirectoryServices.Protocols.SearchRequest
 
         #search base
-        #we support passing $null as SearchBase - user for Global Catalog searches
+        #we support passing $null as SearchBase - used for Global Catalog searches
         if($null -ne $searchBase)
         {
             #we support pipelining of strings, or objects containing distinguishedName property
@@ -322,14 +334,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         #search filter in LDAP syntax
         $rq.Filter=$searchFilter
 
-        #search scope
-        $rq.Scope=$searchScope
 
-        if($SizeLimit -gt 0)
-        {
-            $rq.SizeLimit = $SizeLimit
-        }
-        
         if($DirSync -eq 'None')
         {
             #paged search control for paged search
@@ -346,6 +351,28 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             if(-not [String]::IsNullOrEmpty($asq)) {
                 [System.DirectoryServices.Protocols.AsqRequestControl]$asqRqc=new-object System.DirectoryServices.Protocols.AsqRequestControl($ASQ)
                 $rq.Controls.Add($asqRqc) | Out-Null
+            }
+
+            #search scope
+            $rq.Scope=$searchScope
+
+            #size limit
+            if($SizeLimit -gt 0)
+            {
+                $rq.SizeLimit = $SizeLimit
+            }
+        }
+        else {
+            #specifics for DirSync searches
+
+            #only supported scope is subtree
+            $rq.Scope = 'Subtree'
+
+            #Windows AD/LDS server always returns objectGuid for DirSync.
+            #We do not want to hide it, we just make sure it is returned in proper format
+            if('objectGuid' -notin $BinaryProps)
+            {
+                $BinaryProps+='objectGuid'
             }
         }
 
@@ -742,7 +769,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         [Timespan]
             #Time before connection times out.
             #Default: 120 seconds
-        $Timeout = (New-Object System.TimeSpan(0,0,120)),
+        $Timeout = [TimeSpan]::Zero,
 
         [Parameter(Mandatory = $false)]
         [System.DirectoryServices.Protocols.AuthType]
@@ -867,7 +894,10 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                 break
             }
         }
-        $LdapConnection.Timeout = $Timeout
+        if($Timeout -ne [TimeSpan]::Zero)
+        {
+            $LdapConnection.Timeout = $Timeout
+        }
 
         if($FastConcurrentBind) {
             $LdapConnection.SessionOptions.FastConcurrentBind()
@@ -1788,7 +1818,7 @@ Function InitializeItemTemplateInternal
     {
         $template=@{}
         foreach($prop in $additionalProps) {$template[$prop]= $null}
-        foreach($prop in $props) {$template[$prop]=@()}
+        foreach($prop in $props) {$template[$prop]=$null}
         $template
     }
 }
@@ -1972,13 +2002,13 @@ function GetResultsDirSyncInternal
     }
     process
     {
-        $DirSyncRqc= new-object System.DirectoryServices.Protocols.DirSyncRequestControl($script:DirSyncCookie)
-        $DirSyncRqc.Option = ([System.DirectoryServices.Protocols.DirectorySynchronizationOptions]::IncrementalValues -bor [System.DirectoryServices.Protocols.DirectorySynchronizationOptions]::ParentsFirst)
+        $DirSyncRqc= new-object System.DirectoryServices.Protocols.DirSyncRequestControl(,$script:DirSyncCookie)
+        #$DirSyncRqc.Option = ([System.DirectoryServices.Protocols.DirectorySynchronizationOptions]::IncrementalValues -bor [System.DirectoryServices.Protocols.DirectorySynchronizationOptions]::ParentsFirst)
         if($ObjectSecurity)
         {
             $DirSyncRqc.Option = $DirSyncRqc.OPtion -bor [System.DirectoryServices.Protocols.DirectorySynchronizationOptions]::ObjectSecurity
         }
-
+        $rq.Controls.Add($DirSyncRqc) | Out-Null
         $rq.Attributes.AddRange($propertiesToLoad) | Out-Null
         
         while($true)
@@ -2013,17 +2043,28 @@ function GetResultsDirSyncInternal
                 
                 foreach($attrName in $sr.Attributes.AttributeNames) {
                     $targetAttrName = GetTargetAttr -attr $attrName
-                    if($targetAttrName -ne $attrName)
+                    if($attrName -ne $targetAttrName)
                     {
-                        Write-Warning "Value of attribute $targetAttrName not completely retrieved as it exceeds query policy. Use ranged retrieval. Range hint: $attrName"
+                        if($null -eq $data[$targetAttrName])
+                        {
+                            $data[$targetAttrName] = [PSCustomObject]@{
+                                Add=@()
+                                Remove=@()
+                            }
+                        }
+                        #we have multival prop chnage --> need special handling
+                        #Windows AD/LDS server returns attribute name as '<attr>;range=1-1' for added values and '<attr>;range=0-0' for removed values on forward-linked attributes
+                        if($attrName -like '*;range=1-1')
+                        {
+                            $attributeContainer = {param($val) $data[$targetAttrName].Add=$val}
+                        }
+                        else {
+                            $attributeContainer = {param($val) $data[$targetAttrName].Remove=$val}
+                        }
                     }
                     else
                     {
-                        if($data[$attrName].Count -gt 0)
-                        {
-                            #we may have already loaded partial results from ranged hint
-                            continue
-                        }
+                        $attributeContainer = {param($val) $data[$targetAttrName]=$val}
                     }
                     
                     $transform = $script:RegisteredTransforms[$targetAttrName]
@@ -2031,15 +2072,15 @@ function GetResultsDirSyncInternal
                     if($null -ne $transform -and $null -ne $transform.OnLoad)
                     {
                         if($BinaryInput -eq $true) {
-                            $data[$targetAttrName] = (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([byte[]])))
+                            &$attributeContainer (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([byte[]])))
                         } else {
-                            $data[$targetAttrName] = (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([string])))
+                            &$attributeContainer (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([string])))
                         }
                     } else {
                         if($BinaryInput -eq $true) {
-                            $data[$targetAttrName] = $sr.Attributes[$attrName].GetValues([byte[]])
+                            &$attributeContainer $sr.Attributes[$attrName].GetValues([byte[]])
                         } else {
-                            $data[$targetAttrName] = $sr.Attributes[$attrName].GetValues([string])
+                            &$attributeContainer $sr.Attributes[$attrName].GetValues([string])
                         }
                     }
                 }
@@ -2057,6 +2098,10 @@ function GetResultsDirSyncInternal
                 #pass the search cookie back to server in next paged request
                 $DirSyncRqc.Cookie = $dsrc.Cookie;
                 $script:DirSyncCookie = $dsrc.Cookie
+                if(-not $dsrc.MoreData)
+                {
+                    break;
+                }
             } else {
                 #either non paged search or we've processed last page
                 break;
