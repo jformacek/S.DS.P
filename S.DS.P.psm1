@@ -236,7 +236,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         $Timeout = [TimeSpan]::Zero,
 
         [Parameter(Mandatory=$false)]
-        [ValidateSet('None','Standard','ObjectSecurity')]
+        [ValidateSet('None','Standard','ObjectSecurity','StandardIncremental','ObjectSecurityIncremental')]
         [string]
             #whether to issue search with DirSync. Allowed options:
             #None: Standard searxh without DirSync
@@ -426,6 +426,14 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             }
             'ObjectSecurity' {
                 GetResultsDirSyncInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -BinaryProperties $BinaryProps -Timeout $Timeout -ObjectSecurity | PostProcess -Sort $SortAttributes
+                break;
+            }
+            'StandardIncremental' {
+                GetResultsDirSyncInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -BinaryProperties $BinaryProps -Timeout $Timeout -Incremental | PostProcess -Sort $SortAttributes
+                break;
+            }
+            'ObjectSecurityIncremental' {
+                GetResultsDirSyncInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -BinaryProperties $BinaryProps -Timeout $Timeout -ObjectSecurity -Incremental | PostProcess -Sort $SortAttributes
                 break;
             }
         }
@@ -1994,7 +2002,8 @@ function GetResultsDirSyncInternal
         [parameter()]
         [Timespan]
         $Timeout,
-        [Switch]$ObjectSecurity
+        [Switch]$ObjectSecurity,
+        [switch]$Incremental
     )
     begin
     {
@@ -2003,10 +2012,14 @@ function GetResultsDirSyncInternal
     process
     {
         $DirSyncRqc= new-object System.DirectoryServices.Protocols.DirSyncRequestControl(,$script:DirSyncCookie)
-        #$DirSyncRqc.Option = ([System.DirectoryServices.Protocols.DirectorySynchronizationOptions]::IncrementalValues -bor [System.DirectoryServices.Protocols.DirectorySynchronizationOptions]::ParentsFirst)
+        $DirSyncRqc.Option = [System.DirectoryServices.Protocols.DirectorySynchronizationOptions]::ParentsFirst
         if($ObjectSecurity)
         {
-            $DirSyncRqc.Option = $DirSyncRqc.OPtion -bor [System.DirectoryServices.Protocols.DirectorySynchronizationOptions]::ObjectSecurity
+            $DirSyncRqc.Option = $DirSyncRqc.Option -bor [System.DirectoryServices.Protocols.DirectorySynchronizationOptions]::ObjectSecurity
+        }
+        if($Incremental)
+        {
+            $DirSyncRqc.Option = $DirSyncRqc.Option -bor [System.DirectoryServices.Protocols.DirectorySynchronizationOptions]::IncrementalValues
         }
         $rq.Controls.Add($DirSyncRqc) | Out-Null
         $rq.Attributes.AddRange($propertiesToLoad) | Out-Null
