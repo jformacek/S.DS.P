@@ -1775,12 +1775,26 @@ public class NamingContext
             {
                 if(part.StartsWith("<GUID="))
                 {
-                    retVal.GUID=System.Guid.Parse(part.Substring(6,part.Length-7));
+                    try
+                    {
+                        retVal.GUID=System.Guid.Parse(part.Substring(6,part.Length-7));
+                    }
+                    catch(System.Exception)
+                    {
+                        //swallow any errors
+                    }
                     continue;
                 }
                 if(part.StartsWith("<SID="))
                 {
-                    retVal.SID=new System.Security.Principal.SecurityIdentifier(part.Substring(5,part.Length-6));
+                    try
+                    {
+                        retVal.SID=new System.Security.Principal.SecurityIdentifier(part.Substring(5,part.Length-6));
+                    }
+                    catch(System.Exception)
+                    {
+                        //swallow any errors
+                    }
                     continue;
                 }
                 retVal.distinguishedName=part;
