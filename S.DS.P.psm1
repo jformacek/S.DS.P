@@ -1703,7 +1703,6 @@ Function Get-LdapDirSyncCookie
     DirSync cookie as Base64 string
 
 .EXAMPLE
-
 Get-LdapConnection -LdapServer "mydc.mydomain.com"
 
 $dse = Get-RootDse
@@ -1721,8 +1720,20 @@ $cookie | Set-Content  .\storedCookieFromPreviousIteration.txt
 
 Description
 ----------
-This example Loads dirsync cookie stored in file and performs dirsync search for updates that happened after cookie was generated
+This example loads dirsync cookie stored in file and performs dirsync search for updates that happened after cookie was generated
 Then it stores updated cookie back to file for usage in next iteration
+
+.EXAMPLE
+Get-LdapConnection -LdapServer dc.mydomain.com | Out-Null
+$dse = Get-RootDSE
+#obtain initial sync cookie valid from now on
+Find-LdapObject -searchBase $dse.defaultNamingContext -searchFilter '(objectClass=domainDns)' -PropertiesToLoad 'name' -DirSync Standard | Out-Null
+$show the cookie
+Get-LdapDirSyncCookie
+
+Description
+-----------
+This example connects to given LDAP server and obtains initial cookie that represents current time - output does not contain full sync data.
 
 
 .LINK
@@ -1751,7 +1762,6 @@ Function Set-LdapDirSyncCookie
     DirSync cookie as Base64 string
 
 .EXAMPLE
-
 Get-LdapConnection -LdapServer "mydc.mydomain.com"
 
 $dse = Get-RootDse
@@ -1769,9 +1779,8 @@ $cookie | Set-Content  .\storedCookieFromPreviousIteration.txt
 
 Description
 ----------
-This example Loads dirsync cookie stored in file and performs dirsync search for updates that happened after cookie was generated
+This example loads dirsync cookie stored in file and performs dirsync search for updates that happened after cookie was generated
 Then it stores updated cookie back to file for usage in next iteration
-
 
 .LINK
 More about DirSync: https://docs.microsoft.com/en-us/openspecs/windows_protocols/MS-ADTS/2213a7f2-0a36-483c-b2a4-8574d53aa1e3
