@@ -1697,9 +1697,9 @@ Get-LdapConnection -LdapServer "mydc.mydomain.com"
 $dse = Get-RootDse
 $cookie = Get-Content .\storedCookieFromPreviousIteration.txt
 $cookie | Set-LdapDirSyncCookie
-$dirUpdates=Find-LdapObject -SearchBase $dse.defaultNamingContext -searchFilter '(objectClass=group) -PropertiesToLoad 'member' -DirSync StandardIncremental
+$dirUpdates=Find-LdapObject -SearchBase $dse.defaultNamingContext -searchFilter '(objectClass=group)' -PropertiesToLoad 'member' -DirSync StandardIncremental
 #process updates
-foreach($record in $data)
+foreach($record in $dirUpdates)
 {
     #...
 }
@@ -1745,9 +1745,9 @@ Get-LdapConnection -LdapServer "mydc.mydomain.com"
 $dse = Get-RootDse
 $cookie = Get-Content .\storedCookieFromPreviousIteration.txt
 $cookie | Set-LdapDirSyncCookie
-$dirUpdates=Find-LdapObject -SearchBase $dse.defaultNamingContext -searchFilter '(objectClass=group) -PropertiesToLoad 'member' -DirSync Standard
+$dirUpdates=Find-LdapObject -SearchBase $dse.defaultNamingContext -searchFilter '(objectClass=group)' -PropertiesToLoad 'member' -DirSync Standard
 #process updates
-foreach($record in $data)
+foreach($record in $dirUpdates)
 {
     #...
 }
