@@ -138,6 +138,18 @@ This command connects to given LDAP server with simple bind over TLS (TLS needed
 Next command uses connection from session variable to get Root DSE object.
 Usage of Basic authentication is typically way to go on client platforms that do not support other authentication schemes, such as Negotiate
 
+.EXAMPLE
+Get-LdapConnection -LdapServer dc.mydomain.com | Out-Null
+$dse = Get-RootDSE
+#obtain initial sync cookie valid from now on
+Find-LdapObject -searchBase $dse.defaultNamingContext -searchFilter '(objectClass=domainDns)' -PropertiesToLoad 'name' -DirSync Standard | Out-Null
+$show the cookie
+Get-LdapDirSyncCookie
+
+Description
+-----------
+This command connects to given LDAP server and obtains initial cookie that represents current time - output does not contain full sync.
+
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
 #>
@@ -1970,7 +1982,7 @@ function GetResultsDirectlyInternal
             }
             catch [System.DirectoryServices.Protocols.DirectoryOperationException]
             {
-                if($_.Exception.HResult -eq 0x80131500 -and $null -ne $_.Exception.Response)
+                if($null -ne $_.Exception.Response -and $_.Exception.Response.ResultCode -eq 'SizeLimitExceeded')
                 {
                     #size limit exceeded
                     $rsp = $_.Exception.Response
@@ -2100,15 +2112,8 @@ function GetResultsDirSyncInternal
             }
             catch [System.DirectoryServices.Protocols.DirectoryOperationException]
             {
-                if($_.Exception.HResult -eq 0x80131500 -and $null -ne $_.Exception.Response)
-                {
-                    #size limit exceeded
-                    $rsp = $_.Exception.Response
-                }
-                else
-                {
-                    throw $_.Exception
-                }
+                #just throw as we do not have need case for special handling now
+                throw $_.Exception
             }
 
             foreach ($sr in $rsp.Entries)
@@ -2247,7 +2252,7 @@ function GetResultsIndirectlyInternal
             }
             catch [System.DirectoryServices.Protocols.DirectoryOperationException]
             {
-                if($_.Exception.HResult -eq 0x80131500 -and $null -ne $_.Exception.Response)
+                if($null -ne $_.Exception.Response -and $_.Exception.Response.ResultCode -eq 'SizeLimitExceeded')
                 {
                     #size limit exceeded
                     $rsp = $_.Exception.Response
@@ -2392,7 +2397,7 @@ function GetResultsIndirectlyRangedInternal
             }
             catch [System.DirectoryServices.Protocols.DirectoryOperationException]
             {
-                if($_.Exception.HResult -eq 0x80131500 -and $null -ne $_.Exception.Response)
+                if($null -ne $_.Exception.Response -and $_.Exception.Response.ResultCode -eq 'SizeLimitExceeded')
                 {
                     #size limit exceeded
                     $rsp = $_.Exception.Response
