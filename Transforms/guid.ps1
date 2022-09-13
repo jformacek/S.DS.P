@@ -11,7 +11,7 @@ if($FullLoad)
 
 $codeBlock= New-LdapAttributeTransformDefinition `
 -SupportedAttributes @('appliesTo','attributeSecurityGUID','objectGuid', `
-    'mS-DS-ConsistencyGuid','msExchMailboxGuid','rightsGuid','schemaIDGUID', `
+    'mS-DS-ConsistencyGuid','msExchMailboxGuid','schemaIDGUID', `
     'msExchArchiveGUID') `
 -BinaryInput
 
