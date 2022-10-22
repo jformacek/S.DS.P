@@ -1505,8 +1505,12 @@ Template for creation of new transforms: https://github.com/jformacek/S.DS.P/blo
         $AttributeName,
         [Parameter(Mandatory,ValueFromPipeline,ParameterSetName='TransformObject', Position=0)]
         [PSCustomObject]
-            #Transform object produced by Get-LdapAttributeTRansform
-        $Transform
+            #Transform object produced by Get-LdapAttributeTransform
+        $Transform,
+        [Parameter(Mandatory,ValueFromPipeline,ParameterSetName='TransformFilePath', Position=0)]
+        [PSCustomObject]
+            #Full path to transform file
+        $TransformFile
     )
 
     Process
@@ -1514,17 +1518,25 @@ Template for creation of new transforms: https://github.com/jformacek/S.DS.P/blo
         switch($PSCmdlet.ParameterSetName)
         {
             'TransformObject' {
-                $Name = $transform.TransformName
+                $TransformFile = "$PSScriptRoot\Transforms\$($transform.TransformName).ps1"
+                break;
+            }
+            'Name' {
+                $TransformFile = "$PSScriptRoot\Transforms\$Name.ps1"
+                break;
+            }
+            'TransformFile' {
+
                 break;
             }
         }
 
-        if(-not (Test-Path -Path "$PSScriptRoot\Transforms\$Name.ps1") )
+        if(-not (Test-Path -Path "$TransformFile") )
         {
-            throw new-object System.ArgumentException "Transform $Name not found"
+            throw new-object System.ArgumentException "Transform "$TransformFile" not found"
         }
 
-        $SupportedAttributes = (& "$PSScriptRoot\Transforms\$Name.ps1").SupportedAttributes
+        $SupportedAttributes = (& "$TransformFile").SupportedAttributes
         switch($PSCmdlet.ParameterSetName)
         {
             'Name' {
@@ -1544,16 +1556,15 @@ Template for creation of new transforms: https://github.com/jformacek/S.DS.P/blo
                 }
                 break;
             }
-            'TransformObject' {
+            default {
                 $attribs = $SupportedAttributes
                 break;
             }
         }
         foreach($attr in $attribs)
         {
-            $t = (. "$PSScriptRoot\Transforms\$Name.ps1" -FullLoad)
-            $t = $t | Add-Member -MemberType NoteProperty -Name 'Name' -Value $Name -PassThru
-            $script:RegisteredTransforms[$attr]= $t
+            $t = (. "$TransformFile" -FullLoad)
+            $script:RegisteredTransforms[$attr] = $t | Add-Member -MemberType NoteProperty -Name 'Name' -Value $Name -PassThru
         }
     }
 }
