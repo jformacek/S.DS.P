@@ -114,7 +114,7 @@
             ProjectUri = 'https://github.com/jformacek/S.DS.P'
 
             # A URL to an icon representing this module.
-            # IconUri = ''
+            IconUri = 'https://raw.githubusercontent.com/jformacek/S.DS.P/master/Graphics/icon.png'
 
             # ReleaseNotes of this module
             # ReleaseNotes = ''
