@@ -38,14 +38,10 @@ $codeBlock.OnSave = {
             #standard expiration
             if($value -is [datetime]) {
                 $Value.ToFileTimeUtc()
-                continue;
             }
-            #values that did not transform to DateTime in OnLoad
-            if($value -is [string]) {
-                $value
-            }
-            if($value -is [Int64])
+            else
             {
+                #values that did not transform to DateTime in OnLoad -> return as-is as string
                 "$value"
             }
         }
