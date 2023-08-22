@@ -1508,7 +1508,7 @@ Template for creation of new transforms: https://github.com/jformacek/S.DS.P/blo
             #Transform object produced by Get-LdapAttributeTransform
         $Transform,
         [Parameter(Mandatory,ValueFromPipeline,ParameterSetName='TransformFilePath', Position=0)]
-        [PSCustomObject]
+        [string]
             #Full path to transform file
         $TransformFile
     )
@@ -1519,6 +1519,7 @@ Template for creation of new transforms: https://github.com/jformacek/S.DS.P/blo
         {
             'TransformObject' {
                 $TransformFile = "$PSScriptRoot\Transforms\$($transform.TransformName).ps1"
+                $Name = $transform.TransformName
                 break;
             }
             'Name' {
@@ -1526,7 +1527,7 @@ Template for creation of new transforms: https://github.com/jformacek/S.DS.P/blo
                 break;
             }
             'TransformFile' {
-
+                $Name = [System.IO.Path]::GetFileNameWithoutExtension($transformFile)
                 break;
             }
         }
