@@ -64,9 +64,14 @@ public class ProxyAddress:IEquatable<ProxyAddress>
     }
 
         
-    public override string ToLowerInvariant() 
+    public string ToLowerInvariant() 
     {
         return string.Format("{0}:{1}", AddressType, Address.ToLowerInvariant());
+    }
+
+    public bool TypeEquals(string type)
+    { 
+        return AddressType.Equals(type, StringComparison.CurrentCultureIgnoreCase); 
     }
 
 
