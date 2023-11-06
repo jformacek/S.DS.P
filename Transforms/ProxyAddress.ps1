@@ -30,7 +30,7 @@ public class ProxyAddress:IEquatable<ProxyAddress>
     public ProxyAddress(string Value)
     {
         if (string.IsNullOrWhiteSpace(Value))
-            throw new ArgumentException("Value must not be empty");
+            throw new ArgumentException("ProxyAddress: Value must not be empty");
 
         int idx = Value.IndexOf(':');
         if (idx > 0)
@@ -40,13 +40,13 @@ public class ProxyAddress:IEquatable<ProxyAddress>
         }
         else
         {
-            throw new ArgumentException(string.Format("Provided value is not in correct format: {0}", Value));
+            throw new ArgumentException(string.Format("ProxyAddress: Provided value is not in correct format: {0}", Value));
         }
     }
     public ProxyAddress(string addressType, string address, bool isPrimary)
     {
         if (string.IsNullOrWhiteSpace(addressType) || string.IsNullOrWhiteSpace(address))
-            throw new ArgumentException("Address and AddressType must not be empty or whitespace");
+            throw new ArgumentException("ProxyAddress: Address and AddressType must not be empty or whitespace");
 
         Address = address;
         if(isPrimary)
