@@ -1510,7 +1510,10 @@ Template for creation of new transforms: https://github.com/jformacek/S.DS.P/blo
         [Parameter(Mandatory,ValueFromPipeline,ParameterSetName='TransformFilePath', Position=0)]
         [string]
             #Full path to transform file
-        $TransformFile
+        $TransformFile,
+        [switch]
+            #Force registration of transform, even if the attribute is not contained in the list of supported attributes
+        $Force
     )
 
     Process
@@ -1547,7 +1550,7 @@ Template for creation of new transforms: https://github.com/jformacek/S.DS.P/blo
                 }
                 else
                 {
-                    if($supportedAttributes -contains $AttributeName)
+                    if(($supportedAttributes -contains $AttributeName) -or $Force)
                     {
                         $attribs = @($AttributeName)
                     }
