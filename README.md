@@ -81,6 +81,46 @@ Find-LdapObject -LdapConnection $Ldap `
   -PropertiesToLoad:@("sAMAccountName","objectSid") `
   -BinaryProps:@("objectSid")
 ```
+
+### Processing incremental changes via dirsync
+Module supports incremental processing of changed obejcts via dirsync. Pattern is:
+- perform initial sync
+- store dirsync cookie for next run
+- at the beginning of next run, retrieve stored cookie
+- use the cookie to tell the server about last checkpoint and perform the search
+- server returns changes since cookie
+- retrieve updated cookie and store it for next run
+More about dirsyn: [MD_ADTS - LDAP_SERVER_DIRSYNC_OID](https://docs.microsoft.com/en-us/openspecs/windows_protocols/MS-ADTS/2213a7f2-0a36-483c-b2a4-8574d53aa1e3)
+```powershell
+Get-LdapConnection -LdapServer "mydc.mydomain.com"
+$cookieFile = ".\storedCookieFromPreviousIteration.txt"
+$dse = Get-RootDse
+#get cookie from prevous run, if there's any
+if(Test-Path -Path$cookieFile)
+{
+    $cookie = Get-Content $cookieFile -Raw
+}
+else
+{
+    #for first sync, cookie is empty
+    $cookie = $null
+}
+$cookie | Set-LdapDirSyncCookie
+#get updates from since last cookie
+$dirUpdates=Find-LdapObject `
+    -SearchBase $dse.defaultNamingContext `
+    -searchFilter '(objectClass=group)' `
+    -PropertiesToLoad 'member' `
+    -DirSync StandardIncremental
+#process updates
+foreach($record in $dirUpdates)
+{
+    #...
+}
+#get updated cookie and store it for next run
+$cookie = Get-LdapDirSyncCookie
+$cookie | Set-Content  $cookieFile
+```
 ---
 
 ## Implicit LDAP connection

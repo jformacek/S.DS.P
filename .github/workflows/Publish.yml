@@ -25,15 +25,12 @@ jobs:
     - name: Build
       shell: pwsh
       run: |
-        $Name = 'S.DS.P'
-        $Target = 'S.DS.P'
-        write-host "Building in: $env:GITHUB_WORKSPACE\S.DS.P"
-        New-Item -Path  "$env:GITHUB_WORKSPACE" -Name $Target -ItemType Directory -Force | Out-Null
-        Copy-Item -Path "$env:GITHUB_WORKSPACE\S.DS.P.psd1" -Destination "$env:GITHUB_WORKSPACE\$Target\" -Force
-        Copy-Item -Path "$env:GITHUB_WORKSPACE\S.DS.P.psm1" -Destination "$env:GITHUB_WORKSPACE\$Target\" -Force
-        Copy-Item -Path "$env:GITHUB_WORKSPACE\S.DS.P.format.ps1xml" -Destination "$env:GITHUB_WORKSPACE\$Target\" -Force
-        Copy-Item -Path "$env:GITHUB_WORKSPACE\LICENSE.TXT" -Destination "$env:GITHUB_WORKSPACE\$Target\" -Force
-        Copy-Item -Path "$env:GITHUB_WORKSPACE\Transforms\" -Destination "$env:GITHUB_WORKSPACE\$Target\" -Recurse -Force
+
+        "Copying license file"
+        $moduleName = 'S.DS.P'
+        Copy-Item -Path "$env:GITHUB_WORKSPACE\LICENSE" -Destination "$env:GITHUB_WORKSPACE\Module\$moduleName\LICENSE.txt" -Force
+        "Building module"
+        &"$env:GITHUB_WORKSPACE\Commands\BuildModule.ps1" -RootPath "$env:GITHUB_WORKSPACE" -ModuleName $moduleName
 
     - name: Publish
       #Publish to PS Gallery
@@ -44,7 +41,7 @@ jobs:
         write-host "Publishing from: $env:GITHUB_WORKSPACE\S.DS.P"
         try
         {
-          Publish-Module -Path "$env:GITHUB_WORKSPACE\S.DS.P" -NuGetApiKey "$env:SECRET"
+          Publish-Module -Path "$env:GITHUB_WORKSPACE\Module\S.DS.P" -NuGetApiKey "$env:SECRET"
         }
         catch
         {
@@ -55,12 +52,12 @@ jobs:
     - name: Create Release
       #Create a release
       id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions automatically
+      if: ${{ github.event_name != 'workflow_dispatch' }}
+      uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
         draft: false
+        token: ${{ secrets.GITHUB_TOKEN }}
         prerelease: false
+        name: Release ${{ github.ref }}   
 
