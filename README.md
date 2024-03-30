@@ -169,15 +169,16 @@ $Ldap = Get-LdapConnection -LdapServer ldap.mydomain.com `
   -AuthType Basic
 ```
 
-Basic authentication with distinguishedName - Get-Credential command may not work properly with dn, so we're collecting credential a diferent way
+Basic authentication with distinguishedName - Get-Credential command may not work properly with dn, so we're collecting credential a diferent way. This may be best way to connect to Active Directory from non-Windows machines:
 ```powershell
 #get password as secure string 
 $password = Read-Host -AsSecureString
 #create credential object
 $cred = new-object PSCredential("cn=userAccount,o=mycompany",$password)
-$Ldap = Get-LdapConnection -LdapServer ldap.mydomain.com `
+$Ldap = Get-LdapConnection -LdapServer ldap.mydomain.com -Port 636 `
   -Credential $cred `
-  -AuthType Basic
+  -AuthType Basic `
+  -EncryptionType SSL
 ```
 
 Kerberos authentication with explicit credentials:
