@@ -132,9 +132,9 @@ $Ldap = Get-LdapConnection -LdapServer ldap.mydomain.com `
 Basic authentication with distinguishedName - Get-Credential command may not work properly with dn, so we're collecting credential a diferent way
 ```powershell
 #get password as secure string 
-$pwd = Read-Host -AsSecureString
+$password = Read-Host -AsSecureString
 #create credential object
-$cred = new-object PSCredential("cn=userAccount,o=mycompany",$pwd)
+$cred = new-object PSCredential("cn=userAccount,o=mycompany",$password)
 $Ldap = Get-LdapConnection -LdapServer ldap.mydomain.com `
   -Credential $cred `
   -AuthType Basic
@@ -142,7 +142,7 @@ $Ldap = Get-LdapConnection -LdapServer ldap.mydomain.com `
 
 Kerberos authentication with explicit credentials:
 ```powershell
-#Connects to LDAP server with explicit credentials 
+#Connects to LDAP server with explicit credentials (requires AdmPwd.E powershell module)
 #and password retrieved on the fly via AdmPwd.E
 $credential = Get-AdmPwdCredential `
   -UserName myAccount@mydomain.com
