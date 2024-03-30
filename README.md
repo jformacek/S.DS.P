@@ -83,7 +83,7 @@ Find-LdapObject -LdapConnection $Ldap `
 ```
 
 ### Processing incremental changes via dirsync
-Module supports incremental processing of changed obejcts via dirsync. Pattern is:
+Module supports incremental processing of changed objects via dirsync. Pattern is as follows:
 - perform initial sync
 - store dirsync cookie for next run
 - at the beginning of next run, retrieve stored cookie
