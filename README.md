@@ -221,6 +221,23 @@ Find-LdapObject -LdapConnection $Ldap `
   -SearchBase:"ou=Users,$($Dse.defaultNamingContext)" `
   -PropertiesToLoad:@('*') -RangeSize -1
 ```
+### Transforms also support custom schema
+Do you have custom schema unique for you use case, and want to use transforms? You can add new attribute 
+to list of supported attributes of existing transform, once the transform is registered
+```powershell
+#register guid transform
+Register-LdapAttributeTransform -Name Guid
+#register your own attribute.
+#-Force flag allows adding the attribute even when not included in the list of supported attributes in transform definition
+Register-LdapAttributeTransform -Name Guid -AttributeName myCustomGuidAttr -Force
+$Ldap = Get-LdapConnection
+#gets RootDSE object
+$Dse = $Ldap | Get-RootDSE
+Find-LdapObject -LdapConnection $Ldap `
+  -SearchFilter:"(&(objectClass=user)(objectCategory=organizationalPerson))" `
+  -SearchBase:"ou=Users,$($Dse.defaultNamingContext)" `
+  -PropertiesToLoad:@('myCustomGuidAttr') -RangeSize -1
+```
 ---
 
 ## Modifications of objects
