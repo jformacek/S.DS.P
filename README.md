@@ -42,7 +42,7 @@ Find-LdapObject -LdapConnection $conn -searchFilter '(&(objectClass=computer)(is
 >**Important**: Make sure you have appropriate permissions on <code>cn=Deleted Objects</code> container. By default, permissions on this container are restricted. Typically, you need <code>Read property</code> and <code>List</code> permissions to be able to search for deleted objects.
 
 ### Ranged attribute retrieval
-By default, since 2.1.1, objects are loaded from LDAP sotore via single search request (RangeSize default value is -1; see below for details). This may be impractical for certain scenarios (e.g. some properties are returned only when searchBase is object itself, or nultivalued properties have more values than allowed to retrieve in single search request by query policy. For such cases, there is RangeSize parameter that allows to specify search behavior.
+By default, since 2.1.1, objects are loaded from LDAP store via single search request (RangeSize default value is -1; see below for details). This may be impractical for certain scenarios (e.g. some properties are returned only when searchBase is object itself, or nultivalued properties have more values than allowed to retrieve in single search request by query policy. For such cases, there is RangeSize parameter that allows to specify search behavior.
 
 >Prior version 2.1.1, default for RangeSize was 1000.
 
