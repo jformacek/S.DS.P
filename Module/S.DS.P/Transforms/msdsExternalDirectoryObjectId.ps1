@@ -32,7 +32,7 @@ public class ExternalDirectoryObjectId
 }
 
 #add attributes that can be processed by this transform
-$SupportedAttributes = @()
+$SupportedAttributes = @('msDS-ExternalDirectoryObjectId')
 
 # This is mandatory definition of transform that is expected by transform architecture
 $codeBlock = New-LdapAttributeTransformDefinition -SupportedAttributes $SupportedAttributes

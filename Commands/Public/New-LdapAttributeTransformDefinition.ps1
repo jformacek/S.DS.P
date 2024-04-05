@@ -14,7 +14,7 @@ More about attribute transforms and how to create them: https://github.com/jform
     [CmdletBinding()]
     param
     (
-        [Parameter(Mandatory, Position=0)]
+        [Parameter(Position=0)]
         [string[]]$SupportedAttributes,
         [switch]
             #Whether supported attributes need to be loaded from/saved to LDAP as binary stream
@@ -23,6 +23,10 @@ More about attribute transforms and how to create them: https://github.com/jform
 
     process
     {
+        if($null -eq $SupportedAttributes)
+        {
+            $supportedAttributes = @()
+        }
         [PSCustomObject][Ordered]@{
             BinaryInput=$BinaryInput
             SupportedAttributes=$SupportedAttributes
