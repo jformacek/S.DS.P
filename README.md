@@ -345,6 +345,9 @@ Find-LdapObject -LdapConnection $Ldap `
 
 ## Creation of LDAP objects
 ```powershell
+#password manipulation requires secure connection. 
+#Use one of supported encryption types to protect transmission channel
+Get-LdapConnection -LdapServer mydomain.com -EncryptionType Kerberos
 #We use transforms to convert values to LDAP native format when saving object to LDAP store
 Register-LdapAttributeTransform -Name UnicodePwd
 Register-LdapAttributeTransform -Name UserAccountControl
