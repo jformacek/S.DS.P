@@ -90,7 +90,7 @@ Module supports incremental processing of changed objects via dirsync. Pattern i
 - use the cookie to tell the server about last checkpoint and perform the search
 - server returns changes since cookie
 - retrieve updated cookie and store it for next run
-More about dirsyn: [MD_ADTS - LDAP_SERVER_DIRSYNC_OID](https://docs.microsoft.com/en-us/openspecs/windows_protocols/MS-ADTS/2213a7f2-0a36-483c-b2a4-8574d53aa1e3)
+More about dirsync: [MD_ADTS - LDAP_SERVER_DIRSYNC_OID](https://docs.microsoft.com/en-us/openspecs/windows_protocols/MS-ADTS/2213a7f2-0a36-483c-b2a4-8574d53aa1e3)
 ```powershell
 Get-LdapConnection -LdapServer "mydc.mydomain.com"
 $cookieFile = ".\storedCookieFromPreviousIteration.txt"
