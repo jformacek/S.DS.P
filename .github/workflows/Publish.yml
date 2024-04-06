@@ -28,7 +28,7 @@ jobs:
 
         "Copying license file"
         $moduleName = 'S.DS.P'
-        Copy-Item -Path "$env:GITHUB_WORKSPACE\LICENSE" -Destination "$env:GITHUB_WORKSPACE\Module\$moduleName\LICENSE.txt" -Force
+        Copy-Item -Path "$env:GITHUB_WORKSPACE\LICENSE.TXT" -Destination "$env:GITHUB_WORKSPACE\Module\$moduleName\LICENSE.txt" -Force
         "Building module"
         &"$env:GITHUB_WORKSPACE\Commands\BuildModule.ps1" -RootPath "$env:GITHUB_WORKSPACE" -ModuleName $moduleName
 
