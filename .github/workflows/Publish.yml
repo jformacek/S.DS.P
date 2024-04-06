@@ -1,4 +1,4 @@
-name: PublisModule
+name: PublishModule
 on:
   push:
     branches:
