@@ -34,7 +34,7 @@ Then the transform is unregistered, so subsequent calls do not use it
 .LINK
 
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
-More about attribute transforms and how to create them: https://github.com/jformacek/S.DS.P/tree/master/Transforms
+More about attribute transforms and how to create them: https://github.com/jformacek/S.DS.P/tree/master/Module/Transforms
 
 #>
 
