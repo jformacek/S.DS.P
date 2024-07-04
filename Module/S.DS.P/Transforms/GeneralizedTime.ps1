@@ -11,7 +11,7 @@ if($FullLoad)
 # Add any types that are used by transforms
 # CSharp types added via Add-Type are supported
 }
-$codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes @('createTimestamp','dsCorePropagationData','modifyTimestamp','whenCreated','whenChanged','msExchWhenMailboxCreated','ms-DS-local-Effective-Recycle-Time')
+$codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes @('createTimestamp','dsCorePropagationData','modifyTimestamp','whenCreated','whenChanged','msExchWhenMailboxCreated','expirationTime', 'ms-DS-local-Effective-Recycle-Time')
 
 $codeBlock.OnLoad = { 
     param(
