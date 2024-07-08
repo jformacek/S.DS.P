@@ -7,6 +7,26 @@ param (
 
 if($FullLoad)
 {
+    #helper to convert Guid to ldap searchable string
+    add-type -TypeDefinition @'
+    using System;
+    using System.Text;
+
+    public static class GuidExtensions
+    {
+        public static string ToLdapSearchableString(this Guid guid)
+        {
+            StringBuilder sb = new StringBuilder();
+            foreach(var v in guid.ToByteArray())
+            {
+                sb.Append("\\");
+                sb.Append(v.ToString("X2"));
+            }
+            return sb.ToString();
+        }
+    }
+'@
+
 }
 
 $codeBlock= New-LdapAttributeTransformDefinition `
