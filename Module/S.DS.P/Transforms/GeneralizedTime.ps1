@@ -21,7 +21,18 @@ $codeBlock.OnLoad = {
     {
         foreach($Value in $Values)
         {
-            [DateTime]::ParseExact($value,'yyyyMMddHHmmss.fK',[System.Globalization.CultureInfo]::InvariantCulture,[System.Globalization.DateTimeStyles]::AssumeUniversal)
+            if($value.Length -eq 13)
+            {
+                #omSyntax 23 - see https://learn.microsoft.com/en-us/windows/win32/adschema/s-string-utc-time 
+                [DateTime]::ParseExact($value,'yyMMddHHmmssZ',[System.Globalization.CultureInfo]::InvariantCulture,[System.Globalization.DateTimeStyles]::AssumeUniversal)
+                continue;
+            }
+            if($value.length -ge 17)
+            {
+                #omSyntax 24 - see https://learn.microsoft.com/en-us/windows/win32/adschema/s-string-generalized-time
+                [DateTime]::ParseExact($value,'yyyyMMddHHmmss.fK',[System.Globalization.CultureInfo]::InvariantCulture,[System.Globalization.DateTimeStyles]::AssumeUniversal)
+                continue;
+            }
         }
     }
 }
