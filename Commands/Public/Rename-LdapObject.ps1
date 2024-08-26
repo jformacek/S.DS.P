@@ -26,7 +26,7 @@ Rename-LdapObject -LdapConnection $Ldap -Object "cn=User1,cn=Users,dc=mydomain,d
 
 Description
 -----------
-This command Moves the User1 object to different OU. Notice the newName parameter - it's the same as old name as we do not rename the object a new name is required parameter for protocol.
+This command Moves the User1 object to different OU. Notice the newName parameter - it's the same as old name as we do not rename the object and new name is required parameter for protocol.
 
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
