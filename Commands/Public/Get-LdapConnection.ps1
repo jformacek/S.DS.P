@@ -132,6 +132,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                     [Parameter(Mandatory)][DirectoryServices.Protocols.LdapConnection]$LdapConnection,
                     [Parameter(Mandatory)][Security.Cryptography.X509Certificates.X509Certificate2]$Certificate
                 )
+                Write-Verbose "Validating server certificate $($Certificate.Subject) with thumbprint $($Certificate.Thumbprint) and issuer $($Certificate.Issuer)"
                 [System.Security.Cryptography.X509Certificates.X509Chain] $chain = new-object System.Security.Cryptography.X509Certificates.X509Chain
                 foreach($server in $LdapConnection.Directory.Servers)
                 {
@@ -171,6 +172,10 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                             break;
                         }
                     }
+                }
+                if($null -ne $clientCert)
+                {
+                    Write-Verbose "Using client certificate $($clientCert.Subject) with thumbprint $($clientCert.Thumbprint) from issuer $($clientCert.Issuer)"
                 }
                 return $clientCert
             }

@@ -955,6 +955,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                     [Parameter(Mandatory)][DirectoryServices.Protocols.LdapConnection]$LdapConnection,
                     [Parameter(Mandatory)][Security.Cryptography.X509Certificates.X509Certificate2]$Certificate
                 )
+                Write-Verbose "Validating server certificate $($Certificate.Subject) with thumbprint $($Certificate.Thumbprint)"
                 [System.Security.Cryptography.X509Certificates.X509Chain] $chain = new-object System.Security.Cryptography.X509Certificates.X509Chain
                 foreach($server in $LdapConnection.Directory.Servers)
                 {
@@ -994,6 +995,10 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                             break;
                         }
                     }
+                }
+                if($null -ne $clientCert)
+                {
+                    Write-Verbose "Using client certificate $($clientCert.Subject) with thumbprint $($clientCert.Thumbprint)"
                 }
                 return $clientCert
             }
@@ -1628,7 +1633,7 @@ Rename-LdapObject -LdapConnection $Ldap -Object "cn=User1,cn=Users,dc=mydomain,d
 
 Description
 -----------
-This command Moves the User1 object to different OU. Notice the newName parameter - it's the same as old name as we do not rename the object a new name is required parameter for protocol.
+This command Moves the User1 object to different OU. Notice the newName parameter - it's the same as old name as we do not rename the object and new name is required parameter for protocol.
 
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
@@ -1781,7 +1786,7 @@ Then the transform is unregistered, so subsequent calls do not use it
 .LINK
 
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
-More about attribute transforms and how to create them: https://github.com/jformacek/S.DS.P/tree/master/Transforms
+More about attribute transforms and how to create them: https://github.com/jformacek/S.DS.P/tree/master/Module/Transforms
 
 #>
 
