@@ -157,7 +157,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         [parameter()]
         [System.DirectoryServices.Protocols.LdapConnection]
             #existing LDAPConnection object retrieved with cmdlet Get-LdapConnection
-            #When we perform many searches, it is more effective to use the same conbnection rather than create new connection for each search request.
+            #When we perform many searches, it is more effective to use the same connection rather than create new connection for each search request.
         $LdapConnection = $script:LdapConnection,
 
         [parameter(Mandatory = $true)]
@@ -185,9 +185,9 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
 
         [parameter(Mandatory = $false)]
         [String]
-            #Name of attribute for ASQ search.
-            #Ignored for DirSync searches
-            #Note: searchScope must be set to Base for this type of seach
+            #Name of attribute for Attribite Scoped Query (ASQ)
+            #Note: searchScope must be set to Base for ASQ
+            #Note: #Ignored for DirSync searches
             #Default: empty string
         $ASQ,
 
