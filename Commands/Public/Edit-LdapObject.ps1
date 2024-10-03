@@ -104,6 +104,11 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             #Default: [TimeSpan]::Zero, which means that no specific timeout provided
         $Timeout = [TimeSpan]::Zero,
 
+        [switch]
+            #When turned on, command does not allow permissive modify and returns error if adding value to cllection taht's already there, or deleting value that's not there
+            #when not specified, permisisve modify is enabled on the request
+            $NoPermissiveModify,
+
         [Switch]
             #When turned on, command returns modified object to pipeline
             #This is useful when different types of modifications need to be done on single object
@@ -123,9 +128,12 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
 
         [System.DirectoryServices.Protocols.ModifyRequest]$rqMod=new-object System.DirectoryServices.Protocols.ModifyRequest
         $rqMod.DistinguishedName=$Object.DistinguishedName
-        $permissiveModifyRqc = new-object System.DirectoryServices.Protocols.PermissiveModifyControl
-        $permissiveModifyRqc.IsCritical = $false
-        $rqMod.Controls.Add($permissiveModifyRqc) | Out-Null
+        #only add perfmissive modify control if allowed
+        if($NoPermissiveModify -eq $false) {
+            $permissiveModifyRqc = new-object System.DirectoryServices.Protocols.PermissiveModifyControl
+            $permissiveModifyRqc.IsCritical = $false
+            $rqMod.Controls.Add($permissiveModifyRqc) | Out-Null
+        }
 
         #add additional controls that caller may have passed
         foreach($ctrl in $AdditionalControls) {$rqMod.Controls.Add($ctrl) | Out-Null}
