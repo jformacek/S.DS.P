@@ -96,7 +96,7 @@ _Note_: More about dirsync: [MD_ADTS - LDAP_SERVER_DIRSYNC_OID](https://docs.mic
 Get-LdapConnection -LdapServer "mydc.mydomain.com"
 $cookieFile = ".\storedCookieFromPreviousIteration.txt"
 $dse = Get-RootDse
-#get cookie from prevous run, if there's any
+#get cookie from previous run, if there's any
 if(Test-Path -Path$cookieFile)
 {
     $cookie = Get-Content $cookieFile -Raw
