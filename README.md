@@ -97,16 +97,12 @@ Get-LdapConnection -LdapServer "mydc.mydomain.com"
 $cookieFile = ".\storedCookieFromPreviousIteration.txt"
 $dse = Get-RootDse
 #get cookie from previous run, if there's any
-if(Test-Path -Path$cookieFile)
+if(Test-Path -Path $cookieFile)
 {
     $cookie = Get-Content $cookieFile -Raw
+    $cookie | Set-LdapDirSyncCookie
 }
-else
-{
-    #for first sync, cookie is empty
-    $cookie = $null
-}
-$cookie | Set-LdapDirSyncCookie
+
 #get updates from since last cookie
 $dirUpdates=Find-LdapObject `
     -SearchBase $dse.defaultNamingContext `
