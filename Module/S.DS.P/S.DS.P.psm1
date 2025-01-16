@@ -242,6 +242,11 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             #Default: [TimeSpan]::Zero, which means that no specific timeout provided
         $Timeout = [TimeSpan]::Zero,
 
+        [switch]
+            #When turned on, command does not allow permissive modify and returns error if adding value to cllection taht's already there, or deleting value that's not there
+            #when not specified, permisisve modify is enabled on the request
+            $NoPermissiveModify,
+
         [Switch]
             #When turned on, command returns modified object to pipeline
             #This is useful when different types of modifications need to be done on single object
@@ -261,9 +266,12 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
 
         [System.DirectoryServices.Protocols.ModifyRequest]$rqMod=new-object System.DirectoryServices.Protocols.ModifyRequest
         $rqMod.DistinguishedName=$Object.DistinguishedName
-        $permissiveModifyRqc = new-object System.DirectoryServices.Protocols.PermissiveModifyControl
-        $permissiveModifyRqc.IsCritical = $false
-        $rqMod.Controls.Add($permissiveModifyRqc) | Out-Null
+        #only add perfmissive modify control if allowed
+        if($NoPermissiveModify -eq $false) {
+            $permissiveModifyRqc = new-object System.DirectoryServices.Protocols.PermissiveModifyControl
+            $permissiveModifyRqc.IsCritical = $false
+            $rqMod.Controls.Add($permissiveModifyRqc) | Out-Null
+        }
 
         #add additional controls that caller may have passed
         foreach($ctrl in $AdditionalControls) {$rqMod.Controls.Add($ctrl) | Out-Null}
@@ -478,7 +486,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         [parameter()]
         [System.DirectoryServices.Protocols.LdapConnection]
             #existing LDAPConnection object retrieved with cmdlet Get-LdapConnection
-            #When we perform many searches, it is more effective to use the same conbnection rather than create new connection for each search request.
+            #When we perform many searches, it is more effective to use the same connection rather than create new connection for each search request.
         $LdapConnection = $script:LdapConnection,
 
         [parameter(Mandatory = $true)]
@@ -506,9 +514,9 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
 
         [parameter(Mandatory = $false)]
         [String]
-            #Name of attribute for ASQ search.
-            #Ignored for DirSync searches
-            #Note: searchScope must be set to Base for this type of seach
+            #Name of attribute for Attribite Scoped Query (ASQ)
+            #Note: searchScope must be set to Base for ASQ
+            #Note: #Ignored for DirSync searches
             #Default: empty string
         $ASQ,
 
@@ -955,7 +963,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                     [Parameter(Mandatory)][DirectoryServices.Protocols.LdapConnection]$LdapConnection,
                     [Parameter(Mandatory)][Security.Cryptography.X509Certificates.X509Certificate2]$Certificate
                 )
-                Write-Verbose "Validating server certificate $($Certificate.Subject) with thumbprint $($Certificate.Thumbprint)"
+                Write-Verbose "Validating server certificate $($Certificate.Subject) with thumbprint $($Certificate.Thumbprint) and issuer $($Certificate.Issuer)"
                 [System.Security.Cryptography.X509Certificates.X509Chain] $chain = new-object System.Security.Cryptography.X509Certificates.X509Chain
                 foreach($server in $LdapConnection.Directory.Servers)
                 {
@@ -998,7 +1006,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                 }
                 if($null -ne $clientCert)
                 {
-                    Write-Verbose "Using client certificate $($clientCert.Subject) with thumbprint $($clientCert.Thumbprint)"
+                    Write-Verbose "Using client certificate $($clientCert.Subject) with thumbprint $($clientCert.Thumbprint) from issuer $($clientCert.Issuer)"
                 }
                 return $clientCert
             }
@@ -1935,7 +1943,13 @@ function GetResultsDirectlyInternal
                 if($data['distinguishedName'].Count -eq 0) {
                     #dn has to be present on all objects
                     #having DN processed at the end gives chance to possible transforms on this attribute
-                    $data['distinguishedName']=$sr.DistinguishedName
+                    $transform = $script:RegisteredTransforms['distinguishedName']
+                    if($null -ne $transform -and $null -ne $transform.OnLoad)
+                    {
+                        $data['distinguishedName'] = & $transform.OnLoad -Values $sr.DistinguishedName
+                    } else {
+                        $data['distinguishedName']=$sr.DistinguishedName
+                    }
                 }
                 $data
             }
@@ -2353,7 +2367,13 @@ function GetResultsIndirectlyRangedInternal
                 }
                 if($data['distinguishedName'].Count -eq 0) {
                     #dn has to be present on all objects
-                    $data['distinguishedName']=$sr.DistinguishedName
+                    $transform = $script:RegisteredTransforms['distinguishedName']
+                    if($null -ne $transform -and $null -ne $transform.OnLoad)
+                    {
+                        $data['distinguishedName'] = & $transform.OnLoad -Values $sr.DistinguishedName
+                    } else {
+                        $data['distinguishedName']=$sr.DistinguishedName
+                    }
                 }
                 $data
             }

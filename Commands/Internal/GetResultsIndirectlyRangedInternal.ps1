@@ -122,7 +122,13 @@ function GetResultsIndirectlyRangedInternal
                 }
                 if($data['distinguishedName'].Count -eq 0) {
                     #dn has to be present on all objects
-                    $data['distinguishedName']=$sr.DistinguishedName
+                    $transform = $script:RegisteredTransforms['distinguishedName']
+                    if($null -ne $transform -and $null -ne $transform.OnLoad)
+                    {
+                        $data['distinguishedName'] = & $transform.OnLoad -Values $sr.DistinguishedName
+                    } else {
+                        $data['distinguishedName']=$sr.DistinguishedName
+                    }
                 }
                 $data
             }

@@ -115,7 +115,13 @@ function GetResultsDirSyncInternal
                 if($data['distinguishedName'].Count -eq 0) {
                     #dn has to be present on all objects
                     #having DN processed at the end gives chance to possible transforms on this attribute
-                    $data['distinguishedName']=$sr.DistinguishedName
+                    $transform = $script:RegisteredTransforms['distinguishedName']
+                    if($null -ne $transform -and $null -ne $transform.OnLoad)
+                    {
+                        $data['distinguishedName'] = & $transform.OnLoad -Values $sr.DistinguishedName
+                    } else {
+                        $data['distinguishedName']=$sr.DistinguishedName
+                    }
                 }
                 $data
             }

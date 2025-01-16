@@ -108,7 +108,7 @@ public class DistinguishedNameToken
 '@
 }
 
-$codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes @('distinguishedName')
+$codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes @('distinguishedName','member','memberOf')
 
 $codeBlock.OnLoad = { 
     param(
