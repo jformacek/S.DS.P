@@ -127,7 +127,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         }
 
         [System.DirectoryServices.Protocols.ModifyRequest]$rqMod=new-object System.DirectoryServices.Protocols.ModifyRequest
-        $rqMod.DistinguishedName=$Object.DistinguishedName
+        $rqMod.DistinguishedName=$Object.DistinguishedName.ToString()
         #only add perfmissive modify control if allowed
         if($NoPermissiveModify -eq $false) {
             $permissiveModifyRqc = new-object System.DirectoryServices.Protocols.PermissiveModifyControl

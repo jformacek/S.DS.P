@@ -68,12 +68,17 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             "String"
             {
                 $rqDel.DistinguishedName=$Object
+                break;
+            }
+            'DistinguishedName' {
+                $rqDel.DistinguishedName=$Object.ToString()
+                break;
             }
             default
             {
                 if($null -ne $Object.distinguishedName)
                 {
-                    $rqDel.DistinguishedName=$Object.distinguishedName
+                    $rqDel.DistinguishedName=$Object.distinguishedName.ToString()
                 }
                 else
                 {

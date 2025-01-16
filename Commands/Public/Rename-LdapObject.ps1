@@ -76,13 +76,18 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         {
             "String"
             {
-                $rqModDN.DistinguishedName=$Object
+                $rqDel.DistinguishedName=$Object
+                break;
+            }
+            'DistinguishedName' {
+                $rqDel.DistinguishedName=$Object.ToString()
+                break;
             }
             default
             {
-                if($Object.distinguishedName)
+                if($null -ne $Object.distinguishedName)
                 {
-                    $rqModDN.DistinguishedName=$Object.distinguishedName
+                    $rqDel.DistinguishedName=$Object.distinguishedName.ToString()
                 }
                 else
                 {

@@ -327,17 +327,23 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         #we support passing $null as SearchBase - used for Global Catalog searches
         if($null -ne $searchBase)
         {
-            #we support pipelining of strings, or objects containing distinguishedName property
+            #we support pipelining of strings or DistinguishedName types, or objects containing distinguishedName property - string or DistinguishedName
             switch($searchBase.GetType().Name) {
                 "String"
                 {
                     $rq.DistinguishedName=$searchBase
+                    break;
+                }
+                'DistinguishedName' {
+                    $rq.DistinguishedName=$searchBase.ToString()
+                    break;
                 }
                 default
                 {
                     if($null -ne $searchBase.distinguishedName)
                     {
-                        $rq.DistinguishedName=$searchBase.distinguishedName
+                        #covers bot¨h string and DistinguishedName types
+                        $rq.DistinguishedName=$searchBase.distinguishedName.ToString()
                     }
                 }
             }

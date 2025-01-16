@@ -83,7 +83,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             throw (new-object System.ArgumentException("Input object missing DistinguishedName property"))
         }
         [System.DirectoryServices.Protocols.AddRequest]$rqAdd=new-object System.DirectoryServices.Protocols.AddRequest
-        $rqAdd.DistinguishedName=$Object.DistinguishedName
+        $rqAdd.DistinguishedName=$Object.DistinguishedName.ToString()
 
         #add additional controls that caller may have passed
         foreach($ctrl in $AdditionalControls) {$rqAdd.Controls.Add($ctrl) | Out-Null}
