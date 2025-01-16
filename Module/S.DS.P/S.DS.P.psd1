@@ -11,7 +11,7 @@
     RootModule = '.\S.DS.P.psm1'
 
     # Version number of this module.
-    ModuleVersion = '2.2.0'
+    ModuleVersion = '2.2.1'
 
     # ID used to uniquely identify this module
     GUID = '766cbbc0-85b9-4773-b4db-2fa86cd771ff'
@@ -90,7 +90,7 @@
 
     # List of all files packaged with this module
     FileList = @('.\Transforms\admpwd.e.pwd.ps1', '.\Transforms\admpwd.e.pwdhistory.ps1', `
-        '.\Transforms\Boolean.ps1', '.\Transforms\Certificate.ps1', '.\Transforms\fileTime.ps1', '.\Transforms\GeneralizedTime.ps1', `
+        '.\Transforms\Boolean.ps1', '.\Transforms\Certificate.ps1', '.\Transforms\distinguishedName.ps1', '.\Transforms\fileTime.ps1', '.\Transforms\GeneralizedTime.ps1', `
         '.\Transforms\groupType.ps1', '.\Transforms\guid.ps1', '.\Transforms\Integer.ps1', '.\Transforms\Long.ps1', '.\Transforms\msdsExternalDirectoryObjectId.ps1', `
         '.\Transforms\msExchRecipientDisplayType.ps1', '.\Transforms\msExchRecipientTypeDetails.ps1', '.\Transforms\msExchRemoteRecipientType.ps1', `
         '.\Transforms\ProxyAddress.ps1', '.\Transforms\quotaUsage.ps1', '.\Transforms\replicationMetadata.ps1', '.\Transforms\SamAccountType.ps1', `
@@ -120,7 +120,7 @@
             # ReleaseNotes = ''
 
             # Prerelease string of this module
-            #Prerelease = 'beta2'
+            Prerelease = 'beta1'
 
             # Flag to indicate whether the module requires explicit user acceptance for install/update/save
             RequireLicenseAcceptance = $false
