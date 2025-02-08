@@ -88,6 +88,12 @@ function GetResultsIndirectlyRangedInternal
 
                 #loading just attributes indicated as present in first search
                 foreach($attrName in $sr.Attributes.AttributeNames) {
+                    if($attrName -match ';range=' )
+                    {
+                        #skip paging hint
+                        Write-Verbose "Skipping paging hint: $attrName"
+                        continue
+                    }
                     $transform = $script:RegisteredTransforms[$attrName]
                     $BinaryInput = ($null -ne $transform -and $transform.BinaryInput -eq $true) -or ($attrName -in $BinaryProperties)
                     $start=-$rangeSize
