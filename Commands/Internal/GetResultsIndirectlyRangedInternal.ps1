@@ -88,7 +88,8 @@ function GetResultsIndirectlyRangedInternal
 
                 #loading just attributes indicated as present in first search
                 foreach($attrName in $sr.Attributes.AttributeNames) {
-                    if($attrName -match ';range=' )
+                    $targetAttrName = GetTargetAttr -attr $attrName
+                    if($targetAttrName -ne $attrName)
                     {
                         #skip paging hint
                         Write-Verbose "Skipping paging hint: $attrName"
@@ -126,7 +127,7 @@ function GetResultsIndirectlyRangedInternal
                         $data[$attrName] = (& $transform.OnLoad -Values $data[$attrName])
                     }
                 }
-                if($data['distinguishedName'].Count -eq 0) {
+                if([string]::IsNullOrEmpty($data['distinguishedName'])) {
                     #dn has to be present on all objects
                     $transform = $script:RegisteredTransforms['distinguishedName']
                     if($null -ne $transform -and $null -ne $transform.OnLoad)

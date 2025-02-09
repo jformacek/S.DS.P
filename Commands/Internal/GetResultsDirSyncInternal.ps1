@@ -112,7 +112,7 @@ function GetResultsDirSyncInternal
                     }
                 }
                 
-                if($data['distinguishedName'].Count -eq 0) {
+                if([string]::IsNullOrEmpty($data['distinguishedName'])) {
                     #dn has to be present on all objects
                     #having DN processed at the end gives chance to possible transforms on this attribute
                     $transform = $script:RegisteredTransforms['distinguishedName']

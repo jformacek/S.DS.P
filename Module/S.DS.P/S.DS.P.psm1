@@ -84,7 +84,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             throw (new-object System.ArgumentException("Input object missing DistinguishedName property"))
         }
         [System.DirectoryServices.Protocols.AddRequest]$rqAdd=new-object System.DirectoryServices.Protocols.AddRequest
-        $rqAdd.DistinguishedName=$Object.DistinguishedName
+        $rqAdd.DistinguishedName=$Object.DistinguishedName.ToString()
 
         #add additional controls that caller may have passed
         foreach($ctrl in $AdditionalControls) {$rqAdd.Controls.Add($ctrl) | Out-Null}
@@ -183,7 +183,7 @@ Find-LdapObject `
     -searchFilter '(&(objeectClass=user)(objectCategory=organizationalPerson)(l=Prague))' `
     -searchBase $dse.defaultNamingContext `
     -PropertiesToLoad 'adminDescription' `
-| foreach-object{$_.adminDescription = 'Praguer'; $_} `
+| foreach-object{$_.adminDescription = 'Prague'; $_} `
 | Edit-LdapObject -IncludedProps 'adminDescription' -Passthrough `
 | Find-LdapObject -searchFilter '(objectClass=*)' -searchScope Base -PropertiesToLoad 'adminDescription'
 
@@ -265,7 +265,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         }
 
         [System.DirectoryServices.Protocols.ModifyRequest]$rqMod=new-object System.DirectoryServices.Protocols.ModifyRequest
-        $rqMod.DistinguishedName=$Object.DistinguishedName
+        $rqMod.DistinguishedName=$Object.DistinguishedName.ToString()
         #only add perfmissive modify control if allowed
         if($NoPermissiveModify -eq $false) {
             $permissiveModifyRqc = new-object System.DirectoryServices.Protocols.PermissiveModifyControl
@@ -656,17 +656,23 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         #we support passing $null as SearchBase - used for Global Catalog searches
         if($null -ne $searchBase)
         {
-            #we support pipelining of strings, or objects containing distinguishedName property
+            #we support pipelining of strings or DistinguishedName types, or objects containing distinguishedName property - string or DistinguishedName
             switch($searchBase.GetType().Name) {
                 "String"
                 {
                     $rq.DistinguishedName=$searchBase
+                    break;
+                }
+                'DistinguishedName' {
+                    $rq.DistinguishedName=$searchBase.ToString()
+                    break;
                 }
                 default
                 {
                     if($null -ne $searchBase.distinguishedName)
                     {
-                        $rq.DistinguishedName=$searchBase.distinguishedName
+                        #covers bot¨h string and DistinguishedName types
+                        $rq.DistinguishedName=$searchBase.distinguishedName.ToString()
                     }
                 }
             }
@@ -1594,12 +1600,17 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             "String"
             {
                 $rqDel.DistinguishedName=$Object
+                break;
+            }
+            'DistinguishedName' {
+                $rqDel.DistinguishedName=$Object.ToString()
+                break;
             }
             default
             {
                 if($null -ne $Object.distinguishedName)
                 {
-                    $rqDel.DistinguishedName=$Object.distinguishedName
+                    $rqDel.DistinguishedName=$Object.distinguishedName.ToString()
                 }
                 else
                 {
@@ -1691,13 +1702,18 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         {
             "String"
             {
-                $rqModDN.DistinguishedName=$Object
+                $rqDel.DistinguishedName=$Object
+                break;
+            }
+            'DistinguishedName' {
+                $rqDel.DistinguishedName=$Object.ToString()
+                break;
             }
             default
             {
-                if($Object.distinguishedName)
+                if($null -ne $Object.distinguishedName)
                 {
-                    $rqModDN.DistinguishedName=$Object.distinguishedName
+                    $rqDel.DistinguishedName=$Object.distinguishedName.ToString()
                 }
                 else
                 {
@@ -1915,7 +1931,7 @@ function GetResultsDirectlyInternal
                     }
                     else
                     {
-                        if($data[$attrName].Count -gt 0)
+                        if($null -ne $data[$attrName])
                         {
                             #we may have already loaded partial results from ranged hint
                             continue
@@ -1940,7 +1956,7 @@ function GetResultsDirectlyInternal
                     }
                 }
                 
-                if($data['distinguishedName'].Count -eq 0) {
+                if([string]::IsNullOrEmpty($data['distinguishedName'])) {
                     #dn has to be present on all objects
                     #having DN processed at the end gives chance to possible transforms on this attribute
                     $transform = $script:RegisteredTransforms['distinguishedName']
@@ -2079,10 +2095,16 @@ function GetResultsDirSyncInternal
                     }
                 }
                 
-                if($data['distinguishedName'].Count -eq 0) {
+                if([string]::IsNullOrEmpty($data['distinguishedName'])) {
                     #dn has to be present on all objects
                     #having DN processed at the end gives chance to possible transforms on this attribute
-                    $data['distinguishedName']=$sr.DistinguishedName
+                    $transform = $script:RegisteredTransforms['distinguishedName']
+                    if($null -ne $transform -and $null -ne $transform.OnLoad)
+                    {
+                        $data['distinguishedName'] = & $transform.OnLoad -Values $sr.DistinguishedName
+                    } else {
+                        $data['distinguishedName']=$sr.DistinguishedName
+                    }
                 }
                 $data
             }
@@ -2199,7 +2221,7 @@ function GetResultsIndirectlyInternal
                         }
                         else
                         {
-                            if($data[$attrName].Count -gt 0)
+                            if($null -ne $data[$attrName])
                             {
                                 #we may have already loaded partial results from ranged hint
                                 continue
@@ -2225,9 +2247,15 @@ function GetResultsIndirectlyInternal
                         }
                     }
                 }
-                if($data['distinguishedName'].Count -eq 0) {
+                if([string]::IsNullOrEmpty($data['distinguishedName'])) {
                     #dn has to be present on all objects
-                    $data['distinguishedName']=$sr.DistinguishedName
+                    $transform = $script:RegisteredTransforms['distinguishedName']
+                    if($null -ne $transform -and $null -ne $transform.OnLoad)
+                    {
+                        $data['distinguishedName'] = & $transform.OnLoad -Values $sr.DistinguishedName
+                    } else {
+                        $data['distinguishedName']=$sr.DistinguishedName
+                    }
                 }
                 $data
             }
@@ -2333,6 +2361,13 @@ function GetResultsIndirectlyRangedInternal
 
                 #loading just attributes indicated as present in first search
                 foreach($attrName in $sr.Attributes.AttributeNames) {
+                    $targetAttrName = GetTargetAttr -attr $attrName
+                    if($targetAttrName -ne $attrName)
+                    {
+                        #skip paging hint
+                        Write-Verbose "Skipping paging hint: $attrName"
+                        continue
+                    }
                     $transform = $script:RegisteredTransforms[$attrName]
                     $BinaryInput = ($null -ne $transform -and $transform.BinaryInput -eq $true) -or ($attrName -in $BinaryProperties)
                     $start=-$rangeSize
@@ -2365,7 +2400,7 @@ function GetResultsIndirectlyRangedInternal
                         $data[$attrName] = (& $transform.OnLoad -Values $data[$attrName])
                     }
                 }
-                if($data['distinguishedName'].Count -eq 0) {
+                if([string]::IsNullOrEmpty($data['distinguishedName'])) {
                     #dn has to be present on all objects
                     $transform = $script:RegisteredTransforms['distinguishedName']
                     if($null -ne $transform -and $null -ne $transform.OnLoad)

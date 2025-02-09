@@ -45,7 +45,7 @@ Find-LdapObject `
     -searchFilter '(&(objeectClass=user)(objectCategory=organizationalPerson)(l=Prague))' `
     -searchBase $dse.defaultNamingContext `
     -PropertiesToLoad 'adminDescription' `
-| foreach-object{$_.adminDescription = 'Praguer'; $_} `
+| foreach-object{$_.adminDescription = 'Prague'; $_} `
 | Edit-LdapObject -IncludedProps 'adminDescription' -Passthrough `
 | Find-LdapObject -searchFilter '(objectClass=*)' -searchScope Base -PropertiesToLoad 'adminDescription'
 

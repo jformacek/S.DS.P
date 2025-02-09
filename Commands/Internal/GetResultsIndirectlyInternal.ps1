@@ -94,7 +94,7 @@ function GetResultsIndirectlyInternal
                         }
                         else
                         {
-                            if($data[$attrName].Count -gt 0)
+                            if($null -ne $data[$attrName])
                             {
                                 #we may have already loaded partial results from ranged hint
                                 continue
@@ -120,7 +120,7 @@ function GetResultsIndirectlyInternal
                         }
                     }
                 }
-                if($data['distinguishedName'].Count -eq 0) {
+                if([string]::IsNullOrEmpty($data['distinguishedName'])) {
                     #dn has to be present on all objects
                     $transform = $script:RegisteredTransforms['distinguishedName']
                     if($null -ne $transform -and $null -ne $transform.OnLoad)
