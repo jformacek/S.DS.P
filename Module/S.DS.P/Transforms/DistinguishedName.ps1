@@ -148,7 +148,7 @@ Add-Type @'
 '@
 }
 
-$codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes @('distinguishedName','member','memberOf')
+$codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes @('distinguishedName','member','memberOf','homeMdb')
 
 $codeBlock.OnLoad = { 
     param(
