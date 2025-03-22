@@ -23,6 +23,10 @@ function GetResultsIndirectlyInternal
         [String[]]
         $AdditionalProperties=@(),
 
+        [parameter()]
+        [String[]]
+        $IgnoredProperties=@(),
+
         [parameter(Mandatory = $false)]
         [System.DirectoryServices.Protocols.DirectoryControl[]]
             #additional controls that caller may need to add to request
@@ -88,6 +92,7 @@ function GetResultsIndirectlyInternal
                 foreach ($srAttr in $rspAttr.Entries) {
                     foreach($attrName in $srAttr.Attributes.AttributeNames) {
                         $targetAttrName = GetTargetAttr -attr $attrName
+                        if($IgnoredProperties -contains $targetAttrName) {continue}
                         if($targetAttrName -ne $attrName)
                         {
                             Write-Warning "Value of attribute $targetAttrName not completely retrieved as it exceeds query policy. Use ranged retrieval. Range hint: $attrName"

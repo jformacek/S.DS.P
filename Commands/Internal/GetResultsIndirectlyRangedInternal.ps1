@@ -30,6 +30,10 @@ function GetResultsIndirectlyRangedInternal
 
         [parameter()]
         [String[]]
+        $IgnoredProperties=@(),
+
+        [parameter()]
+        [String[]]
         $BinaryProperties=@(),
 
         [parameter()]
@@ -89,6 +93,7 @@ function GetResultsIndirectlyRangedInternal
                 #loading just attributes indicated as present in first search
                 foreach($attrName in $sr.Attributes.AttributeNames) {
                     $targetAttrName = GetTargetAttr -attr $attrName
+                    if($IgnoredProperties -contains $targetAttrName) {continue}
                     if($targetAttrName -ne $attrName)
                     {
                         #skip paging hint

@@ -236,6 +236,12 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             #>
         $AdditionalProperties=@(),
 
+        [parameter()]
+        [String[]]
+            #Properties to ignore when loading objects from LDAP
+            #Default: empty list, which means that no properties are ignored
+        $IgnoredProperties=@(),
+
         [parameter(Mandatory = $false)]
         [System.DirectoryServices.Protocols.DirectoryControl[]]
             #additional controls that caller may need to add to request

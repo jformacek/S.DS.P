@@ -19,6 +19,9 @@ function GetResultsDirSyncInternal
         $AdditionalProperties=@(),
         [parameter()]
         [String[]]
+        $IgnoredProperties=@(),
+        [parameter()]
+        [String[]]
         $BinaryProperties=@(),
         [parameter()]
         [Timespan]
@@ -70,6 +73,7 @@ function GetResultsDirSyncInternal
                 
                 foreach($attrName in $sr.Attributes.AttributeNames) {
                     $targetAttrName = GetTargetAttr -attr $attrName
+                    if($IgnoredProperties -contains $targetAttrName) {continue}
                     if($attrName -ne $targetAttrName)
                     {
                         if($null -eq $data[$targetAttrName])

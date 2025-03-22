@@ -20,6 +20,9 @@ function GetResultsDirectlyInternal
         $AdditionalProperties=@(),
         [parameter()]
         [String[]]
+        $IgnoredProperties=@(),
+        [parameter()]
+        [String[]]
         $BinaryProperties=@(),
         [parameter()]
         [Timespan]
@@ -70,6 +73,7 @@ function GetResultsDirectlyInternal
                 
                 foreach($attrName in $sr.Attributes.AttributeNames) {
                     $targetAttrName = GetTargetAttr -attr $attrName
+                    if($targetAttrName -in $IgnoredProperties) {continue}
                     if($targetAttrName -ne $attrName)
                     {
                         Write-Warning "Value of attribute $targetAttrName not completely retrieved as it exceeds query policy. Use ranged retrieval. Range hint: $attrName"

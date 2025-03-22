@@ -565,6 +565,12 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             #>
         $AdditionalProperties=@(),
 
+        [parameter()]
+        [String[]]
+            #Properties to ignore when loading objects from LDAP
+            #Default: empty list, which means that no properties are ignored
+        $IgnoredProperties=@(),
+
         [parameter(Mandatory = $false)]
         [System.DirectoryServices.Protocols.DirectoryControl[]]
             #additional controls that caller may need to add to request
@@ -1875,6 +1881,9 @@ function GetResultsDirectlyInternal
         $AdditionalProperties=@(),
         [parameter()]
         [String[]]
+        $IgnoredProperties=@(),
+        [parameter()]
+        [String[]]
         $BinaryProperties=@(),
         [parameter()]
         [Timespan]
@@ -1925,6 +1934,7 @@ function GetResultsDirectlyInternal
                 
                 foreach($attrName in $sr.Attributes.AttributeNames) {
                     $targetAttrName = GetTargetAttr -attr $attrName
+                    if($targetAttrName -in $IgnoredProperties) {continue}
                     if($targetAttrName -ne $attrName)
                     {
                         Write-Warning "Value of attribute $targetAttrName not completely retrieved as it exceeds query policy. Use ranged retrieval. Range hint: $attrName"
@@ -2002,6 +2012,9 @@ function GetResultsDirSyncInternal
         $AdditionalProperties=@(),
         [parameter()]
         [String[]]
+        $IgnoredProperties=@(),
+        [parameter()]
+        [String[]]
         $BinaryProperties=@(),
         [parameter()]
         [Timespan]
@@ -2053,6 +2066,7 @@ function GetResultsDirSyncInternal
                 
                 foreach($attrName in $sr.Attributes.AttributeNames) {
                     $targetAttrName = GetTargetAttr -attr $attrName
+                    if($IgnoredProperties -contains $targetAttrName) {continue}
                     if($attrName -ne $targetAttrName)
                     {
                         if($null -eq $data[$targetAttrName])
@@ -2150,6 +2164,10 @@ function GetResultsIndirectlyInternal
         [String[]]
         $AdditionalProperties=@(),
 
+        [parameter()]
+        [String[]]
+        $IgnoredProperties=@(),
+
         [parameter(Mandatory = $false)]
         [System.DirectoryServices.Protocols.DirectoryControl[]]
             #additional controls that caller may need to add to request
@@ -2215,6 +2233,7 @@ function GetResultsIndirectlyInternal
                 foreach ($srAttr in $rspAttr.Entries) {
                     foreach($attrName in $srAttr.Attributes.AttributeNames) {
                         $targetAttrName = GetTargetAttr -attr $attrName
+                        if($IgnoredProperties -contains $targetAttrName) {continue}
                         if($targetAttrName -ne $attrName)
                         {
                             Write-Warning "Value of attribute $targetAttrName not completely retrieved as it exceeds query policy. Use ranged retrieval. Range hint: $attrName"
@@ -2303,6 +2322,10 @@ function GetResultsIndirectlyRangedInternal
 
         [parameter()]
         [String[]]
+        $IgnoredProperties=@(),
+
+        [parameter()]
+        [String[]]
         $BinaryProperties=@(),
 
         [parameter()]
@@ -2362,6 +2385,7 @@ function GetResultsIndirectlyRangedInternal
                 #loading just attributes indicated as present in first search
                 foreach($attrName in $sr.Attributes.AttributeNames) {
                     $targetAttrName = GetTargetAttr -attr $attrName
+                    if($IgnoredProperties -contains $targetAttrName) {continue}
                     if($targetAttrName -ne $attrName)
                     {
                         #skip paging hint
