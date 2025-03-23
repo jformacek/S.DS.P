@@ -11,7 +11,7 @@
     RootModule = '.\S.DS.P.psm1'
 
     # Version number of this module.
-    ModuleVersion = '2.2.1'
+    ModuleVersion = '2.2.2'
 
     # ID used to uniquely identify this module
     GUID = '766cbbc0-85b9-4773-b4db-2fa86cd771ff'
@@ -120,7 +120,7 @@
             # ReleaseNotes = ''
 
             # Prerelease string of this module
-            #Prerelease = 'beta4'
+            Prerelease = 'beta1'
 
             # Flag to indicate whether the module requires explicit user acceptance for install/update/save
             RequireLicenseAcceptance = $false
