@@ -109,7 +109,12 @@ $codeBlock.OnLoad = {
     {
         foreach($Value in $Values)
         {
-            new-object ProxyAddress($Value)
+            try {
+                new-object ProxyAddress($Value)
+            }
+            catch {
+                Write-Error -ErrorRecord $_
+            }
         }
     }
 }
