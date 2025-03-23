@@ -745,7 +745,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                 if($NoAttributes)
                 {
                     #just run as fast as possible when not loading any attribs
-                    GetResultsDirectlyInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -BinaryProperties $BinaryProps -Timeout $Timeout -NoAttributes | PostProcess
+                    GetResultsDirectlyInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -IgnoredProperties $IgnoredProperties -BinaryProperties $BinaryProps -Timeout $Timeout -NoAttributes | PostProcess
                 }
                 else {
                     #load attributes according to desired strategy
@@ -754,19 +754,19 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                         {$_ -lt 0} {
                             #directly via single ldap call
                             #some attribs may not be loaded (e.g. computed)
-                            GetResultsDirectlyInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -BinaryProperties $BinaryProps -Timeout $Timeout | PostProcess -Sort $SortAttributes
+                            GetResultsDirectlyInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -IgnoredProperties $IgnoredProperties -BinaryProperties $BinaryProps -Timeout $Timeout | PostProcess -Sort $SortAttributes
                             break
                         }
                         0 {
                             #query attributes for each object returned using base search
                             #but not using ranged retrieval, so multivalued attributes with many values may not be returned completely
-                            GetResultsIndirectlyInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -AdditionalControls $AdditionalControls -BinaryProperties $BinaryProps -Timeout $Timeout | PostProcess -Sort $SortAttributes
+                            GetResultsIndirectlyInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -IgnoredProperties $IgnoredProperties -AdditionalControls $AdditionalControls -BinaryProperties $BinaryProps -Timeout $Timeout | PostProcess -Sort $SortAttributes
                             break
                         }
                         {$_ -gt 0} {
                             #query attributes for each object returned using base search and each attribute value with ranged retrieval
                             #so even multivalued attributes with many values are returned completely
-                            GetResultsIndirectlyRangedInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -AdditionalControls $AdditionalControls -BinaryProperties $BinaryProps -Timeout $Timeout -RangeSize $RangeSize | PostProcess -Sort $SortAttributes
+                            GetResultsIndirectlyRangedInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -IgnoredProperties $IgnoredProperties -AdditionalControls $AdditionalControls -BinaryProperties $BinaryProps -Timeout $Timeout -RangeSize $RangeSize | PostProcess -Sort $SortAttributes
                             break
                         }
                     }
@@ -774,19 +774,19 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                 break;
             }
             'Standard' {
-                GetResultsDirSyncInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -BinaryProperties $BinaryProps -Timeout $Timeout | PostProcess -Sort $SortAttributes
+                GetResultsDirSyncInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -IgnoredProperties $IgnoredProperties -BinaryProperties $BinaryProps -Timeout $Timeout | PostProcess -Sort $SortAttributes
                 break;
             }
             'ObjectSecurity' {
-                GetResultsDirSyncInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -BinaryProperties $BinaryProps -Timeout $Timeout -ObjectSecurity | PostProcess -Sort $SortAttributes
+                GetResultsDirSyncInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -IgnoredProperties $IgnoredProperties -BinaryProperties $BinaryProps -Timeout $Timeout -ObjectSecurity | PostProcess -Sort $SortAttributes
                 break;
             }
             'StandardIncremental' {
-                GetResultsDirSyncInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -BinaryProperties $BinaryProps -Timeout $Timeout -Incremental | PostProcess -Sort $SortAttributes
+                GetResultsDirSyncInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -IgnoredProperties $IgnoredProperties -BinaryProperties $BinaryProps -Timeout $Timeout -Incremental | PostProcess -Sort $SortAttributes
                 break;
             }
             'ObjectSecurityIncremental' {
-                GetResultsDirSyncInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -BinaryProperties $BinaryProps -Timeout $Timeout -ObjectSecurity -Incremental | PostProcess -Sort $SortAttributes
+                GetResultsDirSyncInternal -rq $rq -conn $LdapConnection -PropertiesToLoad $PropertiesToLoad -AdditionalProperties $AdditionalProperties -IgnoredProperties $IgnoredProperties -BinaryProperties $BinaryProps -Timeout $Timeout -ObjectSecurity -Incremental | PostProcess -Sort $SortAttributes
                 break;
             }
         }
@@ -1865,6 +1865,7 @@ Function EnsureLdapConnection
 #>
 function GetResultsDirectlyInternal
 {
+    [CmdletBinding()]
     param
     (
         [Parameter(Mandatory)]
@@ -1950,19 +1951,24 @@ function GetResultsDirectlyInternal
                     
                     $transform = $script:RegisteredTransforms[$targetAttrName]
                     $BinaryInput = ($null -ne $transform -and $transform.BinaryInput -eq $true) -or ($targetAttrName -in $BinaryProperties)
-                    if($null -ne $transform -and $null -ne $transform.OnLoad)
-                    {
-                        if($BinaryInput -eq $true) {
-                            $data[$targetAttrName] = (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([byte[]])))
+                    try {
+                        if($null -ne $transform -and $null -ne $transform.OnLoad)
+                        {
+                            if($BinaryInput -eq $true) {
+                                $data[$targetAttrName] = (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([byte[]])))
+                            } else {
+                                $data[$targetAttrName] = (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([string])))
+                            }
                         } else {
-                            $data[$targetAttrName] = (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([string])))
+                            if($BinaryInput -eq $true) {
+                                $data[$targetAttrName] = $sr.Attributes[$attrName].GetValues([byte[]])
+                            } else {
+                                $data[$targetAttrName] = $sr.Attributes[$attrName].GetValues([string])
+                            }
                         }
-                    } else {
-                        if($BinaryInput -eq $true) {
-                            $data[$targetAttrName] = $sr.Attributes[$attrName].GetValues([byte[]])
-                        } else {
-                            $data[$targetAttrName] = $sr.Attributes[$attrName].GetValues([string])
-                        }
+                    }
+                    catch {
+                        Write-Error -ErrorRecord $_
                     }
                 }
                 
@@ -1970,11 +1976,16 @@ function GetResultsDirectlyInternal
                     #dn has to be present on all objects
                     #having DN processed at the end gives chance to possible transforms on this attribute
                     $transform = $script:RegisteredTransforms['distinguishedName']
-                    if($null -ne $transform -and $null -ne $transform.OnLoad)
-                    {
-                        $data['distinguishedName'] = & $transform.OnLoad -Values $sr.DistinguishedName
-                    } else {
-                        $data['distinguishedName']=$sr.DistinguishedName
+                    try {
+                        if($null -ne $transform -and $null -ne $transform.OnLoad)
+                        {
+                            $data['distinguishedName'] = & $transform.OnLoad -Values $sr.DistinguishedName
+                        } else {
+                            $data['distinguishedName']=$sr.DistinguishedName
+                        }
+                    }
+                    catch {
+                        Write-Error -ErrorRecord $_
                     }
                 }
                 $data
@@ -1996,6 +2007,7 @@ function GetResultsDirectlyInternal
 #>
 function GetResultsDirSyncInternal
 {
+    [CmdletBinding()]
     param
     (
         [Parameter(Mandatory)]
@@ -2093,19 +2105,24 @@ function GetResultsDirSyncInternal
                     
                     $transform = $script:RegisteredTransforms[$targetAttrName]
                     $BinaryInput = ($null -ne $transform -and $transform.BinaryInput -eq $true) -or ($targetAttrName -in $BinaryProperties)
-                    if($null -ne $transform -and $null -ne $transform.OnLoad)
-                    {
-                        if($BinaryInput -eq $true) {
-                            &$attributeContainer (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([byte[]])))
+                    try {
+                        if($null -ne $transform -and $null -ne $transform.OnLoad)
+                        {
+                            if($BinaryInput -eq $true) {
+                                &$attributeContainer (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([byte[]])))
+                            } else {
+                                &$attributeContainer (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([string])))
+                            }
                         } else {
-                            &$attributeContainer (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([string])))
+                            if($BinaryInput -eq $true) {
+                                &$attributeContainer $sr.Attributes[$attrName].GetValues([byte[]])
+                            } else {
+                                &$attributeContainer $sr.Attributes[$attrName].GetValues([string])
+                            }
                         }
-                    } else {
-                        if($BinaryInput -eq $true) {
-                            &$attributeContainer $sr.Attributes[$attrName].GetValues([byte[]])
-                        } else {
-                            &$attributeContainer $sr.Attributes[$attrName].GetValues([string])
-                        }
+                    }
+                    catch {
+                        Write-Error -ErrorRecord $_
                     }
                 }
                 
@@ -2113,11 +2130,16 @@ function GetResultsDirSyncInternal
                     #dn has to be present on all objects
                     #having DN processed at the end gives chance to possible transforms on this attribute
                     $transform = $script:RegisteredTransforms['distinguishedName']
-                    if($null -ne $transform -and $null -ne $transform.OnLoad)
-                    {
-                        $data['distinguishedName'] = & $transform.OnLoad -Values $sr.DistinguishedName
-                    } else {
-                        $data['distinguishedName']=$sr.DistinguishedName
+                    try {
+                        if($null -ne $transform -and $null -ne $transform.OnLoad)
+                        {
+                            $data['distinguishedName'] = & $transform.OnLoad -Values $sr.DistinguishedName
+                        } else {
+                            $data['distinguishedName']=$sr.DistinguishedName
+                        }
+                    }
+                    catch {
+                        Write-Error -ErrorRecord $_
                     }
                 }
                 $data
@@ -2146,6 +2168,7 @@ function GetResultsDirSyncInternal
 
 function GetResultsIndirectlyInternal
 {
+    [CmdletBinding()]
     param
     (
         [Parameter(Mandatory)]
@@ -2250,30 +2273,40 @@ function GetResultsIndirectlyInternal
                         $transform = $script:RegisteredTransforms[$targetAttrName]
                         $BinaryInput = ($null -ne $transform -and $transform.BinaryInput -eq $true) -or ($attrName -in $BinaryProperties)
                         #protecting against LDAP servers who don't understand '1.1' prop
-                        if($null -ne $transform -and $null -ne $transform.OnLoad)
-                        {
-                            if($BinaryInput -eq $true) {
-                                $data[$targetAttrName] = (& $transform.OnLoad -Values ($srAttr.Attributes[$attrName].GetValues([byte[]])))
+                        try {
+                            if($null -ne $transform -and $null -ne $transform.OnLoad)
+                            {
+                                if($BinaryInput -eq $true) {
+                                    $data[$targetAttrName] = (& $transform.OnLoad -Values ($srAttr.Attributes[$attrName].GetValues([byte[]])))
+                                } else {
+                                    $data[$targetAttrName] = (& $transform.OnLoad -Values ($srAttr.Attributes[$attrName].GetValues([string])))
+                                }
                             } else {
-                                $data[$targetAttrName] = (& $transform.OnLoad -Values ($srAttr.Attributes[$attrName].GetValues([string])))
+                                if($BinaryInput -eq $true) {
+                                    $data[$targetAttrName] = $srAttr.Attributes[$attrName].GetValues([byte[]])
+                                } else {
+                                    $data[$targetAttrName] = $srAttr.Attributes[$attrName].GetValues([string])
+                                }                                    
                             }
-                        } else {
-                            if($BinaryInput -eq $true) {
-                                $data[$targetAttrName] = $srAttr.Attributes[$attrName].GetValues([byte[]])
-                            } else {
-                                $data[$targetAttrName] = $srAttr.Attributes[$attrName].GetValues([string])
-                            }                                    
+                        }
+                        catch {
+                            Write-Error -ErrorRecord $_
                         }
                     }
                 }
                 if([string]::IsNullOrEmpty($data['distinguishedName'])) {
                     #dn has to be present on all objects
                     $transform = $script:RegisteredTransforms['distinguishedName']
-                    if($null -ne $transform -and $null -ne $transform.OnLoad)
-                    {
-                        $data['distinguishedName'] = & $transform.OnLoad -Values $sr.DistinguishedName
-                    } else {
-                        $data['distinguishedName']=$sr.DistinguishedName
+                    try {
+                        if($null -ne $transform -and $null -ne $transform.OnLoad)
+                        {
+                            $data['distinguishedName'] = & $transform.OnLoad -Values $sr.DistinguishedName
+                        } else {
+                            $data['distinguishedName']=$sr.DistinguishedName
+                        }
+                    }
+                    catch {
+                        Write-Error -ErrorRecord $_
                     }
                 }
                 $data
@@ -2297,6 +2330,7 @@ function GetResultsIndirectlyInternal
 #>
 function GetResultsIndirectlyRangedInternal
 {
+    [CmdletBinding()]
     param
     (
         [Parameter(Mandatory)]
@@ -2406,10 +2440,15 @@ function GetResultsIndirectlyRangedInternal
                             #LDAP server changes upper bound to * on last chunk
                             $returnedAttrName=$($srAttr.Attributes.AttributeNames)
                             #load binary properties as byte stream, other properties as strings
-                            if($BinaryInput) {
-                                $data[$attrName]+=$srAttr.Attributes[$returnedAttrName].GetValues([byte[]])
-                            } else {
-                                $data[$attrName] += $srAttr.Attributes[$returnedAttrName].GetValues([string])
+                            try {
+                                if($BinaryInput) {
+                                    $data[$attrName]+=$srAttr.Attributes[$returnedAttrName].GetValues([byte[]])
+                                } else {
+                                    $data[$attrName] += $srAttr.Attributes[$returnedAttrName].GetValues([string])
+                                }
+                            }
+                            catch {
+                                Write-Error -ErrorRecord $_
                             }
                             if($returnedAttrName.EndsWith("-*") -or $returnedAttrName -eq $attrName) {
                                 #last chunk arrived
@@ -2421,18 +2460,29 @@ function GetResultsIndirectlyRangedInternal
                     #perform transform if registered
                     if($null -ne $transform -and $null -ne $transform.OnLoad)
                     {
-                        $data[$attrName] = (& $transform.OnLoad -Values $data[$attrName])
+                        try {
+                            $data[$attrName] = (& $transform.OnLoad -Values $data[$attrName])
+                        }
+                        catch {
+                            Write-Error -ErrorRecord $_
+                        }
                     }
                 }
-                if([string]::IsNullOrEmpty($data['distinguishedName'])) {
+                if ([string]::IsNullOrEmpty($data['distinguishedName'])) {
                     #dn has to be present on all objects
                     $transform = $script:RegisteredTransforms['distinguishedName']
-                    if($null -ne $transform -and $null -ne $transform.OnLoad)
-                    {
-                        $data['distinguishedName'] = & $transform.OnLoad -Values $sr.DistinguishedName
-                    } else {
-                        $data['distinguishedName']=$sr.DistinguishedName
+                    try {
+                        if ($null -ne $transform -and $null -ne $transform.OnLoad) {
+                            $data['distinguishedName'] = & $transform.OnLoad -Values $sr.DistinguishedName
+                        }
+                        else {
+                            $data['distinguishedName'] = $sr.DistinguishedName
+                        }
                     }
+                    catch {
+                        Write-Error -ErrorRecord $_
+                    }
+
                 }
                 $data
             }

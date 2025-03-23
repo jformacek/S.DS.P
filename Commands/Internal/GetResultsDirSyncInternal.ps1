@@ -3,6 +3,7 @@
 #>
 function GetResultsDirSyncInternal
 {
+    [CmdletBinding()]
     param
     (
         [Parameter(Mandatory)]
@@ -100,19 +101,24 @@ function GetResultsDirSyncInternal
                     
                     $transform = $script:RegisteredTransforms[$targetAttrName]
                     $BinaryInput = ($null -ne $transform -and $transform.BinaryInput -eq $true) -or ($targetAttrName -in $BinaryProperties)
-                    if($null -ne $transform -and $null -ne $transform.OnLoad)
-                    {
-                        if($BinaryInput -eq $true) {
-                            &$attributeContainer (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([byte[]])))
+                    try {
+                        if($null -ne $transform -and $null -ne $transform.OnLoad)
+                        {
+                            if($BinaryInput -eq $true) {
+                                &$attributeContainer (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([byte[]])))
+                            } else {
+                                &$attributeContainer (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([string])))
+                            }
                         } else {
-                            &$attributeContainer (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([string])))
+                            if($BinaryInput -eq $true) {
+                                &$attributeContainer $sr.Attributes[$attrName].GetValues([byte[]])
+                            } else {
+                                &$attributeContainer $sr.Attributes[$attrName].GetValues([string])
+                            }
                         }
-                    } else {
-                        if($BinaryInput -eq $true) {
-                            &$attributeContainer $sr.Attributes[$attrName].GetValues([byte[]])
-                        } else {
-                            &$attributeContainer $sr.Attributes[$attrName].GetValues([string])
-                        }
+                    }
+                    catch {
+                        Write-Error -ErrorRecord $_
                     }
                 }
                 
@@ -120,11 +126,16 @@ function GetResultsDirSyncInternal
                     #dn has to be present on all objects
                     #having DN processed at the end gives chance to possible transforms on this attribute
                     $transform = $script:RegisteredTransforms['distinguishedName']
-                    if($null -ne $transform -and $null -ne $transform.OnLoad)
-                    {
-                        $data['distinguishedName'] = & $transform.OnLoad -Values $sr.DistinguishedName
-                    } else {
-                        $data['distinguishedName']=$sr.DistinguishedName
+                    try {
+                        if($null -ne $transform -and $null -ne $transform.OnLoad)
+                        {
+                            $data['distinguishedName'] = & $transform.OnLoad -Values $sr.DistinguishedName
+                        } else {
+                            $data['distinguishedName']=$sr.DistinguishedName
+                        }
+                    }
+                    catch {
+                        Write-Error -ErrorRecord $_
                     }
                 }
                 $data

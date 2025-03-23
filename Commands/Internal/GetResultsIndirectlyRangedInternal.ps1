@@ -5,6 +5,7 @@
 #>
 function GetResultsIndirectlyRangedInternal
 {
+    [CmdletBinding()]
     param
     (
         [Parameter(Mandatory)]
@@ -114,10 +115,15 @@ function GetResultsIndirectlyRangedInternal
                             #LDAP server changes upper bound to * on last chunk
                             $returnedAttrName=$($srAttr.Attributes.AttributeNames)
                             #load binary properties as byte stream, other properties as strings
-                            if($BinaryInput) {
-                                $data[$attrName]+=$srAttr.Attributes[$returnedAttrName].GetValues([byte[]])
-                            } else {
-                                $data[$attrName] += $srAttr.Attributes[$returnedAttrName].GetValues([string])
+                            try {
+                                if($BinaryInput) {
+                                    $data[$attrName]+=$srAttr.Attributes[$returnedAttrName].GetValues([byte[]])
+                                } else {
+                                    $data[$attrName] += $srAttr.Attributes[$returnedAttrName].GetValues([string])
+                                }
+                            }
+                            catch {
+                                Write-Error -ErrorRecord $_
                             }
                             if($returnedAttrName.EndsWith("-*") -or $returnedAttrName -eq $attrName) {
                                 #last chunk arrived
@@ -129,18 +135,29 @@ function GetResultsIndirectlyRangedInternal
                     #perform transform if registered
                     if($null -ne $transform -and $null -ne $transform.OnLoad)
                     {
-                        $data[$attrName] = (& $transform.OnLoad -Values $data[$attrName])
+                        try {
+                            $data[$attrName] = (& $transform.OnLoad -Values $data[$attrName])
+                        }
+                        catch {
+                            Write-Error -ErrorRecord $_
+                        }
                     }
                 }
-                if([string]::IsNullOrEmpty($data['distinguishedName'])) {
+                if ([string]::IsNullOrEmpty($data['distinguishedName'])) {
                     #dn has to be present on all objects
                     $transform = $script:RegisteredTransforms['distinguishedName']
-                    if($null -ne $transform -and $null -ne $transform.OnLoad)
-                    {
-                        $data['distinguishedName'] = & $transform.OnLoad -Values $sr.DistinguishedName
-                    } else {
-                        $data['distinguishedName']=$sr.DistinguishedName
+                    try {
+                        if ($null -ne $transform -and $null -ne $transform.OnLoad) {
+                            $data['distinguishedName'] = & $transform.OnLoad -Values $sr.DistinguishedName
+                        }
+                        else {
+                            $data['distinguishedName'] = $sr.DistinguishedName
+                        }
                     }
+                    catch {
+                        Write-Error -ErrorRecord $_
+                    }
+
                 }
                 $data
             }

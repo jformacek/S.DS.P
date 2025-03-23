@@ -5,6 +5,7 @@
 
 function GetResultsIndirectlyInternal
 {
+    [CmdletBinding()]
     param
     (
         [Parameter(Mandatory)]
@@ -109,30 +110,40 @@ function GetResultsIndirectlyInternal
                         $transform = $script:RegisteredTransforms[$targetAttrName]
                         $BinaryInput = ($null -ne $transform -and $transform.BinaryInput -eq $true) -or ($attrName -in $BinaryProperties)
                         #protecting against LDAP servers who don't understand '1.1' prop
-                        if($null -ne $transform -and $null -ne $transform.OnLoad)
-                        {
-                            if($BinaryInput -eq $true) {
-                                $data[$targetAttrName] = (& $transform.OnLoad -Values ($srAttr.Attributes[$attrName].GetValues([byte[]])))
+                        try {
+                            if($null -ne $transform -and $null -ne $transform.OnLoad)
+                            {
+                                if($BinaryInput -eq $true) {
+                                    $data[$targetAttrName] = (& $transform.OnLoad -Values ($srAttr.Attributes[$attrName].GetValues([byte[]])))
+                                } else {
+                                    $data[$targetAttrName] = (& $transform.OnLoad -Values ($srAttr.Attributes[$attrName].GetValues([string])))
+                                }
                             } else {
-                                $data[$targetAttrName] = (& $transform.OnLoad -Values ($srAttr.Attributes[$attrName].GetValues([string])))
+                                if($BinaryInput -eq $true) {
+                                    $data[$targetAttrName] = $srAttr.Attributes[$attrName].GetValues([byte[]])
+                                } else {
+                                    $data[$targetAttrName] = $srAttr.Attributes[$attrName].GetValues([string])
+                                }                                    
                             }
-                        } else {
-                            if($BinaryInput -eq $true) {
-                                $data[$targetAttrName] = $srAttr.Attributes[$attrName].GetValues([byte[]])
-                            } else {
-                                $data[$targetAttrName] = $srAttr.Attributes[$attrName].GetValues([string])
-                            }                                    
+                        }
+                        catch {
+                            Write-Error -ErrorRecord $_
                         }
                     }
                 }
                 if([string]::IsNullOrEmpty($data['distinguishedName'])) {
                     #dn has to be present on all objects
                     $transform = $script:RegisteredTransforms['distinguishedName']
-                    if($null -ne $transform -and $null -ne $transform.OnLoad)
-                    {
-                        $data['distinguishedName'] = & $transform.OnLoad -Values $sr.DistinguishedName
-                    } else {
-                        $data['distinguishedName']=$sr.DistinguishedName
+                    try {
+                        if($null -ne $transform -and $null -ne $transform.OnLoad)
+                        {
+                            $data['distinguishedName'] = & $transform.OnLoad -Values $sr.DistinguishedName
+                        } else {
+                            $data['distinguishedName']=$sr.DistinguishedName
+                        }
+                    }
+                    catch {
+                        Write-Error -ErrorRecord $_
                     }
                 }
                 $data
