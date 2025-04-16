@@ -4,6 +4,31 @@ param (
     [Switch]
     $FullLoad
 )
+
+if($FullLoad)
+{
+Add-Type @'
+    using System;
+    using System.Text;
+
+    public static class SecurityIdentifierExtensions
+    {
+        public static string ToLdapSearchableString(this System.Security.Principal.SecurityIdentifier sid)
+        {
+            StringBuilder sb = new StringBuilder();
+            var bytes = new byte[sid.BinaryLength];
+            sid.GetBinaryForm(bytes, 0);
+            foreach(var v in bytes)
+            {
+                sb.Append("\\");
+                sb.Append(v.ToString("X2"));
+            }
+            return sb.ToString();
+        }
+    }
+'@
+
+}
 $codeBlock= New-LdapAttributeTransformDefinition -SupportedAttributes @('objectSid','tokenGroups','tokenGroupsGlobalAndUniversal','tokenGroupsNoGCAcceptable','sidHistory') -BinaryInput
 
 $codeBlock.OnLoad = { 

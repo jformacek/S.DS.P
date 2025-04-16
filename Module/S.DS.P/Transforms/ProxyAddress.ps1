@@ -113,7 +113,7 @@ $codeBlock.OnLoad = {
                 new-object ProxyAddress($Value)
             }
             catch {
-                Write-Error -ErrorRecord $_
+                $PSCmdlet.WriteError($_.Exception.Message)
             }
         }
     }
