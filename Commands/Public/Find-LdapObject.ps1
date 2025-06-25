@@ -348,7 +348,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                 {
                     if($null -ne $searchBase.distinguishedName)
                     {
-                        #covers bot¨h string and DistinguishedName types
+                        #covers both string and DistinguishedName types
                         $rq.DistinguishedName=$searchBase.distinguishedName.ToString()
                     }
                 }

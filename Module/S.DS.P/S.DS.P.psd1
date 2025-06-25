@@ -73,7 +73,7 @@
     FunctionsToExport = 'Find-LdapObject','Get-RootDSE',
         'Get-LdapConnection', 'Edit-LdapObject',
         'Add-LdapObject','Remove-LdapObject',
-        'Rename-LdapObject',
+        'Rename-LdapObject', 'Test-LdapObject',
         'Register-LdapAttributeTransform','Unregister-LdapAttributeTransform',
         'Get-LdapAttributeTransform',
         'New-LdapAttributeTransformDefinition',
