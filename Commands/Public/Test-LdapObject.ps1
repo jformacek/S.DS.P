@@ -2,12 +2,15 @@ Function Test-LdapObject
 {
 <#
 .SYNOPSIS
-    
+    Checks existence of LDAP object by distinguished name.
 
 .DESCRIPTION
+    This function checks if an LDAP object exists by its distinguished name.
+    It can accept a string, DistinguishedName object, or an object with a distinguishedName property.
+    If the object is found, it returns $true; otherwise, it returns $false.
     
 .OUTPUTS
-    Nothing
+    True or False, depending on whether the LDAP object was found
 
 .EXAMPLE
 
@@ -35,33 +38,29 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
 
     Process
     {
-        if($null -ne $Object)
-        {
-            #we support pipelining of strings or DistinguishedName types, or objects containing distinguishedName property - string or DistinguishedName
-            switch($Object.GetType().Name) {
-                "String"
-                {
-                    $dn = $Object
-                    break;
-                }
-                'DistinguishedName' {
-                    $dn=$Object.ToString()
-                    break;
-                }
-                default
-                {
-                    if($null -ne $Object.distinguishedName)
-                    {
-                        #covers both string and DistinguishedName types
-                        $dn=$Object.distinguishedName.ToString()
-                    }
-                }
+        $dn = $objet | GetDnFromInput
+        
+        try {
+            $result = Find-LdapObject `
+                -LdapConnection $LdapConnection `
+                -SearchBase $dn `
+                -searchFilter '(objectClass=*)' `
+                -searchScope Base `
+                -PropertiesToLoad '1.1' `
+                -ErrorAction Stop | Out-Null
+            
+            #some LDAP servrs return null if object is not found, others throw an exception
+            return ($null -ne $result)
+        }
+        catch [System.DirectoryServices.Protocols.DirectoryOperationException] {
+            if($_.Exception.Response.ResultCode -eq  [System.DirectoryServices.Protocols.ResultCode]::NoSuchObject)
+            {
+                return $false
+            }
+            else
+            {
+                throw
             }
         }
-
-        if([string]::IsNullOrEmpty($dn)) {
-            throw (new-object System.ArgumentException("Distinguished name not present on input object"))
-        }
-        Find-LdapObject -LdapConnection $LdapConnection -SearchBase $dn -searchFilter '(objectClass=*)' -searchScope Base -PropertiesToLoad '1.1'
     }
 }

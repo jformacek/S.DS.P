@@ -63,29 +63,8 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         #add additional controls that caller may have passed
         foreach($ctrl in $AdditionalControls) {$rqDel.Controls.Add($ctrl) | Out-Null}
 
-        switch($Object.GetType().Name)
-        {
-            "String"
-            {
-                $rqDel.DistinguishedName=$Object
-                break;
-            }
-            'DistinguishedName' {
-                $rqDel.DistinguishedName=$Object.ToString()
-                break;
-            }
-            default
-            {
-                if($null -ne $Object.distinguishedName)
-                {
-                    $rqDel.DistinguishedName=$Object.distinguishedName.ToString()
-                }
-                else
-                {
-                    throw (new-object System.ArgumentException("DistinguishedName must be passed"))
-                }
-            }
-        }
+        $rqDel.DistinguishedName = $Object | GetDnFromObject
+
         if($UseTreeDelete) {
             $rqDel.Controls.Add((new-object System.DirectoryServices.Protocols.TreeDeleteControl)) | Out-Null
         }

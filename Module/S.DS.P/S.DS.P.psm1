@@ -677,7 +677,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                 {
                     if($null -ne $searchBase.distinguishedName)
                     {
-                        #covers bot¨h string and DistinguishedName types
+                        #covers both string and DistinguishedName types
                         $rq.DistinguishedName=$searchBase.distinguishedName.ToString()
                     }
                 }
@@ -1601,29 +1601,8 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         #add additional controls that caller may have passed
         foreach($ctrl in $AdditionalControls) {$rqDel.Controls.Add($ctrl) | Out-Null}
 
-        switch($Object.GetType().Name)
-        {
-            "String"
-            {
-                $rqDel.DistinguishedName=$Object
-                break;
-            }
-            'DistinguishedName' {
-                $rqDel.DistinguishedName=$Object.ToString()
-                break;
-            }
-            default
-            {
-                if($null -ne $Object.distinguishedName)
-                {
-                    $rqDel.DistinguishedName=$Object.distinguishedName.ToString()
-                }
-                else
-                {
-                    throw (new-object System.ArgumentException("DistinguishedName must be passed"))
-                }
-            }
-        }
+        $rqDel.DistinguishedName = $Object | GetDnFromObject
+
         if($UseTreeDelete) {
             $rqDel.Controls.Add((new-object System.DirectoryServices.Protocols.TreeDeleteControl)) | Out-Null
         }
@@ -1658,7 +1637,7 @@ Rename-LdapObject -LdapConnection $Ldap -Object "cn=User1,cn=Users,dc=mydomain,d
 
 Description
 -----------
-This command Moves the User1 object to different OU. Notice the newName parameter - it's the same as old name as we do not rename the object and new name is required parameter for protocol.
+This command Moves the User1 object to different OU. Notice the newName parameter - it's the same as old name as we do not rename the object and new name is required parameter for the protocol.
 
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
@@ -1704,29 +1683,10 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
     Process
     {
         [System.DirectoryServices.Protocols.ModifyDNRequest]$rqModDN=new-object System.DirectoryServices.Protocols.ModifyDNRequest
-        switch($Object.GetType().Name)
-        {
-            "String"
-            {
-                $rqDel.DistinguishedName=$Object
-                break;
-            }
-            'DistinguishedName' {
-                $rqDel.DistinguishedName=$Object.ToString()
-                break;
-            }
-            default
-            {
-                if($null -ne $Object.distinguishedName)
-                {
-                    $rqDel.DistinguishedName=$Object.distinguishedName.ToString()
-                }
-                else
-                {
-                    throw (new-object System.ArgumentException("DistinguishedName must be passed"))
-                }
-            }
-        }
+        $rqModDn.DistinguishedName = $Object | GetDnFromInput
+
+        foreach($ctrl in $AdditionalControls) {$rqModDN.Controls.Add($ctrl) | Out-Null}
+
         $rqModDn.NewName = $NewName
         if(-not [string]::IsNullOrEmpty($NewParent)) {$rqModDN.NewParentDistinguishedName = $NewParent}
         $rqModDN.DeleteOldRdn = (-not $KeepOldRdn)
@@ -1778,6 +1738,72 @@ More about DirSync: https://docs.microsoft.com/en-us/openspecs/windows_protocols
     process
     {
         [byte[]]$script:DirSyncCookie = [System.Convert]::FromBase64String($Cookie)
+    }
+}
+Function Test-LdapObject
+{
+<#
+.SYNOPSIS
+    Checks existence of LDAP object by distinguished name.
+
+.DESCRIPTION
+    This function checks if an LDAP object exists by its distinguished name.
+    It can accept a string, DistinguishedName object, or an object with a distinguishedName property.
+    If the object is found, it returns $true; otherwise, it returns $false.
+    
+.OUTPUTS
+    True or False, depending on whether the LDAP object was found
+
+.EXAMPLE
+
+.LINK
+More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
+
+#>
+    Param (
+        [parameter(Mandatory = $true, ValueFromPipeline=$true)]
+        [Object]
+            #Object to test existence of
+        $Object,
+
+        [parameter()]
+        [System.DirectoryServices.Protocols.LdapConnection]
+            #Existing LDAPConnection object.
+        $LdapConnection = $script:LdapConnection
+
+    )
+
+    begin
+    {
+        EnsureLdapConnection -LdapConnection $LdapConnection
+    }
+
+    Process
+    {
+        $dn = $objet | GetDnFromInput
+        
+        try {
+            $result = Find-LdapObject `
+                -LdapConnection $LdapConnection `
+                -SearchBase $dn `
+                -searchFilter '(objectClass=*)' `
+                -searchScope Base `
+                -PropertiesToLoad '1.1' `
+                -ErrorAction Stop | Out-Null
+            
+            #some LDAP servrs return null if object is not found, others throw an exception
+            return ($null -ne $result)
+        }
+        catch [System.DirectoryServices.Protocols.DirectoryOperationException] {
+            if($_.Exception.Response.ResultCode -eq  [System.DirectoryServices.Protocols.ResultCode]::NoSuchObject)
+            {
+                return $false
+            }
+            else
+            {
+                throw
+            }
+        }
     }
 }
 Function Unregister-LdapAttributeTransform

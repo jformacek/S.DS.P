@@ -26,7 +26,7 @@ Rename-LdapObject -LdapConnection $Ldap -Object "cn=User1,cn=Users,dc=mydomain,d
 
 Description
 -----------
-This command Moves the User1 object to different OU. Notice the newName parameter - it's the same as old name as we do not rename the object and new name is required parameter for protocol.
+This command Moves the User1 object to different OU. Notice the newName parameter - it's the same as old name as we do not rename the object and new name is required parameter for the protocol.
 
 .LINK
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
@@ -72,29 +72,10 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
     Process
     {
         [System.DirectoryServices.Protocols.ModifyDNRequest]$rqModDN=new-object System.DirectoryServices.Protocols.ModifyDNRequest
-        switch($Object.GetType().Name)
-        {
-            "String"
-            {
-                $rqDel.DistinguishedName=$Object
-                break;
-            }
-            'DistinguishedName' {
-                $rqDel.DistinguishedName=$Object.ToString()
-                break;
-            }
-            default
-            {
-                if($null -ne $Object.distinguishedName)
-                {
-                    $rqDel.DistinguishedName=$Object.distinguishedName.ToString()
-                }
-                else
-                {
-                    throw (new-object System.ArgumentException("DistinguishedName must be passed"))
-                }
-            }
-        }
+        $rqModDn.DistinguishedName = $Object | GetDnFromInput
+
+        foreach($ctrl in $AdditionalControls) {$rqModDN.Controls.Add($ctrl) | Out-Null}
+
         $rqModDn.NewName = $NewName
         if(-not [string]::IsNullOrEmpty($NewParent)) {$rqModDN.NewParentDistinguishedName = $NewParent}
         $rqModDN.DeleteOldRdn = (-not $KeepOldRdn)
