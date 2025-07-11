@@ -35,5 +35,6 @@ function GetDnFromInput
         if([string]::IsNullOrEmpty($dn)) {
             throw (new-object System.ArgumentException("Distinguished name not present on input object"))
         }
+				$dn
     }
 }
