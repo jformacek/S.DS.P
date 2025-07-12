@@ -38,6 +38,7 @@ jobs:
       env:
         SECRET: ${{ secrets.PSGallery_APIKey }}
       run: |
+        Get-PSResourceRepository | out-null
         write-host "Publishing from: $env:GITHUB_WORKSPACE\S.DS.P"
         try
         {
