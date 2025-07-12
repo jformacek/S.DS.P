@@ -11,7 +11,7 @@
     RootModule = '.\S.DS.P.psm1'
 
     # Version number of this module.
-    ModuleVersion = '2.2.2'
+    ModuleVersion = '2.2.3'
 
     # ID used to uniquely identify this module
     GUID = '766cbbc0-85b9-4773-b4db-2fa86cd771ff'
