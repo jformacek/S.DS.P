@@ -63,7 +63,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         #add additional controls that caller may have passed
         foreach($ctrl in $AdditionalControls) {$rqDel.Controls.Add($ctrl) | Out-Null}
 
-        $rqDel.DistinguishedName = $Object | GetDnFromObject
+        $rqDel.DistinguishedName = $Object | GetDnFromInput
 
         if($UseTreeDelete) {
             $rqDel.Controls.Add((new-object System.DirectoryServices.Protocols.TreeDeleteControl)) | Out-Null
