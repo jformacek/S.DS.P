@@ -79,6 +79,11 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         $rqModDn.NewName = $NewName
         if(-not [string]::IsNullOrEmpty($NewParent)) {$rqModDN.NewParentDistinguishedName = $NewParent}
         $rqModDN.DeleteOldRdn = (-not $KeepOldRdn)
-        $LdapConnection.SendRequest($rqModDN) -as [System.DirectoryServices.Protocols.ModifyDNResponse] | Out-Null
+        $response = $LdapConnection.SendRequest($rqModDN) -as [System.DirectoryServices.Protocols.ModifyDNResponse]
+        #handle failed operation that does not throw itself
+        if($null -ne $response -and $response.ResultCode -ne [System.DirectoryServices.Protocols.ResultCode]::Success) {
+            throw (new-object System.DirectoryServices.Protocols.LdapException(([int]$response.ResultCode), "$($rqModDN.DistinguishedName)`: $($response.ResultCode)`: $($response.ErrorMessage)", $response.ErrorMessage))
+        }
+
     }
 }

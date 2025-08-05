@@ -123,10 +123,14 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         if($rqAdd.Attributes.Count -gt 0) {
             if($Timeout -ne [TimeSpan]::Zero)
             {
-                $LdapConnection.SendRequest($rqAdd, $Timeout) -as [System.DirectoryServices.Protocols.AddResponse] | Out-Null
+                $response = $LdapConnection.SendRequest($rqAdd, $Timeout) -as [System.DirectoryServices.Protocols.AddResponse]
             }
             else {
-                $LdapConnection.SendRequest($rqAdd) -as [System.DirectoryServices.Protocols.AddResponse] | Out-Null
+                $response = $LdapConnection.SendRequest($rqAdd) -as [System.DirectoryServices.Protocols.AddResponse]
+            }
+            #handle failed operation that does not throw itself
+            if($null -ne $response -and $response.ResultCode -ne [System.DirectoryServices.Protocols.ResultCode]::Success) {
+                throw (new-object System.DirectoryServices.Protocols.LdapException(([int]$response.ResultCode), "$($rqAdd.DistinguishedName)`: $($response.ResultCode)`: $($response.ErrorMessage)", $response.ErrorMessage))
             }
         }
         if($Passthrough)

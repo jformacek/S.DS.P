@@ -124,10 +124,14 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         if($rqAdd.Attributes.Count -gt 0) {
             if($Timeout -ne [TimeSpan]::Zero)
             {
-                $LdapConnection.SendRequest($rqAdd, $Timeout) -as [System.DirectoryServices.Protocols.AddResponse] | Out-Null
+                $response = $LdapConnection.SendRequest($rqAdd, $Timeout) -as [System.DirectoryServices.Protocols.AddResponse]
             }
             else {
-                $LdapConnection.SendRequest($rqAdd) -as [System.DirectoryServices.Protocols.AddResponse] | Out-Null
+                $response = $LdapConnection.SendRequest($rqAdd) -as [System.DirectoryServices.Protocols.AddResponse]
+            }
+            #handle failed operation that does not throw itself
+            if($null -ne $response -and $response.ResultCode -ne [System.DirectoryServices.Protocols.ResultCode]::Success) {
+                throw (new-object System.DirectoryServices.Protocols.LdapException(([int]$response.ResultCode), "$($rqAdd.DistinguishedName)`: $($response.ResultCode)`: $($response.ErrorMessage)", $response.ErrorMessage))
             }
         }
         if($Passthrough)
@@ -316,11 +320,15 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         if($rqMod.Modifications.Count -gt 0) {
             if($Timeout -ne [TimeSpan]::Zero)
             {
-                $LdapConnection.SendRequest($rqMod, $Timeout) -as [System.DirectoryServices.Protocols.ModifyResponse] | Out-Null
+                $response = $LdapConnection.SendRequest($rqMod, $Timeout) -as [System.DirectoryServices.Protocols.ModifyResponse]
             }
             else
             {
-                $LdapConnection.SendRequest($rqMod) -as [System.DirectoryServices.Protocols.ModifyResponse] | Out-Null
+                $response = $LdapConnection.SendRequest($rqMod) -as [System.DirectoryServices.Protocols.ModifyResponse]
+            }
+            #handle failed operation that does not throw itself
+            if($null -ne $response -and $response.ResultCode -ne [System.DirectoryServices.Protocols.ResultCode]::Success) {
+                throw (new-object System.DirectoryServices.Protocols.LdapException(([int]$response.ResultCode), "$($rqMod.DistinguishedName)`: $($response.ResultCode)`: $($response.ErrorMessage)", $response.ErrorMessage))
             }
         }
         #if requested, pass the objeect to pipeline for further processing
@@ -1601,12 +1609,17 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         #add additional controls that caller may have passed
         foreach($ctrl in $AdditionalControls) {$rqDel.Controls.Add($ctrl) | Out-Null}
 
-        $rqDel.DistinguishedName = $Object | GetDnFromObject
+        $rqDel.DistinguishedName = $Object | GetDnFromInput
 
         if($UseTreeDelete) {
             $rqDel.Controls.Add((new-object System.DirectoryServices.Protocols.TreeDeleteControl)) | Out-Null
         }
-        $LdapConnection.SendRequest($rqDel) -as [System.DirectoryServices.Protocols.DeleteResponse] | Out-Null
+        $response = $LdapConnection.SendRequest($rqDel) -as [System.DirectoryServices.Protocols.DeleteResponse]
+        #handle failed operation that does not throw itself
+        if($null -ne $response -and $response.ResultCode -ne [System.DirectoryServices.Protocols.ResultCode]::Success) {
+            throw (new-object System.DirectoryServices.Protocols.LdapException(([int]$response.ResultCode), "$($rqDel.DistinguishedName)`: $($response.ResultCode)`: $($response.ErrorMessage)", $response.ErrorMessage))
+        }
+
     }
 }
 Function Rename-LdapObject
@@ -1690,7 +1703,12 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         $rqModDn.NewName = $NewName
         if(-not [string]::IsNullOrEmpty($NewParent)) {$rqModDN.NewParentDistinguishedName = $NewParent}
         $rqModDN.DeleteOldRdn = (-not $KeepOldRdn)
-        $LdapConnection.SendRequest($rqModDN) -as [System.DirectoryServices.Protocols.ModifyDNResponse] | Out-Null
+        $response = $LdapConnection.SendRequest($rqModDN) -as [System.DirectoryServices.Protocols.ModifyDNResponse]
+        #handle failed operation that does not throw itself
+        if($null -ne $response -and $response.ResultCode -ne [System.DirectoryServices.Protocols.ResultCode]::Success) {
+            throw (new-object System.DirectoryServices.Protocols.LdapException(([int]$response.ResultCode), "$($rqModDN.DistinguishedName)`: $($response.ResultCode)`: $($response.ErrorMessage)", $response.ErrorMessage))
+        }
+
     }
 }
 Function Set-LdapDirSyncCookie
@@ -1883,6 +1901,47 @@ Function EnsureLdapConnection
         {
             throw (new-object System.ArgumentException("LdapConnection parameter not provided and not found in session variable. Call Get-LdapConnection first"))
         }
+    }
+}
+function GetDnFromInput
+{
+    Param (
+        [parameter(Mandatory = $true, ValueFromPipeline=$true)]
+        [Object]
+            #DN string or object with distinguishedName property
+        $Object
+    )
+
+    process
+    {
+        if($null -ne $Object)
+        {
+            #we support pipelining of strings or DistinguishedName types, or objects containing distinguishedName property - string or DistinguishedName
+            switch($Object.GetType().Name) {
+                "String"
+                {
+                    $dn = $Object
+                    break;
+                }
+                'DistinguishedName' {
+                    $dn=$Object.ToString()
+                    break;
+                }
+                default
+                {
+                    if($null -ne $Object.distinguishedName)
+                    {
+                        #covers both string and DistinguishedName types
+                        $dn=$Object.distinguishedName.ToString()
+                    }
+                }
+            }
+        }
+        if([string]::IsNullOrEmpty($dn)) {
+            throw (new-object System.ArgumentException("Distinguished name not present on input object"))
+        }
+        #we return the DN as a string
+        return $dn
     }
 }
 <#

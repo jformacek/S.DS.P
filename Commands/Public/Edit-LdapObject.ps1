@@ -178,11 +178,15 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         if($rqMod.Modifications.Count -gt 0) {
             if($Timeout -ne [TimeSpan]::Zero)
             {
-                $LdapConnection.SendRequest($rqMod, $Timeout) -as [System.DirectoryServices.Protocols.ModifyResponse] | Out-Null
+                $response = $LdapConnection.SendRequest($rqMod, $Timeout) -as [System.DirectoryServices.Protocols.ModifyResponse]
             }
             else
             {
-                $LdapConnection.SendRequest($rqMod) -as [System.DirectoryServices.Protocols.ModifyResponse] | Out-Null
+                $response = $LdapConnection.SendRequest($rqMod) -as [System.DirectoryServices.Protocols.ModifyResponse]
+            }
+            #handle failed operation that does not throw itself
+            if($null -ne $response -and $response.ResultCode -ne [System.DirectoryServices.Protocols.ResultCode]::Success) {
+                throw (new-object System.DirectoryServices.Protocols.LdapException(([int]$response.ResultCode), "$($rqMod.DistinguishedName)`: $($response.ResultCode)`: $($response.ErrorMessage)", $response.ErrorMessage))
             }
         }
         #if requested, pass the objeect to pipeline for further processing
