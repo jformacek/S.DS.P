@@ -38,7 +38,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
 
     Process
     {
-        $dn = $objet | GetDnFromInput
+        $dn = $object | GetDnFromInput
         
         try {
             $result = Find-LdapObject `
@@ -47,7 +47,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                 -searchFilter '(objectClass=*)' `
                 -searchScope Base `
                 -PropertiesToLoad '1.1' `
-                -ErrorAction Stop | Out-Null
+                -ErrorAction Stop
             
             #some LDAP servrs return null if object is not found, others throw an exception
             return ($null -ne $result)
