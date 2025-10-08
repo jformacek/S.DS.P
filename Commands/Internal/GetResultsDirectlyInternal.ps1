@@ -38,9 +38,9 @@ function GetResultsDirectlyInternal
     {
         $pagedRqc=$rq.Controls | Where-Object{$_ -is [System.DirectoryServices.Protocols.PageResultRequestControl]}
         if($NoAttributes) {
-            $rq.Attributes.Add('1.1') | Out-Null
+            Out-Null -InputObject ($rq.Attributes.Add('1.1'))
         } else {
-            $rq.Attributes.AddRange($propertiesToLoad) | Out-Null
+            Out-Null -InputObject ($rq.Attributes.AddRange($propertiesToLoad))
         }
         while($true)
         {
@@ -93,10 +93,15 @@ function GetResultsDirectlyInternal
                     try {
                         if($null -ne $transform -and $null -ne $transform.OnLoad)
                         {
-                            if($BinaryInput -eq $true) {
-                                $data[$targetAttrName] = (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([byte[]])))
-                            } else {
-                                $data[$targetAttrName] = (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([string])))
+                            try {
+                                if($BinaryInput -eq $true) {
+                                    $data[$targetAttrName] = (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([byte[]])))
+                                } else {
+                                    $data[$targetAttrName] = (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([string])))
+                                }
+                            }
+                            catch {
+                                Write-Warning "Transform failed. Object: $($sr.DistinguishedName) `tAttribute: $targetAttrName`: $_"
                             }
                         } else {
                             if($BinaryInput -eq $true) {

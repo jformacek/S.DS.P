@@ -108,8 +108,8 @@ function GetResultsIndirectlyRangedInternal
                     while ($lastRange -eq $false) {
                         $start += $rangeSize
                         $rng = "$($attrName.ToLower());range=$start`-$($start+$rangeSize-1)"
-                        $rqAttr.Attributes.Clear() | Out-Null
-                        $rqAttr.Attributes.Add($rng) | Out-Null
+                        Out-Null -InputObject ($rqAttr.Attributes.Clear())
+                        Out-Null -InputObject ($rqAttr.Attributes.Add($rng))
                         $rspAttr = $LdapConnection.SendRequest($rqAttr)
                         foreach ($srAttr in $rspAttr.Entries) {
                             #LDAP server changes upper bound to * on last chunk
@@ -139,7 +139,7 @@ function GetResultsIndirectlyRangedInternal
                             $data[$attrName] = (& $transform.OnLoad -Values $data[$attrName])
                         }
                         catch {
-                            Write-Error -ErrorRecord $_
+                            Write-Warning "Transform failed. Object: $($sr.DistinguishedName) `tAttribute: $targetAttrName`: $_"
                         }
                     }
                 }

@@ -48,7 +48,7 @@ function GetResultsIndirectlyInternal
     process
     {
         $pagedRqc=$rq.Controls | Where-Object{$_ -is [System.DirectoryServices.Protocols.PageResultRequestControl]}
-        $rq.Attributes.AddRange($propertiesToLoad) | Out-Null
+        Out-Null -InputObject ($rq.Attributes.AddRange($propertiesToLoad))
         #load only attribute names now and attribute values later
         $rq.TypesOnly=$true
         while ($true)
@@ -88,7 +88,7 @@ function GetResultsIndirectlyInternal
                 $rqAttr.Controls.AddRange($AdditionalControls)
 
                 #loading just attributes indicated as present in first search
-                $rqAttr.Attributes.AddRange($sr.Attributes.AttributeNames) | Out-Null
+                Out-Null -InputObject ($rqAttr.Attributes.AddRange($sr.Attributes.AttributeNames))
                 $rspAttr = $LdapConnection.SendRequest($rqAttr)
                 foreach ($srAttr in $rspAttr.Entries) {
                     foreach($attrName in $srAttr.Attributes.AttributeNames) {
@@ -113,10 +113,15 @@ function GetResultsIndirectlyInternal
                         try {
                             if($null -ne $transform -and $null -ne $transform.OnLoad)
                             {
-                                if($BinaryInput -eq $true) {
-                                    $data[$targetAttrName] = (& $transform.OnLoad -Values ($srAttr.Attributes[$attrName].GetValues([byte[]])))
-                                } else {
-                                    $data[$targetAttrName] = (& $transform.OnLoad -Values ($srAttr.Attributes[$attrName].GetValues([string])))
+                                try {
+                                    if($BinaryInput -eq $true) {
+                                        $data[$targetAttrName] = (& $transform.OnLoad -Values ($srAttr.Attributes[$attrName].GetValues([byte[]])))
+                                    } else {
+                                        $data[$targetAttrName] = (& $transform.OnLoad -Values ($srAttr.Attributes[$attrName].GetValues([string])))
+                                    }
+                                }
+                                catch {
+                                    Write-Warning "Transform failed. Object: $($sr.DistinguishedName) `tAttribute: $targetAttrName`: $_"
                                 }
                             } else {
                                 if($BinaryInput -eq $true) {
