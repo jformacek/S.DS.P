@@ -46,9 +46,9 @@ function GetResultsDirSyncInternal
         {
             $DirSyncRqc.Option = $DirSyncRqc.Option -bor [System.DirectoryServices.Protocols.DirectorySynchronizationOptions]::IncrementalValues
         }
-        $rq.Controls.Add($DirSyncRqc) | Out-Null
-        $rq.Attributes.AddRange($propertiesToLoad) | Out-Null
-        
+        Out-Null -inputObject ($rq.Controls.Add($DirSyncRqc))
+        Out-Null -inputObject ($rq.Attributes.AddRange($propertiesToLoad))
+
         while($true)
         {
             try

@@ -87,7 +87,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         $rqAdd.DistinguishedName=$Object.DistinguishedName.ToString()
 
         #add additional controls that caller may have passed
-        foreach($ctrl in $AdditionalControls) {$rqAdd.Controls.Add($ctrl) | Out-Null}
+        foreach($ctrl in $AdditionalControls) {Out-Null -InputObject ($rqAdd.Controls.Add($ctrl))}
 
         foreach($prop in (Get-Member -InputObject $Object -MemberType NoteProperty)) {
             if($prop.Name -eq "distinguishedName") {continue}
@@ -110,14 +110,14 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             {
                 if($binaryInput) {
                     foreach($val in $attrVal) {
-                        $propAdd.Add([byte[]]$val) | Out-Null
+                        Out-Null -InputObject ($propAdd.Add([byte[]]$val))
                     }
                 } else {
-                    $propAdd.AddRange([string[]]($attrVal))
+                    Out-Null -InputObject ($propAdd.AddRange([string[]]($attrVal)))
                 }
 
                 if($propAdd.Count -gt 0) {
-                    $rqAdd.Attributes.Add($propAdd) | Out-Null
+                    Out-Null -InputObject ($rqAdd.Attributes.Add($propAdd))
                 }
             }
         }
@@ -274,11 +274,11 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         if($NoPermissiveModify -eq $false) {
             $permissiveModifyRqc = new-object System.DirectoryServices.Protocols.PermissiveModifyControl
             $permissiveModifyRqc.IsCritical = $false
-            $rqMod.Controls.Add($permissiveModifyRqc) | Out-Null
+            Out-Null -InputObject ($rqMod.Controls.Add($permissiveModifyRqc))
         }
 
         #add additional controls that caller may have passed
-        foreach($ctrl in $AdditionalControls) {$rqMod.Controls.Add($ctrl) | Out-Null}
+        foreach($ctrl in $AdditionalControls) {Out-Null -InputObject ($rqMod.Controls.Add($ctrl))}
 
         foreach($prop in (Get-Member -InputObject $Object -MemberType NoteProperty)) {
             if($prop.Name -eq "distinguishedName") {continue} #Dn is always ignored
@@ -304,17 +304,17 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                     $propMod.Operation=$Mode
                     if($binaryInput)  {
                         foreach($val in $attrVal) {
-                            $propMod.Add([byte[]]$val) | Out-Null
+                            Out-Null -InputObject ($propMod.Add([byte[]]$val))
                         }
                     } else {
-                        $propMod.AddRange([string[]]($attrVal))
+                        Out-Null -InputObject ($propMod.AddRange([string[]]($attrVal)))
                     }
-                    $rqMod.Modifications.Add($propMod) | Out-Null
+                    Out-Null -InputObject ($rqMod.Modifications.Add($propMod))
                 }
             } else {
                 #source object has no value for property - we're removing value on target
                 $propMod.Operation=[System.DirectoryServices.Protocols.DirectoryAttributeOperation]::Delete
-                $rqMod.Modifications.Add($propMod) | Out-Null
+                Out-Null -InputObject ($rqMod.Modifications.Add($propMod))
             }
         }
         if($rqMod.Modifications.Count -gt 0) {
@@ -383,7 +383,7 @@ Description
 This command creates the LDAP connection object and passes it as parameter. Connection remains open and ready for reuse in subsequent searches
 
 .EXAMPLE
-Get-LdapConnection -LdapServer "mydc.mydomain.com" | Out-Null
+Out-Null -InputObject (Get-LdapConnection -LdapServer "mydc.mydomain.com")
 
 $Dse = Get-RootDse
 
@@ -466,7 +466,7 @@ Next commands use the connection to get Root DSE object and list of all members 
 
 .EXAMPLE
 $creds=Get-Credential -UserName 'CN=MyUser,CN=Users,DC=mydomain,DC=com' -Message 'Enter password to user with this DN' -Title 'Password needed'
-Get-LdapConnection -LdapServer dc.mydomain.com -Port 636 -AuthType Basic -Credential $creds | Out-Null
+Out-Null -InputObject (Get-LdapConnection -LdapServer dc.mydomain.com -Port 636 -AuthType Basic -Credential $creds)
 $dse = Get-RootDSE
 
 Description
@@ -476,10 +476,10 @@ Next command uses connection from session variable to get Root DSE object.
 Usage of Basic authentication is typically way to go on client platforms that do not support other authentication schemes, such as Negotiate
 
 .EXAMPLE
-Get-LdapConnection -LdapServer dc.mydomain.com | Out-Null
+Out-Null -InputObject (Get-LdapConnection -LdapServer dc.mydomain.com)
 $dse = Get-RootDSE
 #obtain initial sync cookie valid from now on
-Find-LdapObject -searchBase $dse.defaultNamingContext -searchFilter '(objectClass=domainDns)' -PropertiesToLoad 'name' -DirSync Standard | Out-Null
+$initialSyncResults = Find-LdapObject -searchBase $dse.defaultNamingContext -searchFilter '(objectClass=domainDns)' -PropertiesToLoad 'name' -DirSync Standard
 $show the cookie
 Get-LdapDirSyncCookie
 
@@ -677,7 +677,8 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                     $rq.DistinguishedName=$searchBase
                     break;
                 }
-                'DistinguishedName' {
+                'DistinguishedName' 
+                {
                     $rq.DistinguishedName=$searchBase.ToString()
                     break;
                 }
@@ -704,14 +705,14 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                 [System.DirectoryServices.Protocols.PageResultRequestControl]$pagedRqc = new-object System.DirectoryServices.Protocols.PageResultRequestControl($pageSize)
                 #asking server for best effort with paging
                 $pagedRqc.IsCritical=$false
-                $rq.Controls.Add($pagedRqc) | Out-Null
+                Out-Null -InputObject ($rq.Controls.Add($pagedRqc))
             }
 
             #Attribute scoped query
             #Not supported for DirSync
             if(-not [String]::IsNullOrEmpty($asq)) {
                 [System.DirectoryServices.Protocols.AsqRequestControl]$asqRqc=new-object System.DirectoryServices.Protocols.AsqRequestControl($ASQ)
-                $rq.Controls.Add($asqRqc) | Out-Null
+                Out-Null -InputObject ($rq.Controls.Add($asqRqc))
             }
 
             #search scope
@@ -738,8 +739,9 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         }
 
         #add additional controls that caller may have passed
-        foreach($ctrl in $AdditionalControls) {$rq.Controls.Add($ctrl) | Out-Null}
-
+        foreach($ctrl in $AdditionalControls) {
+            Out-Null -InputObject ($rq.Controls.Add($ctrl))
+        }
         if($Timeout -ne [timespan]::Zero)
         {
             #server side timeout
@@ -1192,13 +1194,13 @@ Function Get-RootDSE {
         #build request
         $rq=new-object System.DirectoryServices.Protocols.SearchRequest
         $rq.Scope =  [System.DirectoryServices.Protocols.SearchScope]::Base
-        $rq.Attributes.AddRange($propDef.Keys) | Out-Null
+        Out-Null -InputObject ($rq.Attributes.AddRange($propDef.Keys))
 
         #try to get extra information with ExtendedDNControl
         #RFC4511: Server MUST ignore unsupported controls marked as not critical
         [System.DirectoryServices.Protocols.ExtendedDNControl]$exRqc = new-object System.DirectoryServices.Protocols.ExtendedDNControl('StandardString')
         $exRqc.IsCritical=$false
-        $rq.Controls.Add($exRqc) | Out-Null
+        Out-Null -InputObject ($rq.Controls.Add($exRqc))
 
         try {
             $rsp=$LdapConnection.SendRequest($rq)
@@ -1301,17 +1303,17 @@ Function Get-RootDSE {
         }
         if($null -ne $rsp.Entries[0].Attributes['dsSchemaAttrCount']) {
             [long]$outVal=-1
-            [long]::TryParse($rsp.Entries[0].Attributes['dsSchemaAttrCount'].GetValues([string]),[ref]$outVal) | Out-Null
+            Out-Null -InputObject ([long]::TryParse($rsp.Entries[0].Attributes['dsSchemaAttrCount'].GetValues([string]),[ref]$outVal))
             $data.dsSchemaAttrCount=$outVal
         }
         if($null -ne $rsp.Entries[0].Attributes['dsSchemaClassCount']) {
             [long]$outVal=-1
-            [long]::TryParse($rsp.Entries[0].Attributes['dsSchemaClassCount'].GetValues([string]),[ref]$outVal) | Out-Null
+            Out-Null -InputObject ([long]::TryParse($rsp.Entries[0].Attributes['dsSchemaClassCount'].GetValues([string]),[ref]$outVal))
             $data.dsSchemaClassCount=$outVal
         }
         if($null -ne $rsp.Entries[0].Attributes['dsSchemaPrefixCount']) {
             [long]$outVal=-1
-            [long]::TryParse($rsp.Entries[0].Attributes['dsSchemaPrefixCount'].GetValues([string]),[ref]$outVal) | Out-Null
+            Out-Null -InputObject ([long]::TryParse($rsp.Entries[0].Attributes['dsSchemaPrefixCount'].GetValues([string]),[ref]$outVal))
             $data.dsSchemaPrefixCount=$outVal
         }
         if($null -ne $rsp.Entries[0].Attributes['isGlobalCatalogReady']) {
@@ -1607,12 +1609,15 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
     {
         [System.DirectoryServices.Protocols.DeleteRequest]$rqDel=new-object System.DirectoryServices.Protocols.DeleteRequest
         #add additional controls that caller may have passed
-        foreach($ctrl in $AdditionalControls) {$rqDel.Controls.Add($ctrl) | Out-Null}
+        foreach($ctrl in $AdditionalControls) {
+            Out-Null -InputObject ($rqDel.Controls.Add($ctrl))
+        }
 
         $rqDel.DistinguishedName = $Object | GetDnFromInput
 
         if($UseTreeDelete) {
-            $rqDel.Controls.Add((new-object System.DirectoryServices.Protocols.TreeDeleteControl)) | Out-Null
+            $ctrl = new-object System.DirectoryServices.Protocols.TreeDeleteControl
+            Out-Null -InputObject ($rqDel.Controls.Add($ctrl))
         }
         $response = $LdapConnection.SendRequest($rqDel) -as [System.DirectoryServices.Protocols.DeleteResponse]
         #handle failed operation that does not throw itself
@@ -1698,7 +1703,9 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         [System.DirectoryServices.Protocols.ModifyDNRequest]$rqModDN=new-object System.DirectoryServices.Protocols.ModifyDNRequest
         $rqModDn.DistinguishedName = $Object | GetDnFromInput
 
-        foreach($ctrl in $AdditionalControls) {$rqModDN.Controls.Add($ctrl) | Out-Null}
+        foreach($ctrl in $AdditionalControls) {
+            Out-Null -InputObject ($rqModDN.Controls.Add($ctrl))
+        }
 
         $rqModDn.NewName = $NewName
         if(-not [string]::IsNullOrEmpty($NewParent)) {$rqModDN.NewParentDistinguishedName = $NewParent}
@@ -1798,7 +1805,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
 
     Process
     {
-        $dn = $objet | GetDnFromInput
+        $dn = $object | GetDnFromInput
         
         try {
             $result = Find-LdapObject `
@@ -1807,7 +1814,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                 -searchFilter '(objectClass=*)' `
                 -searchScope Base `
                 -PropertiesToLoad '1.1' `
-                -ErrorAction Stop | Out-Null
+                -ErrorAction Stop
             
             #some LDAP servrs return null if object is not found, others throw an exception
             return ($null -ne $result)
@@ -1984,9 +1991,9 @@ function GetResultsDirectlyInternal
     {
         $pagedRqc=$rq.Controls | Where-Object{$_ -is [System.DirectoryServices.Protocols.PageResultRequestControl]}
         if($NoAttributes) {
-            $rq.Attributes.Add('1.1') | Out-Null
+            Out-Null -InputObject ($rq.Attributes.Add('1.1'))
         } else {
-            $rq.Attributes.AddRange($propertiesToLoad) | Out-Null
+            Out-Null -InputObject ($rq.Attributes.AddRange($propertiesToLoad))
         }
         while($true)
         {
@@ -2135,9 +2142,9 @@ function GetResultsDirSyncInternal
         {
             $DirSyncRqc.Option = $DirSyncRqc.Option -bor [System.DirectoryServices.Protocols.DirectorySynchronizationOptions]::IncrementalValues
         }
-        $rq.Controls.Add($DirSyncRqc) | Out-Null
-        $rq.Attributes.AddRange($propertiesToLoad) | Out-Null
-        
+        Out-Null -inputObject ($rq.Controls.Add($DirSyncRqc))
+        Out-Null -inputObject ($rq.Attributes.AddRange($propertiesToLoad))
+
         while($true)
         {
             try
@@ -2296,7 +2303,7 @@ function GetResultsIndirectlyInternal
     process
     {
         $pagedRqc=$rq.Controls | Where-Object{$_ -is [System.DirectoryServices.Protocols.PageResultRequestControl]}
-        $rq.Attributes.AddRange($propertiesToLoad) | Out-Null
+        Out-Null -InputObject ($rq.Attributes.AddRange($propertiesToLoad))
         #load only attribute names now and attribute values later
         $rq.TypesOnly=$true
         while ($true)
@@ -2336,7 +2343,7 @@ function GetResultsIndirectlyInternal
                 $rqAttr.Controls.AddRange($AdditionalControls)
 
                 #loading just attributes indicated as present in first search
-                $rqAttr.Attributes.AddRange($sr.Attributes.AttributeNames) | Out-Null
+                Out-Null -InputObject ($rqAttr.Attributes.AddRange($sr.Attributes.AttributeNames))
                 $rspAttr = $LdapConnection.SendRequest($rqAttr)
                 foreach ($srAttr in $rspAttr.Entries) {
                     foreach($attrName in $srAttr.Attributes.AttributeNames) {
@@ -2518,8 +2525,8 @@ function GetResultsIndirectlyRangedInternal
                     while ($lastRange -eq $false) {
                         $start += $rangeSize
                         $rng = "$($attrName.ToLower());range=$start`-$($start+$rangeSize-1)"
-                        $rqAttr.Attributes.Clear() | Out-Null
-                        $rqAttr.Attributes.Add($rng) | Out-Null
+                        Out-Null -InputObject ($rqAttr.Attributes.Clear())
+                        Out-Null -InputObject ($rqAttr.Attributes.Add($rng))
                         $rspAttr = $LdapConnection.SendRequest($rqAttr)
                         foreach ($srAttr in $rspAttr.Entries) {
                             #LDAP server changes upper bound to * on last chunk

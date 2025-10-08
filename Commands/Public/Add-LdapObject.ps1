@@ -86,7 +86,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         $rqAdd.DistinguishedName=$Object.DistinguishedName.ToString()
 
         #add additional controls that caller may have passed
-        foreach($ctrl in $AdditionalControls) {$rqAdd.Controls.Add($ctrl) | Out-Null}
+        foreach($ctrl in $AdditionalControls) {Out-Null -InputObject ($rqAdd.Controls.Add($ctrl))}
 
         foreach($prop in (Get-Member -InputObject $Object -MemberType NoteProperty)) {
             if($prop.Name -eq "distinguishedName") {continue}
@@ -109,14 +109,14 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             {
                 if($binaryInput) {
                     foreach($val in $attrVal) {
-                        $propAdd.Add([byte[]]$val) | Out-Null
+                        Out-Null -InputObject ($propAdd.Add([byte[]]$val))
                     }
                 } else {
-                    $propAdd.AddRange([string[]]($attrVal))
+                    Out-Null -InputObject ($propAdd.AddRange([string[]]($attrVal)))
                 }
 
                 if($propAdd.Count -gt 0) {
-                    $rqAdd.Attributes.Add($propAdd) | Out-Null
+                    Out-Null -InputObject ($rqAdd.Attributes.Add($propAdd))
                 }
             }
         }

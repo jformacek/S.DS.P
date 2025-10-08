@@ -61,12 +61,15 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
     {
         [System.DirectoryServices.Protocols.DeleteRequest]$rqDel=new-object System.DirectoryServices.Protocols.DeleteRequest
         #add additional controls that caller may have passed
-        foreach($ctrl in $AdditionalControls) {$rqDel.Controls.Add($ctrl) | Out-Null}
+        foreach($ctrl in $AdditionalControls) {
+            Out-Null -InputObject ($rqDel.Controls.Add($ctrl))
+        }
 
         $rqDel.DistinguishedName = $Object | GetDnFromInput
 
         if($UseTreeDelete) {
-            $rqDel.Controls.Add((new-object System.DirectoryServices.Protocols.TreeDeleteControl)) | Out-Null
+            $ctrl = new-object System.DirectoryServices.Protocols.TreeDeleteControl
+            Out-Null -InputObject ($rqDel.Controls.Add($ctrl))
         }
         $response = $LdapConnection.SendRequest($rqDel) -as [System.DirectoryServices.Protocols.DeleteResponse]
         #handle failed operation that does not throw itself

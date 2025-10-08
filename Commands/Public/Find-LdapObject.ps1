@@ -46,7 +46,7 @@ Description
 This command creates the LDAP connection object and passes it as parameter. Connection remains open and ready for reuse in subsequent searches
 
 .EXAMPLE
-Get-LdapConnection -LdapServer "mydc.mydomain.com" | Out-Null
+Out-Null -InputObject (Get-LdapConnection -LdapServer "mydc.mydomain.com")
 
 $Dse = Get-RootDse
 
@@ -129,7 +129,7 @@ Next commands use the connection to get Root DSE object and list of all members 
 
 .EXAMPLE
 $creds=Get-Credential -UserName 'CN=MyUser,CN=Users,DC=mydomain,DC=com' -Message 'Enter password to user with this DN' -Title 'Password needed'
-Get-LdapConnection -LdapServer dc.mydomain.com -Port 636 -AuthType Basic -Credential $creds | Out-Null
+Out-Null -InputObject (Get-LdapConnection -LdapServer dc.mydomain.com -Port 636 -AuthType Basic -Credential $creds)
 $dse = Get-RootDSE
 
 Description
@@ -139,10 +139,10 @@ Next command uses connection from session variable to get Root DSE object.
 Usage of Basic authentication is typically way to go on client platforms that do not support other authentication schemes, such as Negotiate
 
 .EXAMPLE
-Get-LdapConnection -LdapServer dc.mydomain.com | Out-Null
+Out-Null -InputObject (Get-LdapConnection -LdapServer dc.mydomain.com)
 $dse = Get-RootDSE
 #obtain initial sync cookie valid from now on
-Find-LdapObject -searchBase $dse.defaultNamingContext -searchFilter '(objectClass=domainDns)' -PropertiesToLoad 'name' -DirSync Standard | Out-Null
+$initialSyncResults = Find-LdapObject -searchBase $dse.defaultNamingContext -searchFilter '(objectClass=domainDns)' -PropertiesToLoad 'name' -DirSync Standard
 $show the cookie
 Get-LdapDirSyncCookie
 
@@ -311,7 +311,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         }
     
         #remove unwanted props
-        $PropertiesToLoad=@($propertiesToLoad | where-object {$_ -notin @('distinguishedName','1.1')})
+        $PropertiesToLoad=$propertiesToLoad.Where{$_ -notin @('distinguishedName','1.1')}
         #if asterisk in list of props to load, load all props available on object despite of  required list
         if($propertiesToLoad.Count -eq 0) {$NoAttributes=$true} else {$NoAttributes=$false}
         if('*' -in $PropertiesToLoad) {$PropertiesToLoad=@()}
@@ -340,7 +340,8 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                     $rq.DistinguishedName=$searchBase
                     break;
                 }
-                'DistinguishedName' {
+                'DistinguishedName' 
+                {
                     $rq.DistinguishedName=$searchBase.ToString()
                     break;
                 }
@@ -367,14 +368,14 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                 [System.DirectoryServices.Protocols.PageResultRequestControl]$pagedRqc = new-object System.DirectoryServices.Protocols.PageResultRequestControl($pageSize)
                 #asking server for best effort with paging
                 $pagedRqc.IsCritical=$false
-                $rq.Controls.Add($pagedRqc) | Out-Null
+                Out-Null -InputObject ($rq.Controls.Add($pagedRqc))
             }
 
             #Attribute scoped query
             #Not supported for DirSync
             if(-not [String]::IsNullOrEmpty($asq)) {
                 [System.DirectoryServices.Protocols.AsqRequestControl]$asqRqc=new-object System.DirectoryServices.Protocols.AsqRequestControl($ASQ)
-                $rq.Controls.Add($asqRqc) | Out-Null
+                Out-Null -InputObject ($rq.Controls.Add($asqRqc))
             }
 
             #search scope
@@ -401,8 +402,9 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         }
 
         #add additional controls that caller may have passed
-        foreach($ctrl in $AdditionalControls) {$rq.Controls.Add($ctrl) | Out-Null}
-
+        foreach($ctrl in $AdditionalControls) {
+            Out-Null -InputObject ($rq.Controls.Add($ctrl))
+        }
         if($Timeout -ne [timespan]::Zero)
         {
             #server side timeout

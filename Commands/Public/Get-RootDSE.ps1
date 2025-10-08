@@ -67,13 +67,13 @@ Function Get-RootDSE {
         #build request
         $rq=new-object System.DirectoryServices.Protocols.SearchRequest
         $rq.Scope =  [System.DirectoryServices.Protocols.SearchScope]::Base
-        $rq.Attributes.AddRange($propDef.Keys) | Out-Null
+        Out-Null -InputObject ($rq.Attributes.AddRange($propDef.Keys))
 
         #try to get extra information with ExtendedDNControl
         #RFC4511: Server MUST ignore unsupported controls marked as not critical
         [System.DirectoryServices.Protocols.ExtendedDNControl]$exRqc = new-object System.DirectoryServices.Protocols.ExtendedDNControl('StandardString')
         $exRqc.IsCritical=$false
-        $rq.Controls.Add($exRqc) | Out-Null
+        Out-Null -InputObject ($rq.Controls.Add($exRqc))
 
         try {
             $rsp=$LdapConnection.SendRequest($rq)
@@ -176,17 +176,17 @@ Function Get-RootDSE {
         }
         if($null -ne $rsp.Entries[0].Attributes['dsSchemaAttrCount']) {
             [long]$outVal=-1
-            [long]::TryParse($rsp.Entries[0].Attributes['dsSchemaAttrCount'].GetValues([string]),[ref]$outVal) | Out-Null
+            Out-Null -InputObject ([long]::TryParse($rsp.Entries[0].Attributes['dsSchemaAttrCount'].GetValues([string]),[ref]$outVal))
             $data.dsSchemaAttrCount=$outVal
         }
         if($null -ne $rsp.Entries[0].Attributes['dsSchemaClassCount']) {
             [long]$outVal=-1
-            [long]::TryParse($rsp.Entries[0].Attributes['dsSchemaClassCount'].GetValues([string]),[ref]$outVal) | Out-Null
+            Out-Null -InputObject ([long]::TryParse($rsp.Entries[0].Attributes['dsSchemaClassCount'].GetValues([string]),[ref]$outVal))
             $data.dsSchemaClassCount=$outVal
         }
         if($null -ne $rsp.Entries[0].Attributes['dsSchemaPrefixCount']) {
             [long]$outVal=-1
-            [long]::TryParse($rsp.Entries[0].Attributes['dsSchemaPrefixCount'].GetValues([string]),[ref]$outVal) | Out-Null
+            Out-Null -InputObject ([long]::TryParse($rsp.Entries[0].Attributes['dsSchemaPrefixCount'].GetValues([string]),[ref]$outVal))
             $data.dsSchemaPrefixCount=$outVal
         }
         if($null -ne $rsp.Entries[0].Attributes['isGlobalCatalogReady']) {

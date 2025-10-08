@@ -74,7 +74,9 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         [System.DirectoryServices.Protocols.ModifyDNRequest]$rqModDN=new-object System.DirectoryServices.Protocols.ModifyDNRequest
         $rqModDn.DistinguishedName = $Object | GetDnFromInput
 
-        foreach($ctrl in $AdditionalControls) {$rqModDN.Controls.Add($ctrl) | Out-Null}
+        foreach($ctrl in $AdditionalControls) {
+            Out-Null -InputObject ($rqModDN.Controls.Add($ctrl))
+        }
 
         $rqModDn.NewName = $NewName
         if(-not [string]::IsNullOrEmpty($NewParent)) {$rqModDN.NewParentDistinguishedName = $NewParent}

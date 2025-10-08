@@ -132,11 +132,11 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         if($NoPermissiveModify -eq $false) {
             $permissiveModifyRqc = new-object System.DirectoryServices.Protocols.PermissiveModifyControl
             $permissiveModifyRqc.IsCritical = $false
-            $rqMod.Controls.Add($permissiveModifyRqc) | Out-Null
+            Out-Null -InputObject ($rqMod.Controls.Add($permissiveModifyRqc))
         }
 
         #add additional controls that caller may have passed
-        foreach($ctrl in $AdditionalControls) {$rqMod.Controls.Add($ctrl) | Out-Null}
+        foreach($ctrl in $AdditionalControls) {Out-Null -InputObject ($rqMod.Controls.Add($ctrl))}
 
         foreach($prop in (Get-Member -InputObject $Object -MemberType NoteProperty)) {
             if($prop.Name -eq "distinguishedName") {continue} #Dn is always ignored
@@ -162,17 +162,17 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
                     $propMod.Operation=$Mode
                     if($binaryInput)  {
                         foreach($val in $attrVal) {
-                            $propMod.Add([byte[]]$val) | Out-Null
+                            Out-Null -InputObject ($propMod.Add([byte[]]$val))
                         }
                     } else {
-                        $propMod.AddRange([string[]]($attrVal))
+                        Out-Null -InputObject ($propMod.AddRange([string[]]($attrVal)))
                     }
-                    $rqMod.Modifications.Add($propMod) | Out-Null
+                    Out-Null -InputObject ($rqMod.Modifications.Add($propMod))
                 }
             } else {
                 #source object has no value for property - we're removing value on target
                 $propMod.Operation=[System.DirectoryServices.Protocols.DirectoryAttributeOperation]::Delete
-                $rqMod.Modifications.Add($propMod) | Out-Null
+                Out-Null -InputObject ($rqMod.Modifications.Add($propMod))
             }
         }
         if($rqMod.Modifications.Count -gt 0) {
