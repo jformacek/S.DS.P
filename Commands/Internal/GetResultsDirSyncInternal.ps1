@@ -104,10 +104,15 @@ function GetResultsDirSyncInternal
                     try {
                         if($null -ne $transform -and $null -ne $transform.OnLoad)
                         {
-                            if($BinaryInput -eq $true) {
-                                &$attributeContainer (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([byte[]])))
-                            } else {
-                                &$attributeContainer (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([string])))
+                            try {
+                                if($BinaryInput -eq $true) {
+                                    &$attributeContainer (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([byte[]])))
+                                } else {
+                                    &$attributeContainer (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([string])))
+                                }
+                            }
+                            catch {
+                                Write-Warning "Transform failed. Object: $($sr.DistinguishedName) `tAttribute: $targetAttrName`: $_"
                             }
                         } else {
                             if($BinaryInput -eq $true) {

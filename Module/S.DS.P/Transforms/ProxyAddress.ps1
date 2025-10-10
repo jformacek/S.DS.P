@@ -113,7 +113,7 @@ $codeBlock.OnLoad = {
                 new-object ProxyAddress($Value)
             }
             catch {
-                $PSCmdlet.WriteError($_.Exception.Message)
+                Write-Warning -Message "ProxyAddress: Failed to transform '$Value': $($_.Exception.Message)"
             }
         }
     }

@@ -648,7 +648,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         }
     
         #remove unwanted props
-        $PropertiesToLoad=@($propertiesToLoad | where-object {$_ -notin @('distinguishedName','1.1')})
+        $PropertiesToLoad=$propertiesToLoad.Where{$_ -notin @('distinguishedName','1.1')}
         #if asterisk in list of props to load, load all props available on object despite of  required list
         if($propertiesToLoad.Count -eq 0) {$NoAttributes=$true} else {$NoAttributes=$false}
         if('*' -in $PropertiesToLoad) {$PropertiesToLoad=@()}
@@ -2046,10 +2046,15 @@ function GetResultsDirectlyInternal
                     try {
                         if($null -ne $transform -and $null -ne $transform.OnLoad)
                         {
-                            if($BinaryInput -eq $true) {
-                                $data[$targetAttrName] = (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([byte[]])))
-                            } else {
-                                $data[$targetAttrName] = (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([string])))
+                            try {
+                                if($BinaryInput -eq $true) {
+                                    $data[$targetAttrName] = (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([byte[]])))
+                                } else {
+                                    $data[$targetAttrName] = (& $transform.OnLoad -Values ($sr.Attributes[$attrName].GetValues([string])))
+                                }
+                            }
+                            catch {
+                                Write-Warning "Transform failed. Object: $($sr.DistinguishedName) `tAttribute: $targetAttrName`: $_"
                             }
                         } else {
                             if($BinaryInput -eq $true) {
@@ -2368,10 +2373,15 @@ function GetResultsIndirectlyInternal
                         try {
                             if($null -ne $transform -and $null -ne $transform.OnLoad)
                             {
-                                if($BinaryInput -eq $true) {
-                                    $data[$targetAttrName] = (& $transform.OnLoad -Values ($srAttr.Attributes[$attrName].GetValues([byte[]])))
-                                } else {
-                                    $data[$targetAttrName] = (& $transform.OnLoad -Values ($srAttr.Attributes[$attrName].GetValues([string])))
+                                try {
+                                    if($BinaryInput -eq $true) {
+                                        $data[$targetAttrName] = (& $transform.OnLoad -Values ($srAttr.Attributes[$attrName].GetValues([byte[]])))
+                                    } else {
+                                        $data[$targetAttrName] = (& $transform.OnLoad -Values ($srAttr.Attributes[$attrName].GetValues([string])))
+                                    }
+                                }
+                                catch {
+                                    Write-Warning "Transform failed. Object: $($sr.DistinguishedName) `tAttribute: $targetAttrName`: $_"
                                 }
                             } else {
                                 if($BinaryInput -eq $true) {
@@ -2556,7 +2566,7 @@ function GetResultsIndirectlyRangedInternal
                             $data[$attrName] = (& $transform.OnLoad -Values $data[$attrName])
                         }
                         catch {
-                            Write-Error -ErrorRecord $_
+                            Write-Warning "Transform failed. Object: $($sr.DistinguishedName) `tAttribute: $targetAttrName`: $_"
                         }
                     }
                 }
