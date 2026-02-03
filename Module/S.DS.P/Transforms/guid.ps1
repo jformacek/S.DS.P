@@ -43,7 +43,17 @@ $codeBlock.OnLoad = {
     {
         foreach($Value in $Values)
         {
-            New-Object System.Guid(,$Value)
+            if($value.Length -ne 16)
+            {
+                Write-Warning -Message "Value $($Value) is not a valid Guid byte array"
+                continue
+            }
+            try {
+                New-Object System.Guid(,$Value)
+            }
+            catch {
+                Write-Warning -Message"Guid: Failed to transform '$Value': $($_.Exception.Message)"
+            }
         }
     }
 }
