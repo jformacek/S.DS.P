@@ -37,6 +37,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             #Either string containing distinguishedName or object with DistinguishedName property
         $Object,
         [parameter()]
+        [Alias('Connection')]
         [System.DirectoryServices.Protocols.LdapConnection]
             #Existing LDAPConnection object.
         $LdapConnection = $script:LdapConnection,

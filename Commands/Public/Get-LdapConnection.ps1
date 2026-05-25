@@ -38,6 +38,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
     Param
     (
         [parameter(Mandatory = $false)]
+        [Alias('Server')]
         [String[]]
             #LDAP server name
             #Default: default server given by environment

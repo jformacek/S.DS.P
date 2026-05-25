@@ -155,12 +155,14 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
 #>
     Param (
         [parameter()]
+        [Alias('Connection')]
         [System.DirectoryServices.Protocols.LdapConnection]
             #existing LDAPConnection object retrieved with cmdlet Get-LdapConnection
             #When we perform many searches, it is more effective to use the same connection rather than create new connection for each search request.
         $LdapConnection = $script:LdapConnection,
 
         [parameter(Mandatory = $true)]
+        [Alias('Filter')]
         [String]
             #Search filter in LDAP syntax
         $searchFilter,
@@ -171,6 +173,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         $searchBase,
 
         [parameter(Mandatory = $false)]
+        [Alias('Scope')]
         [System.DirectoryServices.Protocols.SearchScope]
             #Search scope
             #Ignored for DirSync searches
@@ -178,6 +181,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         $searchScope='Subtree',
 
         [parameter(Mandatory = $false)]
+        [Alias('Properties')]
         [String[]]
             #List of properties we want to return for objects we find.
             #Default: empty array, meaning no properties are returned

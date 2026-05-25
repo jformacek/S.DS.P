@@ -37,6 +37,7 @@ Function Get-RootDSE {
     
     Param (
         [parameter(ValueFromPipeline = $true)]
+        [Alias('Connection')]
         [System.DirectoryServices.Protocols.LdapConnection]
             #existing LDAPConnection object retrieved via Get-LdapConnection
             #When we perform many searches, it is more effective to use the same connection rather than create new connection for each search request.

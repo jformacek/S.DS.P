@@ -25,10 +25,10 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         $Object,
 
         [parameter()]
+        [Alias('Connection')]
         [System.DirectoryServices.Protocols.LdapConnection]
             #Existing LDAPConnection object.
         $LdapConnection = $script:LdapConnection
-
     )
 
     begin

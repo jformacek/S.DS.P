@@ -64,16 +64,19 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         $Object,
 
         [parameter()]
+        [Alias('IgnoredProperties')]
         [String[]]
             #Properties to ignore on source object. If not specified, no props are ignored
         $IgnoredProps=@(),
 
         [parameter()]
+        [Alias('Properties')]
         [String[]]
             #Properties to include on source object. If not specified, all props are included
         $IncludedProps=@(),
 
         [parameter(Mandatory = $false)]
+        [Alias('BinaryProperties')]
         [String[]]
             #List of properties that we want to handle as byte stream.
             #Note: Those properties must also be present in IncludedProps parameter. Properties not listed here are handled as strings
@@ -81,6 +84,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         $BinaryProps=@(),
 
         [parameter()]
+        [Alias('Connection')]
         [System.DirectoryServices.Protocols.LdapConnection]
             #Existing LDAPConnection object.
         $LdapConnection = $script:LdapConnection,
