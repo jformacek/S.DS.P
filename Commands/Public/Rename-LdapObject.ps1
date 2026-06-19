@@ -33,6 +33,7 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
 
 #>
 
+    [CmdletBinding(SupportsShouldProcess)]
     Param (
         [parameter(Mandatory = $true, ValueFromPipeline=$true)]
         [Object]
@@ -82,11 +83,18 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
         $rqModDn.NewName = $NewName
         if(-not [string]::IsNullOrEmpty($NewParent)) {$rqModDN.NewParentDistinguishedName = $NewParent}
         $rqModDN.DeleteOldRdn = (-not $KeepOldRdn)
-        $response = $LdapConnection.SendRequest($rqModDN) -as [System.DirectoryServices.Protocols.ModifyDNResponse]
-        #handle failed operation that does not throw itself
-        if($null -ne $response -and $response.ResultCode -ne [System.DirectoryServices.Protocols.ResultCode]::Success) {
-            throw (new-object System.DirectoryServices.Protocols.LdapException(([int]$response.ResultCode), "$($rqModDN.DistinguishedName)`: $($response.ResultCode)`: $($response.ErrorMessage)", $response.ErrorMessage))
+        $newLocation = if(-not [string]::IsNullOrEmpty($NewParent)) {"$NewName,$NewParent"} else {$NewName}
+        if($PSCmdlet.ShouldProcess("DN: $($rqModDN.DistinguishedName)", "Rename/Move LDAP object to '$newLocation'"))
+        {
+            $response = $LdapConnection.SendRequest($rqModDN) -as [System.DirectoryServices.Protocols.ModifyDNResponse]
+            #handle failed operation that does not throw itself
+            if($null -ne $response -and $response.ResultCode -ne [System.DirectoryServices.Protocols.ResultCode]::Success) {
+                throw (new-object System.DirectoryServices.Protocols.LdapException(([int]$response.ResultCode), "$($rqModDN.DistinguishedName)`: $($response.ResultCode)`: $($response.ErrorMessage)", $response.ErrorMessage))
+            }
         }
-
+        else
+        {
+            Write-Verbose "Skipping rename/move of $($rqModDN.DistinguishedName)"
+        }
     }
 }

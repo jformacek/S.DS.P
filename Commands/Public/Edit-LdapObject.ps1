@@ -57,6 +57,7 @@ This sample demontrates pipeline capabilities of various commands by updating an
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
 
 #>
+    [CmdletBinding(SupportsShouldProcess)]
     Param (
         [parameter(Mandatory = $true, ValueFromPipeline=$true)]
         [PSObject]
@@ -180,17 +181,24 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             }
         }
         if($rqMod.Modifications.Count -gt 0) {
-            if($Timeout -ne [TimeSpan]::Zero)
+            if($PSCmdlet.ShouldProcess("DN: $($rqMod.DistinguishedName)", "Modify LDAP object"))
             {
-                $response = $LdapConnection.SendRequest($rqMod, $Timeout) -as [System.DirectoryServices.Protocols.ModifyResponse]
+                if($Timeout -ne [TimeSpan]::Zero)
+                {
+                    $response = $LdapConnection.SendRequest($rqMod, $Timeout) -as [System.DirectoryServices.Protocols.ModifyResponse]
+                }
+                else
+                {
+                    $response = $LdapConnection.SendRequest($rqMod) -as [System.DirectoryServices.Protocols.ModifyResponse]
+                }
+                #handle failed operation that does not throw itself
+                if($null -ne $response -and $response.ResultCode -ne [System.DirectoryServices.Protocols.ResultCode]::Success) {
+                    throw (new-object System.DirectoryServices.Protocols.LdapException(([int]$response.ResultCode), "$($rqMod.DistinguishedName)`: $($response.ResultCode)`: $($response.ErrorMessage)", $response.ErrorMessage))
+                }
             }
             else
             {
-                $response = $LdapConnection.SendRequest($rqMod) -as [System.DirectoryServices.Protocols.ModifyResponse]
-            }
-            #handle failed operation that does not throw itself
-            if($null -ne $response -and $response.ResultCode -ne [System.DirectoryServices.Protocols.ResultCode]::Success) {
-                throw (new-object System.DirectoryServices.Protocols.LdapException(([int]$response.ResultCode), "$($rqMod.DistinguishedName)`: $($response.ResultCode)`: $($response.ErrorMessage)", $response.ErrorMessage))
+                Write-Verbose "Skipping modification of $($rqMod.DistinguishedName)"
             }
         }
         #if requested, pass the objeect to pipeline for further processing

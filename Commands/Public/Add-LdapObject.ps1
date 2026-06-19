@@ -32,6 +32,7 @@ Password is transformed to format expected by LDAP services by registered attrib
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
 
 #>
+    [CmdletBinding(SupportsShouldProcess)]
     Param (
         [parameter(Mandatory = $true, ValueFromPipeline=$true)]
         [PSObject]
@@ -124,16 +125,23 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             }
         }
         if($rqAdd.Attributes.Count -gt 0) {
-            if($Timeout -ne [TimeSpan]::Zero)
+            if($PSCmdlet.ShouldProcess("DN: $($rqAdd.DistinguishedName)", "Create LDAP object"))
             {
-                $response = $LdapConnection.SendRequest($rqAdd, $Timeout) -as [System.DirectoryServices.Protocols.AddResponse]
+                if($Timeout -ne [TimeSpan]::Zero)
+                {
+                    $response = $LdapConnection.SendRequest($rqAdd, $Timeout) -as [System.DirectoryServices.Protocols.AddResponse]
+                }
+                else {
+                    $response = $LdapConnection.SendRequest($rqAdd) -as [System.DirectoryServices.Protocols.AddResponse]
+                }
+                #handle failed operation that does not throw itself
+                if($null -ne $response -and $response.ResultCode -ne [System.DirectoryServices.Protocols.ResultCode]::Success) {
+                    throw (new-object System.DirectoryServices.Protocols.LdapException(([int]$response.ResultCode), "$($rqAdd.DistinguishedName)`: $($response.ResultCode)`: $($response.ErrorMessage)", $response.ErrorMessage))
+                }
             }
-            else {
-                $response = $LdapConnection.SendRequest($rqAdd) -as [System.DirectoryServices.Protocols.AddResponse]
-            }
-            #handle failed operation that does not throw itself
-            if($null -ne $response -and $response.ResultCode -ne [System.DirectoryServices.Protocols.ResultCode]::Success) {
-                throw (new-object System.DirectoryServices.Protocols.LdapException(([int]$response.ResultCode), "$($rqAdd.DistinguishedName)`: $($response.ResultCode)`: $($response.ErrorMessage)", $response.ErrorMessage))
+            else
+            {
+                Write-Verbose "Skipping creation of $($rqAdd.DistinguishedName)"
             }
         }
         if($Passthrough)

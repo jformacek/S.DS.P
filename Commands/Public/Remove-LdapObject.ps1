@@ -31,6 +31,7 @@ Removes existing subtree using TreeDeleteControl
 More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/library/bb332056.aspx
 
 #>
+    [CmdletBinding(SupportsShouldProcess)]
     Param (
         [parameter(Mandatory = $true, ValueFromPipeline=$true)]
         [Object]
@@ -72,10 +73,17 @@ More about System.DirectoryServices.Protocols: http://msdn.microsoft.com/en-us/l
             $ctrl = new-object System.DirectoryServices.Protocols.TreeDeleteControl
             Out-Null -InputObject ($rqDel.Controls.Add($ctrl))
         }
-        $response = $LdapConnection.SendRequest($rqDel) -as [System.DirectoryServices.Protocols.DeleteResponse]
-        #handle failed operation that does not throw itself
-        if($null -ne $response -and $response.ResultCode -ne [System.DirectoryServices.Protocols.ResultCode]::Success) {
-            throw (new-object System.DirectoryServices.Protocols.LdapException(([int]$response.ResultCode), "$($rqDel.DistinguishedName)`: $($response.ResultCode)`: $($response.ErrorMessage)", $response.ErrorMessage))
+        if($PSCmdlet.ShouldProcess("DN: $($rqDel.DistinguishedName)", "Delete LDAP object"))
+        {
+            $response = $LdapConnection.SendRequest($rqDel) -as [System.DirectoryServices.Protocols.DeleteResponse]
+            #handle failed operation that does not throw itself
+            if($null -ne $response -and $response.ResultCode -ne [System.DirectoryServices.Protocols.ResultCode]::Success) {
+                throw (new-object System.DirectoryServices.Protocols.LdapException(([int]$response.ResultCode), "$($rqDel.DistinguishedName)`: $($response.ResultCode)`: $($response.ErrorMessage)", $response.ErrorMessage))
+            }
+        }
+        else
+        {
+            Write-Verbose "Skipping deletion of $($rqDel.DistinguishedName)"
         }
 
     }
