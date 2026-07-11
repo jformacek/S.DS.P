@@ -7,13 +7,17 @@ param (
 
 if($FullLoad)
 {
-# From http://blog.petersenit.co.uk/2017/07/msexchrecipientdisplaytype-and.html
+# From http://blog.petersenit.co.uk/2017/07/msexchrecipientdisplaytype-and.html and https://granikos.eu/exchange-recipient-type-values/
 Add-Type @'
 using System;
 public enum RecipientType
 {
     SharedMailbox = 0x0,
     MailUniversalDistributionGroup = 0x1,
+    PublicFolder = 0x2,
+    DynamicDistributionGroup = 0x3,
+    Organization = 0x4,
+    PrivateDistributionList = 0x5,
     MailContact = 0x6,
     RoomMailbox = 0x7,
     EquipmentMailbox = 0x8,
