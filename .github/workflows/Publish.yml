@@ -8,13 +8,20 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+   inputs:
+      publish:
+        type: boolean
+        description: 'Publish to powershell gallery'     
+        required: false
+        default: false
 
 jobs:
   # This workflow contains a single job called "publishToGallery"
   publishToGallery:
     # The type of runner that the job will run on
     runs-on: windows-latest
-
+    env:
+      MODULE_NAME: S.DS.P
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     - name: Checkout
@@ -22,28 +29,25 @@ jobs:
       uses: actions/checkout@v2
 
       #copy files
-    - name: Build
-      shell: pwsh
-      run: |
-
-        "Copying license file"
-        $moduleName = 'S.DS.P'
-        Copy-Item -Path "$env:GITHUB_WORKSPACE\LICENSE.TXT" -Destination "$env:GITHUB_WORKSPACE\Module\$moduleName\LICENSE.txt" -Force
-        "Building module"
-        &"$env:GITHUB_WORKSPACE\Commands\BuildModule.ps1" -RootPath "$env:GITHUB_WORKSPACE" -ModuleName $moduleName
+    - name: Build Module
+      uses: GreyCorbel/PsModuleActions/build-module@v2
+      with:
+        module-name: ${{ env.MODULE_NAME }}
 
     - name: Publish
       #Publish to PS Gallery
-      if: ${{ github.event_name != 'workflow_dispatch' }}
+      if: ${{ (github.event_name != 'workflow_dispatch') || github.event.inputs.publish }}
       shell: pwsh
       env:
         SECRET: ${{ secrets.PSGallery_APIKey }}
       run: |
-        Get-PSResourceRepository | out-null
-        write-host "Publishing from: $env:GITHUB_WORKSPACE\S.DS.P"
+        write-host "Publishing from: $env:GITHUB_WORKSPACE\Module\$env:MODULE_NAME"
         try
         {
-          Publish-Module -Path "$env:GITHUB_WORKSPACE\Module\S.DS.P" -NuGetApiKey "$env:SECRET"
+          Get-PsResourceRepository | Out-Null
+          $env:PSModulePath = "$env:PSModulePath;$env:GITHUB_WORKSPACE\Module"
+          "PSModulePath: $env:PSModulePath"
+          Publish-Module -Path "$env:GITHUB_WORKSPACE\Module\$env:MODULE_NAME" -NuGetApiKey "$env:SECRET"
         }
         catch
         {
